@@ -47,12 +47,22 @@ Successful new claim:
     "submitUrl": "...",
     "productId": "...",
     "productName": "...",
-    "productUrl": "..."
+    "productUrl": "...",
+    "productDescription": "...",
+    "productCategoryId": "...",
+    "productTagline": "...",
+    "productContactEmail": "...",
+    "productCompanyName": "...",
+    "productFounderName": "...",
+    "productPricingModel": "...",
+    "productTwitterUrl": "...",
+    "productLinkedinUrl": "...",
+    "productGithubUrl": "..."
   }
 }
 ```
 
-The actual payload also includes prior submission metadata, directory attributes, Product description/assets, and `productMarkdown` when available.
+The actual payload also includes prior submission metadata, directory attributes, Product assets, `productMarkdown`, and `productTemplate` when available.
 
 `data.id` is the `runItemId` used by heartbeat and complete.
 
@@ -217,7 +227,7 @@ For interactive browser work:
 
 ## Claim payload as task envelope
 
-Use these fields from the returned payload rather than re-discovering them from unrelated sources when they are present:
+Use these fields from the returned payload rather than re-discovering them from unrelated sources when they are present.
 
 ### Run Item
 
@@ -265,17 +275,37 @@ directoryDofollow
 directoryAccountRequired
 ```
 
-### Product
+### Product identity and content
 
 ```text
 productId
 productName
 productUrl
 productDescription
+productCategoryId
 productLogo
 productOgImage
 productMarkdown
 productTemplate
 ```
+
+### Verified directory-submission facts
+
+```text
+productTagline
+productContactEmail
+productCompanyName
+productFounderName
+productPricingModel
+productTwitterUrl
+productLinkedinUrl
+productGithubUrl
+```
+
+Use the explicit verified fields before deriving anything from prose. `productMarkdown` may be used to summarize or shorten already-supported product facts, but it is not permission to invent independent facts such as a founder, company identity, email address, launch date, pricing claim, or social account.
+
+If a required field has a dedicated claim property and that property is blank, do not silently infer it from unrelated text. A read-only check of the official product site may establish a current fact when the runtime can verify it clearly; otherwise use `blocked_missing_verified_data`.
+
+`productContactEmail` is provided because some legitimate directory forms require it. Use it only for the authorized form. Do not copy the raw address into `exactResult`, evidence labels, attempt notes, screenshots, or other shareable logs unless the site itself necessarily displays it and the evidence policy explicitly permits that capture.
 
 Do not treat `directoryDofollow` as an instruction to manipulate ranking or request a followed link. It is directory metadata only.
