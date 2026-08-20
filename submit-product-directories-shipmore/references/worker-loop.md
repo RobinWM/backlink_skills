@@ -51,6 +51,45 @@ Validate:
 
 Use `submitUrl` as the preferred route. If it is a homepage or redirects to a different official submission route, inspect the destination before any form mutation.
 
+## Mandatory preflight decision order
+
+Run read-only checks in this order so an earlier terminal policy result is not hidden by a later, less important missing field.
+
+1. **Unavailable route/site** — if the official submission route is gone, closed, or unavailable, classify `unavailable`.
+2. **Paid-only / forced reciprocal / forced badge / clearly ineligible** — if the route requires payment that is not authorized, classify `paid_only`; if it requires a reciprocal link, badge, site modification, or the product clearly does not meet eligibility, classify `ineligible` and stop. Do not continue collecting missing profile fields for a route that must not be submitted.
+3. **Duplicate / existing lifecycle guard** — inspect previous Shipmore state and any clear existing listing. Never blindly resubmit `submitted`, `submission_outcome_unknown`, `awaiting_approval`, `awaiting_email_verification`, or `published`.
+4. **Account or email policy** — if the next required action is an unauthorized login, account creation, mailbox action, or account-policy step, classify `blocked_account_or_email_policy`.
+5. **Required verified product data** — only after the route remains eligible, compare required form fields with the explicit Shipmore Product fields. Missing required independent facts become `blocked_missing_verified_data`.
+6. **Verification challenge** — expose CAPTCHA, Turnstile, email challenge, or similar native verification. Unresolved manual verification becomes `blocked_manual_verification`.
+7. **Form execution** — only now enter mutable product-listing fields and proceed toward a final action.
+
+Example: if a directory both requires a contact email and mandates a reciprocal badge, the mandatory badge decides the result first. The correct state is `ineligible`, not `blocked_missing_verified_data`.
+
+## Product-field mapping
+
+Prefer explicit claim fields for directory forms:
+
+| Directory field | Shipmore source |
+| --- | --- |
+| Product / tool name | `productName` |
+| Website | `productUrl` |
+| Tagline | `productTagline`; if blank, a truthful short derivation from `productDescription`/`productMarkdown` is allowed |
+| Description | `productDescription`; length-constrained truthful rewrites may use `productMarkdown` |
+| Category | `productCategoryId` plus directory-specific category choices; map semantically, do not invent a category claim |
+| Contact email | `productContactEmail` only, unless a current official product page explicitly verifies another authorized address |
+| Company | `productCompanyName` |
+| Founder | `productFounderName` |
+| Pricing model | `productPricingModel`; otherwise verify from a current official product surface before using a pricing claim |
+| Twitter / X | `productTwitterUrl` |
+| LinkedIn | `productLinkedinUrl` |
+| GitHub | `productGithubUrl` |
+| Logo | `productLogo` |
+| Primary image | `productOgImage` |
+
+Do not derive independent identity/contact facts from marketing prose. In particular, never guess email addresses, founder names, company names, social accounts, launch dates, or legal identity.
+
+If a required field is absent after the eligible-route preflight and cannot be verified read-only from an official source, use `blocked_missing_verified_data`. Optional unknowns remain blank.
+
 ## Existing-state decisions
 
 ### Already published
@@ -121,6 +160,8 @@ Useful evidence includes:
 - explicit rejection message;
 - authorized user confirmation for a manual step.
 
+Do not duplicate `productContactEmail` or other private contact details into evidence labels, exact-result summaries, or shareable logs merely because they were used in the form.
+
 ## Stable completion event ID
 
 The event ID must be stable for one logical Complete operation.
@@ -164,6 +205,18 @@ Examples:
   "exactResult": "Turnstile challenge requires user completion"
 }
 ```
+
+### Missing verified data
+
+```json
+{
+  "status": "blocked",
+  "submissionStatus": "blocked_missing_verified_data",
+  "exactResult": "Required founder name is not available in verified product data"
+}
+```
+
+Use this only after paid/reciprocal/ineligibility, existing-state, and account-policy checks have already passed.
 
 ### Ambiguous final action
 
