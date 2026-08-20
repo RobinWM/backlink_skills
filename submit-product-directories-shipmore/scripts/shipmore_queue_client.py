@@ -15,6 +15,37 @@ from urllib.request import Request, urlopen
 DEFAULT_LEASE_SECONDS = 300
 DEFAULT_TIMEOUT_SECONDS = 30
 
+SUBMISSION_STATUSES = [
+    'not_attempted',
+    'form_in_progress',
+    'draft_saved',
+    'submitted',
+    'submission_outcome_unknown',
+    'awaiting_approval',
+    'awaiting_email_verification',
+    'published',
+    'blocked_manual_verification',
+    'blocked_missing_verified_data',
+    'blocked_account_or_email_policy',
+    'unavailable',
+    'paid_only',
+    'ineligible',
+    'duplicate_no_action',
+    'terminated_by_user',
+    'rejected',
+]
+
+VERIFICATION_STATUSES = [
+    'not_checked',
+    'automatic_verification_passed',
+    'awaiting_manual_verification',
+    'manual_verification_completed',
+    'verification_unavailable_before_form',
+    'verification_expired_reset',
+    'no_verification_presented',
+    'deferred_by_user',
+]
+
 
 class ShipmoreClientError(RuntimeError):
     pass
@@ -38,7 +69,13 @@ def compact_optional(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 class ShipmoreQueueClient:
-    def __init__(self, base_url: str, token: str, worker_id: str, timeout: int = 30):
+    def __init__(
+        self,
+        base_url: str,
+        token: str,
+        worker_id: str | None = None,
+        timeout: int = 30,
+    ):
         self.base_url = base_url.rstrip('/')
         self.token = token
         self.worker_id = worker_id
@@ -47,6 +84,12 @@ class ShipmoreQueueClient:
     @property
     def queue_url(self) -> str:
         return f'{self.base_url}/api/backlinks/agent/queue'
+
+    def require_worker_id(self) -> str:
+        return require(
+            self.worker_id,
+            'Missing stable worker ID. Set BACKLINK_WORKER_ID or pass --worker-id.',
+        )
 
     def post(self, payload: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps(payload, separators=(',', ':')).encode('utf-8')
@@ -91,7 +134,7 @@ class ShipmoreQueueClient:
             {
                 'operation': 'claim',
                 'runId': run_id,
-                'workerId': self.worker_id,
+                'workerId': self.require_worker_id(),
                 'leaseSeconds': lease_seconds,
             }
         )
@@ -101,7 +144,7 @@ class ShipmoreQueueClient:
             {
                 'operation': 'heartbeat',
                 'runItemId': run_item_id,
-                'workerId': self.worker_id,
+                'workerId': self.require_worker_id(),
                 'leaseSeconds': lease_seconds,
             }
         )
@@ -110,12 +153,21 @@ class ShipmoreQueueClient:
         return self.post(compact_optional({'operation': 'recover', 'runId': run_id}))
 
     def complete(self, args: argparse.Namespace) -> dict[str, Any]:
+        if args.status == 'failed' and not (args.last_error or '').strip():
+            raise ShipmoreClientError('--last-error is required when --status failed')
+        if args.submission_status == 'published' and not (
+            args.public_listing_url or ''
+        ).strip():
+            raise ShipmoreClientError(
+                '--public-listing-url is required when --submission-status published'
+            )
+
         payload = compact_optional(
             {
                 'operation': 'complete',
                 'eventId': args.event_id,
                 'runItemId': args.run_item_id,
-                'workerId': self.worker_id,
+                'workerId': self.require_worker_id(),
                 'status': args.status,
                 'submissionStatus': args.submission_status,
                 'verificationStatus': args.verification_status,
@@ -194,8 +246,10 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         choices=['completed', 'blocked', 'failed', 'skipped'],
     )
-    complete.add_argument('--submission-status', required=True)
-    complete.add_argument('--verification-status')
+    complete.add_argument(
+        '--submission-status', required=True, choices=SUBMISSION_STATUSES
+    )
+    complete.add_argument('--verification-status', choices=VERIFICATION_STATUSES)
     complete.add_argument('--last-error')
     complete.add_argument('--exact-result')
     complete.add_argument('--evidence-reference')
@@ -222,15 +276,11 @@ def main() -> int:
             args.token,
             'Missing agent token. Set BACKLINK_AGENT_TOKEN.',
         )
-        worker_id = require(
-            args.worker_id,
-            'Missing stable worker ID. Set BACKLINK_WORKER_ID or pass --worker-id.',
-        )
 
         client = ShipmoreQueueClient(
             base_url=base_url,
             token=token,
-            worker_id=worker_id,
+            worker_id=args.worker_id,
             timeout=args.timeout,
         )
 
