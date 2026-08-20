@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shipmore Directory Worker"
+  short_description: "Claim Shipmore directory tasks and execute them safely"
+  default_prompt: "Use $submit-product-directories-shipmore to claim one item from the supplied Shipmore run, keep the lease alive, perform the authorized directory work, and complete the item with a truthful idempotent result."
