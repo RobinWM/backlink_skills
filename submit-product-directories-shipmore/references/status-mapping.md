@@ -58,16 +58,33 @@ The Run Item status describes the result of this execution attempt. The Submissi
 | Public listing verified | `completed` | `published` | `publicListingUrl` is mandatory |
 | Final submit action happened but result cannot be determined | `blocked` | `submission_outcome_unknown` | Never blindly resubmit; schedule follow-up/checks |
 | CAPTCHA/Turnstile/manual challenge blocks progress | `blocked` | `blocked_manual_verification` | Usually `awaiting_manual_verification` |
-| Required truthful product field is unavailable | `blocked` | `blocked_missing_verified_data` | Do not invent data |
+| Required truthful product field is unavailable | `blocked` | `blocked_missing_verified_data` | Do not invent data; use only after earlier terminal eligibility/policy checks pass |
 | Account/email policy prevents authorized execution | `blocked` | `blocked_account_or_email_policy` | Preserve exact policy/result |
 | Route/site unavailable | `completed` | `unavailable` | Use structured evidence when possible |
 | Only paid placement is available and payment is not authorized | `completed` | `paid_only` | Do not pay |
+| Forced reciprocal link, badge, site modification, or other prohibited placement condition | `completed` | `ineligible` | Stop before collecting missing form data or solving verification |
 | Product is not eligible for this directory | `completed` | `ineligible` | Record reason |
 | Directory detects an existing listing and no action is needed | `completed` or `skipped` | `duplicate_no_action` | Use only when duplicate is actually established |
 | User explicitly stops this item | `skipped` | `terminated_by_user` | Do not continue later without a new Run/action |
 | Directory explicitly rejects the submission | `completed` | `rejected` | Preserve exact rejection reason |
 | Operational browser/backend failure before meaningful form progress | `failed` | preserve current truthful status, often `not_attempted` | `lastError` required |
 | Operational failure after fields were entered but before final action | `failed` | `form_in_progress` or `draft_saved` if truly saved | Do not label submitted |
+
+## Preflight precedence
+
+When multiple conditions are present, classify the first decisive condition in this order:
+
+```text
+unavailable
+→ paid_only / forced reciprocal / ineligible
+→ duplicate or existing lifecycle guard
+→ blocked_account_or_email_policy
+→ blocked_missing_verified_data
+→ blocked_manual_verification
+→ form execution
+```
+
+This avoids false attention work. A directory that mandates a reciprocal badge is already ineligible under the worker policy; the fact that its form also requires an email must not turn it into `blocked_missing_verified_data`.
 
 ## Preserve prior lifecycle state when skipping
 
@@ -130,7 +147,9 @@ Run Item status    = blocked
 submissionStatus   = blocked_missing_verified_data
 ```
 
-Examples include required founder name, company address, legal identity, pricing fact, launch date, or contact detail that is not present in verified Product data and cannot be truthfully derived.
+Only use this after the route remains eligible and account-policy checks have passed.
+
+Prefer explicit Shipmore Product fields such as `productContactEmail`, `productCompanyName`, `productFounderName`, `productPricingModel`, and the verified social URLs. Examples of legitimate missing-data blockers include a required founder name, company identity, contact email, legal identity, pricing fact, or other independent fact that is absent from verified Product data and cannot be established read-only from an official source.
 
 Optional unknown fields should remain blank instead of causing a block.
 
