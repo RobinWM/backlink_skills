@@ -16,7 +16,8 @@ Shipmore is authoritative for:
 - active-work deduplication;
 - worker leases and recovery;
 - append-only completion events;
-- follow-up scheduling.
+- follow-up scheduling;
+- verified Product facts supplied to directory forms.
 
 This Skill is authoritative only for the browser-side observation and action performed while it owns a valid lease.
 
@@ -46,10 +47,12 @@ Read these references before mutable work:
 1. Always `claim` before opening or mutating a directory submission flow.
 2. Treat `data.id` from a successful claim as the `runItemId`.
 3. Treat the claim payload as the verified task envelope. Do not replace its Product, Directory, or previous Submission fields with guesses.
-4. `reason=claimed` means a new item was leased. `reason=reused` means this worker already owns a live item; resume that same item rather than advancing the queue.
-5. Never act on a Run Item after its lease expires. Heartbeat first if there is any doubt.
-6. Never change Shipmore state by direct database access from this Skill. Use the Queue API.
-7. Do not turn a previously truthful state such as `published` or `awaiting_approval` into `not_attempted` merely because the current Run Item is skipped.
+4. Prefer explicit verified Product fields (`productTagline`, `productContactEmail`, `productCompanyName`, `productFounderName`, `productPricingModel`, and verified social URLs) before deriving anything from `productDescription` or `productMarkdown`.
+5. Summarizing or shortening supported product copy is allowed. Inventing independent facts such as emails, founders, companies, legal identity, pricing, or social accounts is not.
+6. `reason=claimed` means a new item was leased. `reason=reused` means this worker already owns a live item; resume that same item rather than advancing the queue.
+7. Never act on a Run Item after its lease expires. Heartbeat first if there is any doubt.
+8. Never change Shipmore state by direct database access from this Skill. Use the Queue API.
+9. Do not turn a previously truthful state such as `published` or `awaiting_approval` into `not_attempted` merely because the current Run Item is skipped.
 
 ## Worker lifecycle
 
@@ -60,8 +63,8 @@ For each item:
 3. Inspect the returned previous Submission snapshot before browser work.
 4. If the snapshot already proves that no new form action is appropriate, finish the Run Item as `skipped` while preserving the current submission status.
 5. Heartbeat before mutable browser work and again after meaningful navigation, verification, user handoff, or long reasoning. A 300-second lease should normally receive a heartbeat at least every 60–120 seconds; longer browser work may request a larger lease within the API limits.
-6. Apply the legitimacy, duplicate, verification, authorization, and browser-routing controls from SPD V1 Batch.
-7. Perform only truthful, authorized form work. Keep optional unknown fields blank and block required unknown fields.
+6. Apply the mandatory preflight order from [references/worker-loop.md](references/worker-loop.md): unavailable → paid/forced-reciprocal/ineligible → existing lifecycle/duplicate → account policy → missing verified data → verification → mutable form execution.
+7. Perform only truthful, authorized form work. Keep optional unknown fields blank and block required unknown fields only after earlier terminal eligibility/policy checks have passed.
 8. Record the exact visible/server outcome and an opaque evidence reference when evidence exists.
 9. Classify the result using [references/status-mapping.md](references/status-mapping.md).
 10. Before the first `complete` attempt, choose one stable `eventId`. Reuse that exact event ID if the HTTP response is lost or the request must be retried.
@@ -73,9 +76,11 @@ For each item:
 - Prefer the supplied `submitUrl`; inspect and normalize it before navigation if the site redirects.
 - Reuse an authorized existing session when available. Do not inspect cookies, saved passwords, local storage, recovery codes, or hidden authentication material.
 - Never bypass CAPTCHA, Turnstile, email verification, browser security warnings, or site access controls.
-- Do not subscribe to newsletters, accept optional promotions, pay fees, add reciprocal links, change DNS/site content, or create unrelated public content unless separately authorized.
+- Do not subscribe to newsletters, accept optional promotions, pay fees, add reciprocal links or badges, change DNS/site content, or create unrelated public content unless separately authorized.
+- A mandatory reciprocal link, badge, or site modification makes the route `ineligible` under the default worker policy. Stop before asking for unrelated missing product fields.
 - Do not invent founder, company, address, launch, pricing, contact, legal, or ownership facts.
-- Use the returned Product fields and `productMarkdown` as source material. Summarization is allowed; factual invention is not.
+- Use the returned verified Product fields as primary form inputs. `productDescription` and `productMarkdown` may support truthful length-constrained copy generation, but must not be used to fabricate independent identity/contact facts.
+- Treat `productContactEmail` as form input, not logging material. Do not duplicate it into `exactResult`, evidence labels, or shareable attempt notes merely because it was submitted.
 - A click, navigation, cleared form, disabled button, or generic thank-you page is not by itself proof of submission.
 - `submitted` is not `published`.
 - A final-action ambiguity must become `submission_outcome_unknown`; never blindly press Submit again.
@@ -106,7 +111,7 @@ python3 scripts/shipmore_queue_client.py heartbeat --run-item-id <runItemId>
 python3 scripts/shipmore_queue_client.py recover --run-id <runId>
 ```
 
-On Windows, `py -3` may be used instead of `python3`.
+On Windows, `python` or `py -3` may be used when available.
 
 Completion example:
 
@@ -128,9 +133,11 @@ Stop browser execution and preserve truthful state when:
 
 - the lease is missing, expired, or owned by another worker;
 - the Run is paused/cancelled/completed;
-- required verified product data is missing;
+- the route is paid-only without payment authorization;
+- the route mandates a reciprocal link, badge, or prohibited site modification;
+- required verified product data is missing after earlier eligibility/policy checks pass;
 - manual verification or authentication cannot safely continue;
-- the site requires an unauthorized payment or reciprocal-site change;
+- account/email policy requires an unauthorized action;
 - the final submission outcome is ambiguous;
 - the execution backend cannot safely control the required authenticated surface.
 
@@ -140,6 +147,6 @@ Use a blocked/failed/skipped Run Item result and the closest truthful submission
 
 - [references/shipmore-api.md](references/shipmore-api.md): API contract and response semantics.
 - [references/status-mapping.md](references/status-mapping.md): canonical Shipmore status mapping.
-- [references/worker-loop.md](references/worker-loop.md): deterministic worker procedure and retry rules.
+- [references/worker-loop.md](references/worker-loop.md): deterministic worker procedure, product-field mapping, preflight precedence, and retry rules.
 - [references/browser-control-routing.md](references/browser-control-routing.md): backend-neutral browser selection and verification rules.
 - `scripts/shipmore_queue_client.py`: dependency-free Queue API client.
