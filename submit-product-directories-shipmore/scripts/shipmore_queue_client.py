@@ -7,13 +7,18 @@ import argparse
 import json
 import os
 import sys
+import time
+from html.parser import HTMLParser
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 
 DEFAULT_LEASE_SECONDS = 300
 DEFAULT_TIMEOUT_SECONDS = 30
+BACKLINK_POLL_ATTEMPTS = 6
+BACKLINK_POLL_INTERVAL_SECONDS = 20
 
 SUBMISSION_STATUSES = [
     'not_attempted',
@@ -51,6 +56,24 @@ class ShipmoreClientError(RuntimeError):
     pass
 
 
+class AnchorHrefParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.hrefs: list[str] = []
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],
+    ) -> None:
+        if tag.lower() != 'a':
+            return
+        for name, value in attrs:
+            if name.lower() == 'href' and value:
+                self.hrefs.append(value.strip())
+                return
+
+
 def env(name: str, fallback: str | None = None) -> str | None:
     value = os.environ.get(name)
     if value is None or not value.strip():
@@ -66,6 +89,80 @@ def require(value: str | None, message: str) -> str:
 
 def compact_optional(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if value is not None}
+
+
+def normalize_http_url(url: str) -> str:
+    trimmed = url.strip()
+    if not trimmed:
+        raise ShipmoreClientError('URL is empty')
+    if trimmed.startswith('//'):
+        trimmed = f'https:{trimmed}'
+    elif not trimmed.lower().startswith(('http://', 'https://')):
+        trimmed = f'https://{trimmed}'
+
+    parsed = urlsplit(trimmed)
+    if parsed.scheme.lower() not in {'http', 'https'} or not parsed.hostname:
+        raise ShipmoreClientError(f'Invalid HTTP URL: {url}')
+    return trimmed
+
+
+def normalized_link_identity(url: str) -> tuple[str, str]:
+    parsed = urlsplit(normalize_http_url(url))
+    hostname = (parsed.hostname or '').lower().rstrip('.')
+    if hostname.startswith('www.'):
+        hostname = hostname[4:]
+    if not hostname:
+        raise ShipmoreClientError(f'URL has no hostname: {url}')
+
+    path = parsed.path or '/'
+    if path != '/':
+        path = path.rstrip('/') or '/'
+    return hostname, path
+
+
+def find_matching_outbound_link(
+    html: str,
+    page_url: str,
+    directory_url: str,
+) -> str | None:
+    target = normalized_link_identity(directory_url)
+    parser = AnchorHrefParser()
+    parser.feed(html)
+    for href in parser.hrefs:
+        absolute_url = urljoin(page_url, href)
+        try:
+            candidate = normalized_link_identity(absolute_url)
+        except ShipmoreClientError:
+            continue
+        if candidate == target:
+            return absolute_url
+    return None
+
+
+def fetch_homepage_html(url: str, timeout: int) -> tuple[str, str]:
+    normalized_url = normalize_http_url(url)
+    request = Request(
+        normalized_url,
+        method='GET',
+        headers={
+            'Accept': 'text/html,application/xhtml+xml',
+            'User-Agent': 'shipmore-backlink-skill/1.0',
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            charset = response.headers.get_content_charset() or 'utf-8'
+            html = response.read().decode(charset, errors='replace')
+            final_url = response.geturl()
+    except HTTPError as exc:
+        raise ShipmoreClientError(
+            f'Product homepage returned HTTP {exc.code}: {normalized_url}'
+        ) from exc
+    except URLError as exc:
+        raise ShipmoreClientError(
+            f'Product homepage network error: {exc.reason}'
+        ) from exc
+    return html, final_url
 
 
 class ShipmoreQueueClient:
@@ -85,16 +182,24 @@ class ShipmoreQueueClient:
     def queue_url(self) -> str:
         return f'{self.base_url}/api/backlinks/agent/queue'
 
+    @property
+    def outbound_links_url(self) -> str:
+        return f'{self.base_url}/api/outbound-links'
+
     def require_worker_id(self) -> str:
         return require(
             self.worker_id,
             'Missing stable worker ID. Set BACKLINK_WORKER_ID or pass --worker-id.',
         )
 
-    def post(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def post(
+        self,
+        payload: dict[str, Any],
+        url: str | None = None,
+    ) -> dict[str, Any]:
         body = json.dumps(payload, separators=(',', ':')).encode('utf-8')
         request = Request(
-            self.queue_url,
+            url or self.queue_url,
             data=body,
             method='POST',
             headers={
@@ -147,6 +252,104 @@ class ShipmoreQueueClient:
                 'workerId': self.require_worker_id(),
                 'leaseSeconds': lease_seconds,
             }
+        )
+
+    def register_outbound_link(self, run_item_id: str) -> dict[str, Any]:
+        return self.post(
+            {
+                'runItemId': run_item_id,
+                'workerId': self.require_worker_id(),
+            },
+            url=self.outbound_links_url,
+        )
+
+    def add_outbound_link(
+        self,
+        run_item_id: str,
+        product_url: str,
+        directory_url: str,
+        lease_seconds: int,
+        *,
+        attempts: int = BACKLINK_POLL_ATTEMPTS,
+        interval_seconds: int = BACKLINK_POLL_INTERVAL_SECONDS,
+        fetcher=fetch_homepage_html,
+        sleeper=time.sleep,
+    ) -> dict[str, Any]:
+        if not 1 <= attempts <= BACKLINK_POLL_ATTEMPTS:
+            raise ShipmoreClientError(
+                f'Backlink verification attempts must be between 1 and '
+                f'{BACKLINK_POLL_ATTEMPTS}'
+            )
+        product_url = normalize_http_url(product_url)
+        directory_url = normalize_http_url(directory_url)
+
+        heartbeat = self.heartbeat(run_item_id, lease_seconds)
+        if heartbeat.get('success') is False:
+            raise ShipmoreClientError('Heartbeat failed before backlink registration')
+
+        registration = self.register_outbound_link(run_item_id)
+        if registration.get('success') is False:
+            raise ShipmoreClientError('Outbound-link registration was rejected')
+
+        registration_data = registration.get('data')
+        registered_directory_url = (
+            registration_data.get('directoryUrl')
+            if isinstance(registration_data, dict)
+            else None
+        )
+        if not isinstance(registered_directory_url, str):
+            raise ShipmoreClientError(
+                'Outbound-link registration response is missing directoryUrl'
+            )
+        registered_directory_url = normalize_http_url(registered_directory_url)
+        if normalized_link_identity(registered_directory_url) != normalized_link_identity(
+            directory_url
+        ):
+            raise ShipmoreClientError(
+                'Outbound-link registration directory does not match the claimed task'
+            )
+        directory_url = registered_directory_url
+
+        last_fetch_error: str | None = None
+        for attempt in range(1, attempts + 1):
+            heartbeat = self.heartbeat(run_item_id, lease_seconds)
+            if heartbeat.get('success') is False:
+                raise ShipmoreClientError(
+                    f'Heartbeat failed before backlink verification attempt {attempt}'
+                )
+
+            final_product_url = product_url
+            try:
+                html, final_product_url = fetcher(product_url, self.timeout)
+                last_fetch_error = None
+                matched_url = find_matching_outbound_link(
+                    html,
+                    final_product_url,
+                    directory_url,
+                )
+            except ShipmoreClientError as exc:
+                last_fetch_error = str(exc)
+                matched_url = None
+            if matched_url:
+                return {
+                    'success': True,
+                    'reason': 'backlink_verified',
+                    'runItemId': run_item_id,
+                    'workerId': self.require_worker_id(),
+                    'attempt': attempt,
+                    'productUrl': final_product_url,
+                    'directoryUrl': directory_url,
+                    'matchedUrl': matched_url,
+                    'registration': registration,
+                }
+
+            if attempt < attempts:
+                sleeper(interval_seconds)
+
+        detail = f'; last fetch error: {last_fetch_error}' if last_fetch_error else ''
+        raise ShipmoreClientError(
+            'backlink verification timeout: directory link was not found on the '
+            f'product homepage after {attempts} attempts{detail}'
         )
 
     def recover(self, run_id: str | None = None) -> dict[str, Any]:
@@ -235,6 +438,15 @@ def build_parser() -> argparse.ArgumentParser:
     heartbeat.add_argument('--run-item-id', required=True)
     add_lease_arg(heartbeat)
 
+    add_outbound_link = subparsers.add_parser(
+        'add-outbound-link',
+        help='Register and verify a mandatory directory backlink',
+    )
+    add_outbound_link.add_argument('--run-item-id', required=True)
+    add_outbound_link.add_argument('--product-url', required=True)
+    add_outbound_link.add_argument('--directory-url', required=True)
+    add_lease_arg(add_outbound_link)
+
     recover = subparsers.add_parser('recover', help='Recover expired Run Item leases')
     recover.add_argument('--run-id')
 
@@ -288,6 +500,13 @@ def main() -> int:
             result = client.claim(args.run_id, args.lease_seconds)
         elif args.command == 'heartbeat':
             result = client.heartbeat(args.run_item_id, args.lease_seconds)
+        elif args.command == 'add-outbound-link':
+            result = client.add_outbound_link(
+                args.run_item_id,
+                args.product_url,
+                args.directory_url,
+                args.lease_seconds,
+            )
         elif args.command == 'recover':
             result = client.recover(args.run_id)
         elif args.command == 'complete':

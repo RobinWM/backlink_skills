@@ -31,6 +31,9 @@ while true:
 
   heartbeat(runItemId)
   browser preflight + legitimacy/authorization checks
+  if mandatory backlink/badge:
+    register outbound link; poll and verify Product homepage
+    if verification fails: complete truthfully; do not submit
   heartbeat(runItemId)
   perform verified form work
   heartbeat(runItemId)
@@ -56,14 +59,28 @@ Use `submitUrl` as the preferred route. If it is a homepage or redirects to a di
 Run read-only checks in this order so an earlier terminal policy result is not hidden by a later, less important missing field.
 
 1. **Unavailable route/site** — if the official submission route is gone, closed, or unavailable, classify `unavailable`.
-2. **Paid-only / forced reciprocal / forced badge / clearly ineligible** — if the route requires payment that is not authorized, classify `paid_only`; if it requires a reciprocal link, badge, site modification, or the product clearly does not meet eligibility, classify `ineligible` and stop. Do not continue collecting missing profile fields for a route that must not be submitted.
-3. **Duplicate / existing lifecycle guard** — inspect previous Shipmore state and any clear existing listing. Never blindly resubmit `submitted`, `submission_outcome_unknown`, `awaiting_approval`, `awaiting_email_verification`, or `published`.
-4. **Account or email policy** — if the next required action is an unauthorized login, account creation, mailbox action, or account-policy step, classify `blocked_account_or_email_policy`.
-5. **Required verified product data** — only after the route remains eligible, compare required form fields with the explicit Shipmore Product fields. Missing required independent facts become `blocked_missing_verified_data`.
-6. **Verification challenge** — expose CAPTCHA, Turnstile, email challenge, or similar native verification. Unresolved manual verification becomes `blocked_manual_verification`.
-7. **Form execution** — only now enter mutable product-listing fields and proceed toward a final action.
+2. **Paid-only** — if the route requires payment that is not authorized, classify `paid_only` and stop.
+3. **Mandatory backlink/badge** — do not immediately classify as ineligible. Use the authorized Shipmore outbound-link registration and homepage verification procedure below. Continue only if verification passes; timeout stops the item before form submission.
+4. **Other ineligibility** — unsupported eligibility, prohibited non-backlink site changes, or unrelated commercial/community actions remain `ineligible`.
+5. **Duplicate / existing lifecycle guard** — inspect previous Shipmore state and any clear existing listing. Never blindly resubmit `submitted`, `submission_outcome_unknown`, `awaiting_approval`, `awaiting_email_verification`, or `published`.
+6. **Account or email policy** — if the next required action is an unauthorized login, account creation, mailbox action, or account-policy step, classify `blocked_account_or_email_policy`.
+7. **Required verified product data** — only after the route remains eligible, compare required form fields with the explicit Shipmore Product fields. Missing required independent facts become `blocked_missing_verified_data`.
+8. **Verification challenge** — expose CAPTCHA, Turnstile, email challenge, or similar native verification. Unresolved manual verification becomes `blocked_manual_verification`.
+9. **Form execution** — only now enter mutable product-listing fields and proceed toward a final action.
 
-Example: if a directory both requires a contact email and mandates a reciprocal badge, the mandatory badge decides the result first. The correct state is `ineligible`, not `blocked_missing_verified_data`.
+Example: if a directory both requires a contact email and mandates a reciprocal badge, register and verify the badge first. If verification times out, stop with a truthful blocked/ineligible result containing `backlink verification timeout`; do not relabel it as missing email and do not submit.
+
+## Mandatory backlink registration and verification
+
+After confirming that the live directory truly mandates a backlink or badge:
+
+1. Confirm the claim's `runItemId`, `workerId`, `productUrl`, and `directoryUrl`; heartbeat and stop immediately on lease failure.
+2. Run `python3 scripts/shipmore_queue_client.py add-outbound-link --run-item-id <id> --product-url <productUrl> --directory-url <directoryUrl>`.
+3. The command posts `{runItemId, workerId}` to `POST {BACKLINK_APP_URL}/api/outbound-links`, then fetches only the Product homepage every 20 seconds for up to 6 attempts. It heartbeats before every fetch.
+4. Accept success only when parsed homepage `<a href>` hostname and path exactly match parsed `directoryUrl`. Scheme, leading `www.`, and trailing slash may differ. Reject substring/suffix hosts and different paths.
+5. The standard CLI checks server-returned HTML after normal redirects. If the link is client-rendered, inspect the final homepage DOM with an authorized browser using the same parsed-anchor rule. Do not inspect inner pages or bypass CAPTCHA/WAF/access controls.
+6. Continue the original directory form only when the command returns JSON with `success=true` and `reason=backlink_verified` (or equivalent final-DOM evidence is established while the lease remains valid).
+7. If registration fails, lease ownership is lost, or all 6 checks miss the link, stop before submission. Record `backlink verification timeout` for the six-attempt case and use the closest truthful blocked/ineligible state.
 
 ## Product-field mapping
 
@@ -136,6 +153,7 @@ Heartbeat again after:
 - long content preparation;
 - returning from user interaction;
 - immediately before final submit if the previous heartbeat is no longer comfortably fresh.
+- before outbound-link registration and before every homepage verification attempt.
 
 If heartbeat returns 409, stop. Do not make a final submission or Complete request as if ownership were still valid.
 
@@ -146,7 +164,7 @@ Immediately before final action:
 1. Confirm the active Directory and submission route.
 2. Confirm Product identity and canonical URL.
 3. Review required fields for truthful values.
-4. Ensure no unauthorized newsletter, promotion, payment, reciprocal link, legal agreement, or unrelated action is selected.
+4. Ensure no unauthorized newsletter, promotion, payment, legal agreement, or unrelated action is selected; any mandatory backlink has already passed the authorized verification flow.
 5. Recheck verification/challenge validity.
 6. Heartbeat if needed.
 7. Perform one final action.
@@ -223,7 +241,7 @@ Examples:
 }
 ```
 
-Use this only after paid/reciprocal/ineligibility, existing-state, and account-policy checks have already passed.
+Use this only after paid-only, mandatory-backlink verification, other ineligibility, existing-state, and account-policy checks have already passed.
 
 ### Ambiguous final action
 

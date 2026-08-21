@@ -2,7 +2,7 @@
 
 ## Endpoint
 
-All worker operations use one authenticated endpoint:
+Queue claim/heartbeat/complete/recover operations use this authenticated endpoint:
 
 ```text
 POST {BACKLINK_APP_URL}/api/backlinks/agent/queue
@@ -11,6 +11,31 @@ Content-Type: application/json
 ```
 
 Never log or persist the bearer token in campaign records, evidence, screenshots, or completion metadata.
+
+Mandatory backlink registration uses a separate endpoint implemented by the Shipmore application (not by this repository):
+
+```text
+POST {BACKLINK_APP_URL}/api/outbound-links
+Authorization: Bearer {BACKLINK_AGENT_TOKEN}
+Content-Type: application/json
+```
+
+Exact request body:
+
+```json
+{
+  "runItemId": "<leased-run-item-id>",
+  "workerId": "<same-worker-id-used-to-claim>"
+}
+```
+
+Heartbeat before this call. A non-success response or a lost/foreign/expired lease is terminal for this worker attempt: stop and do not continue the directory submission.
+
+The bundled `add-outbound-link` command performs registration plus verification. After the POST succeeds it fetches only the `productUrl` homepage, follows ordinary HTTP redirects, parses `<a href>` values, and polls every 20 seconds for at most 6 attempts. It heartbeats before each fetch. Success emits JSON with `success=true`, `reason=backlink_verified`, the attempt number, final Product URL, and matched URL. Timeout prints `backlink verification timeout` and exits nonzero.
+
+Matching compares parsed normalized hostname and path, not raw substrings. `http`/`https`, a leading `www.`, and trailing slash differences are accepted; a suffix host such as `directory.example.evil.test` or a different path does not match. Query and fragment do not replace the required exact hostname/path identity.
+
+The CLI verifies server-returned homepage HTML. If a Product renders the link only client-side, an authorized browser worker may instead inspect the final homepage DOM with the same parsed-anchor matching rule. Do not crawl inner pages, bypass CAPTCHA/WAF, or weaken matching to make verification pass.
 
 ## Claim
 

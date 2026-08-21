@@ -53,7 +53,7 @@ Read these references before mutable work:
 7. Summarizing or shortening supported product copy is allowed. Inventing independent facts such as emails, founders, companies, legal identity, pricing, social accounts, or open-source status is not.
 8. `reason=claimed` means a new item was leased. `reason=reused` means this worker already owns a live item; resume that same item rather than advancing the queue.
 9. Never act on a Run Item after its lease expires. Heartbeat first if there is any doubt.
-10. Never change Shipmore state by direct database access from this Skill. Use the Queue API.
+10. Never change Shipmore state by direct database access from this Skill. Use the Queue API and the authorized outbound-link endpoint.
 11. Do not turn a previously truthful state such as `published` or `awaiting_approval` into `not_attempted` merely because the current Run Item is skipped.
 
 ## Worker lifecycle
@@ -65,7 +65,7 @@ For each item:
 3. Inspect the returned previous Submission snapshot before browser work.
 4. If the snapshot already proves that no new form action is appropriate, finish the Run Item as `skipped` while preserving the current submission status.
 5. Heartbeat before mutable browser work and again after meaningful navigation, verification, user handoff, or long reasoning. A 300-second lease should normally receive a heartbeat at least every 60–120 seconds; longer browser work may request a larger lease within the API limits.
-6. Apply the mandatory preflight order from [references/worker-loop.md](references/worker-loop.md): unavailable → paid/forced-reciprocal/ineligible → existing lifecycle/duplicate → account policy → missing verified data → verification → mutable form execution.
+6. Apply the mandatory preflight order from [references/worker-loop.md](references/worker-loop.md): unavailable → paid-only → mandatory-backlink registration and verification → other ineligibility → existing lifecycle/duplicate → account policy → missing verified data → verification → mutable form execution.
 7. Perform only truthful, authorized form work. Keep optional unknown fields blank and block required unknown fields only after earlier terminal eligibility/policy checks have passed.
 8. Record the exact visible/server outcome and an opaque evidence reference when evidence exists.
 9. Classify the result using [references/status-mapping.md](references/status-mapping.md).
@@ -78,8 +78,11 @@ For each item:
 - Prefer the supplied `submitUrl`; inspect and normalize it before navigation if the site redirects.
 - Reuse an authorized existing session when available. Do not inspect cookies, saved passwords, local storage, recovery codes, or hidden authentication material.
 - Never bypass CAPTCHA, Turnstile, email verification, browser security warnings, or site access controls.
-- Do not subscribe to newsletters, accept optional promotions, pay fees, add reciprocal links or badges, change DNS/site content, or create unrelated public content unless separately authorized.
-- A mandatory reciprocal link, badge, or site modification makes the route `ineligible` under the default worker policy. Stop before asking for unrelated missing product fields.
+- Do not subscribe to newsletters, accept optional promotions, pay fees, manually edit the Product site, change DNS, or create unrelated public content. A mandatory backlink/badge is handled only through Shipmore's authorized outbound-link endpoint and the verification flow below.
+- When the directory mandates a backlink or badge, heartbeat, call `POST /api/outbound-links` with the leased `runItemId` and same `workerId`, then verify the Product homepage before doing any directory form work. Do not classify it immediately as `ineligible`.
+- Poll `productUrl` homepage HTML every 20 seconds, at most 6 attempts. Heartbeat before registration and every attempt; stop immediately if lease ownership is lost. Continue the original directory submission only after an exact parsed `<a href>` match for `directoryUrl` is visible in homepage HTML (or the final browser DOM when HTML is client-rendered).
+- Link comparison uses parsed hostname and path: scheme and query/fragment are not identity, while leading `www.` and a trailing slash are normalized. Hostname and path must otherwise match exactly. Never use substring matching. Do not bypass CAPTCHA, WAF, or access controls to verify the page.
+- If all 6 checks fail, do not submit. Complete with the closest truthful blocked/ineligible state and include `backlink verification timeout` in the exact result/error.
 - Do not invent founder, company, address, launch, pricing, contact, legal, ownership, or open-source facts.
 - Use the returned verified Product fields as primary form inputs. `productDescription` and `productMarkdown` may support truthful length-constrained copy generation, but must not be used to fabricate independent identity/contact facts.
 - Treat `productContactEmail` as form input, not logging material. Do not duplicate it into `exactResult`, evidence labels, or shareable attempt notes merely because it was submitted.
@@ -110,6 +113,10 @@ Use the bundled standard-library client:
 ```bash
 python3 scripts/shipmore_queue_client.py claim --run-id <runId>
 python3 scripts/shipmore_queue_client.py heartbeat --run-item-id <runItemId>
+python3 scripts/shipmore_queue_client.py add-outbound-link \
+  --run-item-id <runItemId> \
+  --product-url <productUrl> \
+  --directory-url <directoryUrl>
 python3 scripts/shipmore_queue_client.py recover --run-id <runId>
 ```
 
@@ -136,7 +143,7 @@ Stop browser execution and preserve truthful state when:
 - the lease is missing, expired, or owned by another worker;
 - the Run is paused/cancelled/completed;
 - the route is paid-only without payment authorization;
-- the route mandates a reciprocal link, badge, or prohibited site modification;
+- mandatory backlink registration is rejected, the lease is lost while polling, or homepage verification times out after 6 attempts;
 - required verified product data is missing after earlier eligibility/policy checks pass;
 - manual verification or authentication cannot safely continue;
 - account/email policy requires an unauthorized action;
@@ -151,4 +158,4 @@ Use a blocked/failed/skipped Run Item result and the closest truthful submission
 - [references/status-mapping.md](references/status-mapping.md): canonical Shipmore status mapping.
 - [references/worker-loop.md](references/worker-loop.md): deterministic worker procedure, product-field mapping, preflight precedence, and retry rules.
 - [references/browser-control-routing.md](references/browser-control-routing.md): backend-neutral browser selection and verification rules.
-- `scripts/shipmore_queue_client.py`: dependency-free Queue API client.
+- `scripts/shipmore_queue_client.py`: dependency-free Queue/outbound-link API client and homepage backlink verifier.

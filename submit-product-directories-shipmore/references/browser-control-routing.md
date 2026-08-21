@@ -124,13 +124,16 @@ Do not automatically:
 
 - pay a listing fee;
 - buy a link or ranking package;
-- add a reciprocal backlink to the Product site;
+- add a reciprocal backlink by directly editing the Product site (the
+  lease-bound Shipmore outbound-link flow below is the only exception);
 - change DNS/site content;
 - accept optional newsletters/promotions;
 - publish unrelated articles/posts;
 - request dofollow treatment or exact-match commercial anchor text.
 
 These are separate actions requiring their own authorization when they are legitimate at all.
+
+The Shipmore mandatory-backlink flow is the narrow authorized exception: the worker calls `POST /api/outbound-links` and verifies the Product homepage, but never edits Product code/content directly. A verified link may be present in returned SSR HTML or the final homepage DOM. Apply exact parsed hostname/path matching and the lease/timeout rules in `worker-loop.md`; do not bypass CAPTCHA/WAF.
 
 ## Evidence and diagnostics
 

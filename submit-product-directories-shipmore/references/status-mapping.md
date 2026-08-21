@@ -62,7 +62,9 @@ The Run Item status describes the result of this execution attempt. The Submissi
 | Account/email policy prevents authorized execution | `blocked` | `blocked_account_or_email_policy` | Preserve exact policy/result |
 | Route/site unavailable | `completed` | `unavailable` | Use structured evidence when possible |
 | Only paid placement is available and payment is not authorized | `completed` | `paid_only` | Do not pay |
-| Forced reciprocal link, badge, site modification, or other prohibited placement condition | `completed` | `ineligible` | Stop before collecting missing form data or solving verification |
+| Mandatory backlink/badge is registered and verified on Product homepage | continue current Run Item | preserve current lifecycle until directory outcome | Do not Complete yet; proceed with original directory submission |
+| Mandatory backlink/badge is still absent after 6 homepage checks | `blocked` | `ineligible` | Do not submit; set exact result/error to include `backlink verification timeout` |
+| Prohibited site modification other than the authorized outbound-link flow | `completed` | `ineligible` | Do not perform the modification |
 | Product is not eligible for this directory | `completed` | `ineligible` | Record reason |
 | Directory detects an existing listing and no action is needed | `completed` or `skipped` | `duplicate_no_action` | Use only when duplicate is actually established |
 | User explicitly stops this item | `skipped` | `terminated_by_user` | Do not continue later without a new Run/action |
@@ -76,7 +78,9 @@ When multiple conditions are present, classify the first decisive condition in t
 
 ```text
 unavailable
-→ paid_only / forced reciprocal / ineligible
+→ paid_only
+→ mandatory backlink registration + verification (continue only on success)
+→ other ineligible
 → duplicate or existing lifecycle guard
 → blocked_account_or_email_policy
 → blocked_missing_verified_data
@@ -84,7 +88,23 @@ unavailable
 → form execution
 ```
 
-This avoids false attention work. A directory that mandates a reciprocal badge is already ineligible under the worker policy; the fact that its form also requires an email must not turn it into `blocked_missing_verified_data`.
+This avoids false attention work without prematurely rejecting a mandatory badge. Register and verify the badge first. If the link is absent after 6 attempts, use `blocked / ineligible`, record `backlink verification timeout`, and stop before checking unrelated missing form fields or submitting.
+
+## Mandatory backlink outcomes
+
+The registration POST is not verification. Only an exact parsed anchor hostname/path match on the `productUrl` homepage HTML or final DOM allows form work to continue. Scheme, leading `www.`, and trailing slash differences are acceptable; substring/suffix-host and different-path matches are not.
+
+During polling, heartbeat before every check. A 409 or any evidence that the lease is expired/foreign ends the worker attempt immediately; never submit or Complete as the former owner. Do not bypass CAPTCHA/WAF or crawl other Product pages.
+
+On six-attempt timeout, the recommended mapping is:
+
+```text
+Run Item status     = blocked
+submissionStatus    = ineligible
+exactResult         = backlink verification timeout: directory link not found on product homepage after 6 attempts
+```
+
+This is a truthful terminal result for the current attempt, not evidence that the registration API failed or that the directory rejected the Product. If the registration call itself or runtime fails before verification, preserve the strongest prior lifecycle state and select `blocked` or `failed` based on the observed failure; never continue the directory submission.
 
 ## Preserve prior lifecycle state when skipping
 
