@@ -76,17 +76,24 @@ Prefer explicit claim fields for directory forms:
 | Tagline | `productTagline`; if blank, a truthful short derivation from `productDescription`/`productMarkdown` is allowed |
 | Description | `productDescription`; length-constrained truthful rewrites may use `productMarkdown` |
 | Category | `productCategoryId` plus directory-specific category choices; map semantically, do not invent a category claim |
+| Pricing model | `productPricingModel`; otherwise verify from a current official product surface before using a pricing claim |
+| Product Twitter / X | `productTwitterUrl` |
+| GitHub repository / source code / repository URL | `productGithubRepoUrl` |
 | Contact email | `productContactEmail` only, unless a current official product page explicitly verifies another authorized address |
 | Company | `productCompanyName` |
 | Founder | `productFounderName` |
-| Pricing model | `productPricingModel`; otherwise verify from a current official product surface before using a pricing claim |
-| Twitter / X | `productTwitterUrl` |
 | LinkedIn | `productLinkedinUrl` |
-| GitHub | `productGithubUrl` |
+| Founder / your GitHub profile | `productFounderGithubUrl` |
 | Logo | `productLogo` |
 | Primary image | `productOgImage` |
 
-Do not derive independent identity/contact facts from marketing prose. In particular, never guess email addresses, founder names, company names, social accounts, launch dates, or legal identity.
+Do not use the deprecated `productGithubUrl` alias for new field mapping. It exists only for backward compatibility and represents the founder GitHub value, not a repository.
+
+Repository semantics are strict: `productGithubRepoUrl` may fill fields such as GitHub Repository, Source Code, Source URL, Repository URL, or Open Source URL. `productFounderGithubUrl` may fill fields such as Your GitHub, Founder GitHub, or GitHub Profile. Never swap these merely because both URLs use github.com.
+
+A repository URL alone does not prove that a Product is open source. If a directory asks whether the Product is open source, requires an OSS license, or has OSS-only eligibility, verify that fact independently from an authorized current source. If it cannot be verified, do not answer `yes` based only on `productGithubRepoUrl`.
+
+Do not derive independent identity/contact facts from marketing prose. In particular, never guess email addresses, founder names, company names, social accounts, launch dates, legal identity, or open-source status.
 
 If a required field is absent after the eligible-route preflight and cannot be verified read-only from an official source, use `blocked_missing_verified_data`. Optional unknowns remain blank.
 
