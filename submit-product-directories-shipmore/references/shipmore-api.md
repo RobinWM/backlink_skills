@@ -51,18 +51,22 @@ Successful new claim:
     "productDescription": "...",
     "productCategoryId": "...",
     "productTagline": "...",
+    "productPricingModel": "...",
+    "productTwitterUrl": "...",
+    "productGithubRepoUrl": "...",
     "productContactEmail": "...",
     "productCompanyName": "...",
     "productFounderName": "...",
-    "productPricingModel": "...",
-    "productTwitterUrl": "...",
     "productLinkedinUrl": "...",
+    "productFounderGithubUrl": "...",
     "productGithubUrl": "..."
   }
 }
 ```
 
 The actual payload also includes prior submission metadata, directory attributes, Product assets, `productMarkdown`, and `productTemplate` when available.
+
+`productGithubUrl` is a backward-compatible alias for `productFounderGithubUrl`. New worker logic must use the explicit names `productGithubRepoUrl` and `productFounderGithubUrl` so repository and personal-profile fields cannot be confused.
 
 `data.id` is the `runItemId` used by heartbeat and complete.
 
@@ -227,7 +231,7 @@ For interactive browser work:
 
 ## Claim payload as task envelope
 
-Use these fields from the returned payload rather than re-discovering them from unrelated sources when they are present.
+Use the returned claim payload as the worker contract. The worker must not depend on Shipmore's internal database layout: a value may originate from a Product fact, a user submission default, or a product-specific override. Shipmore resolves that internally before returning the task.
 
 ### Run Item
 
@@ -275,7 +279,7 @@ directoryDofollow
 directoryAccountRequired
 ```
 
-### Product identity and content
+### Product facts and content
 
 ```text
 productId
@@ -283,26 +287,31 @@ productName
 productUrl
 productDescription
 productCategoryId
+productTagline
+productPricingModel
+productTwitterUrl
+productGithubRepoUrl
 productLogo
 productOgImage
 productMarkdown
 productTemplate
 ```
 
-### Verified directory-submission facts
+`productGithubRepoUrl` is the official repository/source-code URL for the Product. Its presence alone does **not** prove that the Product is open source; do not answer an open-source eligibility question affirmatively without separate verified evidence.
+
+### Effective submission identity
 
 ```text
-productTagline
 productContactEmail
 productCompanyName
 productFounderName
-productPricingModel
-productTwitterUrl
 productLinkedinUrl
-productGithubUrl
+productFounderGithubUrl
 ```
 
-Use the explicit verified fields before deriving anything from prose. `productMarkdown` may be used to summarize or shorten already-supported product facts, but it is not permission to invent independent facts such as a founder, company identity, email address, launch date, pricing claim, or social account.
+These are already effective values resolved by Shipmore from account defaults plus any product-specific override. Do not try to reconstruct fallback logic in the Skill.
+
+Use explicit verified fields before deriving anything from prose. `productMarkdown` may be used to summarize or shorten already-supported product facts, but it is not permission to invent independent facts such as a founder, company identity, email address, launch date, pricing claim, social account, or open-source status.
 
 If a required field has a dedicated claim property and that property is blank, do not silently infer it from unrelated text. A read-only check of the official product site may establish a current fact when the runtime can verify it clearly; otherwise use `blocked_missing_verified_data`.
 
