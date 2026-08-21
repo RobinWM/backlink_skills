@@ -17,7 +17,7 @@ Shipmore is authoritative for:
 - worker leases and recovery;
 - append-only completion events;
 - follow-up scheduling;
-- verified Product facts supplied to directory forms.
+- verified Product facts and effective submission identity supplied to directory forms.
 
 This Skill is authoritative only for the browser-side observation and action performed while it owns a valid lease.
 
@@ -46,13 +46,15 @@ Read these references before mutable work:
 
 1. Always `claim` before opening or mutating a directory submission flow.
 2. Treat `data.id` from a successful claim as the `runItemId`.
-3. Treat the claim payload as the verified task envelope. Do not replace its Product, Directory, or previous Submission fields with guesses.
-4. Prefer explicit verified Product fields (`productTagline`, `productContactEmail`, `productCompanyName`, `productFounderName`, `productPricingModel`, and verified social URLs) before deriving anything from `productDescription` or `productMarkdown`.
-5. Summarizing or shortening supported product copy is allowed. Inventing independent facts such as emails, founders, companies, legal identity, pricing, or social accounts is not.
-6. `reason=claimed` means a new item was leased. `reason=reused` means this worker already owns a live item; resume that same item rather than advancing the queue.
-7. Never act on a Run Item after its lease expires. Heartbeat first if there is any doubt.
-8. Never change Shipmore state by direct database access from this Skill. Use the Queue API.
-9. Do not turn a previously truthful state such as `published` or `awaiting_approval` into `not_attempted` merely because the current Run Item is skipped.
+3. Treat the claim payload as the verified task envelope. Do not replace its Product, Directory, or previous Submission fields with guesses, and do not reconstruct Shipmore's internal default/override logic in the Skill.
+4. Prefer explicit Product facts (`productTagline`, `productPricingModel`, `productTwitterUrl`, `productGithubRepoUrl`) and effective submission identity (`productContactEmail`, `productCompanyName`, `productFounderName`, `productLinkedinUrl`, `productFounderGithubUrl`) before deriving anything from `productDescription` or `productMarkdown`.
+5. `productGithubRepoUrl` is a Product repository; `productFounderGithubUrl` is a person/profile URL. Never substitute one for the other. The legacy `productGithubUrl` field is compatibility-only and represents founder GitHub.
+6. A GitHub repository URL alone does not prove open-source status, license, or OSS eligibility.
+7. Summarizing or shortening supported product copy is allowed. Inventing independent facts such as emails, founders, companies, legal identity, pricing, social accounts, or open-source status is not.
+8. `reason=claimed` means a new item was leased. `reason=reused` means this worker already owns a live item; resume that same item rather than advancing the queue.
+9. Never act on a Run Item after its lease expires. Heartbeat first if there is any doubt.
+10. Never change Shipmore state by direct database access from this Skill. Use the Queue API.
+11. Do not turn a previously truthful state such as `published` or `awaiting_approval` into `not_attempted` merely because the current Run Item is skipped.
 
 ## Worker lifecycle
 
@@ -78,7 +80,7 @@ For each item:
 - Never bypass CAPTCHA, Turnstile, email verification, browser security warnings, or site access controls.
 - Do not subscribe to newsletters, accept optional promotions, pay fees, add reciprocal links or badges, change DNS/site content, or create unrelated public content unless separately authorized.
 - A mandatory reciprocal link, badge, or site modification makes the route `ineligible` under the default worker policy. Stop before asking for unrelated missing product fields.
-- Do not invent founder, company, address, launch, pricing, contact, legal, or ownership facts.
+- Do not invent founder, company, address, launch, pricing, contact, legal, ownership, or open-source facts.
 - Use the returned verified Product fields as primary form inputs. `productDescription` and `productMarkdown` may support truthful length-constrained copy generation, but must not be used to fabricate independent identity/contact facts.
 - Treat `productContactEmail` as form input, not logging material. Do not duplicate it into `exactResult`, evidence labels, or shareable attempt notes merely because it was submitted.
 - A click, navigation, cleared form, disabled button, or generic thank-you page is not by itself proof of submission.
