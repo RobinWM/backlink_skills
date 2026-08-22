@@ -63,7 +63,7 @@ Run read-only checks in this order so an earlier terminal policy result is not h
 3. **Mandatory backlink/badge** — do not immediately classify as ineligible. Use the authorized Shipmore outbound-link registration and homepage verification procedure below. Continue only if verification passes; timeout stops the item before form submission.
 4. **Other ineligibility** — unsupported eligibility, prohibited non-backlink site changes, or unrelated commercial/community actions remain `ineligible`.
 5. **Duplicate / existing lifecycle guard** — inspect previous Shipmore state and any clear existing listing. Never blindly resubmit `submitted`, `submission_outcome_unknown`, `awaiting_approval`, `awaiting_email_verification`, or `published`.
-6. **Account or email policy** — if the next required action is an unauthorized login, account creation, mailbox action, or account-policy step, classify `blocked_account_or_email_policy`.
+6. **Account authentication** — ordinary email/password login, one free account registration when the site explicitly reports no account exists, and matching email verification are authorized through `account-authentication.md`. Execute that flow and continue after success. Use `blocked_account_or_email_policy` only when the required action falls outside that standing authorization.
 7. **Required verified product data** — only after the route remains eligible, compare required form fields with the explicit Shipmore Product fields. Missing required independent facts become `blocked_missing_verified_data`.
 8. **Verification challenge** — expose CAPTCHA, Turnstile, email challenge, or similar native verification. Unresolved manual verification becomes `blocked_manual_verification`.
 9. **Form execution** — only now enter mutable product-listing fields and proceed toward a final action.
@@ -126,7 +126,19 @@ Do not resubmit. Check only the available authorized follow-up surfaces when the
 
 ### Awaiting email verification
 
-Do not create another submission. Use an authorized mailbox only if that capability is available and allowed. Otherwise block/preserve the existing lifecycle state and leave a follow-up.
+Do not create another submission. Use the authorized `gws` mailbox workflow in `account-authentication.md` to find the matching post-trigger code/link, complete the site's native verification in the same browser session, and continue the appropriate follow-up. If no confident match arrives within the bounded poll window, preserve the lifecycle state and leave a follow-up.
+
+## Default account authentication
+
+When the directory requires an account, follow `account-authentication.md` instead of stopping with `account_strategy_required`:
+
+1. Reuse an authorized existing session, otherwise attempt one login with runtime-secret variables.
+2. Register one ordinary free account only after an explicit no-account/not-registered signal.
+3. Use verified Shipmore fields for any required identity fields; never invent missing identity/contact data.
+4. Retrieve only the matching verification message through `gws`; keep OTPs/magic links ephemeral and out of logs/evidence.
+5. Heartbeat after login/registration navigation and while waiting for email.
+6. After authentication succeeds, continue the same Run Item and original directory submission rather than completing it as blocked.
+7. Stop on CAPTCHA, phone/KYC/passkey/manual approval, paid registration, ambiguous mailbox matches, missing required identity, rejected credentials without a safe registration path, or lease loss.
 
 ### Submission outcome unknown
 

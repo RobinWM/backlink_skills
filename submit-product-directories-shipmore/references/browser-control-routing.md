@@ -64,7 +64,9 @@ Do not introduce AppleScript, PowerShell UI automation, xdotool, standalone auto
 ## Authentication and verification
 
 - Never bypass, outsource, weaken, or evade CAPTCHA, Turnstile, email verification, browser security warnings, or access controls.
-- Expose the site's ordinary native verification flow.
+- For this Shipmore worker, ordinary email/password login, one explicitly-needed free registration, and matching Gmail verification are authorized as defined in `account-authentication.md`. Load credentials only from the runtime secret file, never from repository content.
+- Expose and complete the site's ordinary native email verification flow through authorized `gws`; this is not a bypass. Keep the code/link ephemeral and use the same browser session.
+- After successful authentication, continue the original directory task. Do not stop solely because an account was required.
 - If manual user action is required, heartbeat before handoff when the lease is valid and preserve the current Shipmore state truthfully.
 - After user intervention, re-read the page and recheck challenge validity before continuing.
 - If the lease expires during handoff, do not continue acting as owner. Reclaim/recover according to the Queue protocol and inspect site state before retrying any action.
@@ -148,4 +150,4 @@ Persist only information supported by the Shipmore API contract:
 
 Runtime-local diagnostics may temporarily include a non-secret browser/backend alias when useful for recovery, but do not create a second durable queue/state record just to store it.
 
-Never persist passwords, tokens, OTPs, cookies, raw email addresses, phone numbers, authentication URLs, local application paths, process arguments, or session secrets in Shipmore evidence/result fields.
+Never persist passwords, tokens, OTPs, cookies, raw email addresses, phone numbers, authentication URLs, local application paths, process arguments, or session secrets in Shipmore evidence/result fields. The configured account email may be used as browser form input but must not be copied into evidence or exact-result text.

@@ -41,6 +41,7 @@ Read these references before mutable work:
 2. [references/status-mapping.md](references/status-mapping.md)
 3. [references/worker-loop.md](references/worker-loop.md)
 4. [references/browser-control-routing.md](references/browser-control-routing.md)
+5. [references/account-authentication.md](references/account-authentication.md)
 
 ## Source-of-truth rules
 
@@ -65,7 +66,7 @@ For each item:
 3. Inspect the returned previous Submission snapshot before browser work.
 4. If the snapshot already proves that no new form action is appropriate, finish the Run Item as `skipped` while preserving the current submission status.
 5. Heartbeat before mutable browser work and again after meaningful navigation, verification, user handoff, or long reasoning. A 300-second lease should normally receive a heartbeat at least every 60–120 seconds; longer browser work may request a larger lease within the API limits.
-6. Apply the mandatory preflight order from [references/worker-loop.md](references/worker-loop.md): unavailable → paid-only → mandatory-backlink registration and verification → other ineligibility → existing lifecycle/duplicate → account policy → missing verified data → verification → mutable form execution.
+6. Apply the mandatory preflight order from [references/worker-loop.md](references/worker-loop.md): unavailable → paid-only → mandatory-backlink registration and verification → other ineligibility → existing lifecycle/duplicate → authorized account login/registration/email verification → missing verified data → other verification → mutable form execution.
 7. Perform only truthful, authorized form work. Keep optional unknown fields blank and block required unknown fields only after earlier terminal eligibility/policy checks have passed.
 8. Record the exact visible/server outcome and an opaque evidence reference when evidence exists.
 9. Classify the result using [references/status-mapping.md](references/status-mapping.md).
@@ -77,7 +78,9 @@ For each item:
 
 - Prefer the supplied `submitUrl`; inspect and normalize it before navigation if the site redirects.
 - Reuse an authorized existing session when available. Do not inspect cookies, saved passwords, local storage, recovery codes, or hidden authentication material.
-- Never bypass CAPTCHA, Turnstile, email verification, browser security warnings, or site access controls.
+- When ordinary email/password authentication is required, follow [references/account-authentication.md](references/account-authentication.md). Use the configured default account, create one ordinary free account only when the site explicitly reports that no account exists, retrieve the matching email code/link through authorized `gws`, then continue the original submission after successful authentication.
+- Never print, persist, screenshot, or place credentials, OTPs, magic links, or mailbox content in Shipmore evidence. Runtime credentials live outside the repository in the configured secret file.
+- Never bypass CAPTCHA, Turnstile, email verification, browser security warnings, or site access controls. Completing the site's normal email verification with the authorized mailbox is allowed; bypassing or weakening it is not.
 - Do not subscribe to newsletters, accept optional promotions, pay fees, manually edit the Product site, change DNS, or create unrelated public content. A mandatory backlink/badge is handled only through Shipmore's authorized outbound-link endpoint and the verification flow below.
 - When the directory mandates a backlink or badge, heartbeat, call `POST /api/outbound-links` with the leased `runItemId` and same `workerId`, then verify the Product homepage before doing any directory form work. Do not classify it immediately as `ineligible`.
 - Poll `productUrl` homepage HTML every 20 seconds, at most 6 attempts. Heartbeat before registration and every attempt; stop immediately if lease ownership is lost. Continue the original directory submission only after an exact parsed `<a href>` match for `directoryUrl` is visible in homepage HTML (or the final browser DOM when HTML is client-rendered).
@@ -104,7 +107,7 @@ awaiting_email_verification
 published
 ```
 
-For these states, perform only the appropriate verification/follow-up work or skip while preserving the current status. An ambiguous prior final action must be checked through available account/backend, authorized mailbox, or public-page evidence before any retry.
+For these states, perform only the appropriate verification/follow-up work or skip while preserving the current status. An ambiguous prior final action must be checked through available account/backend, authorized mailbox, or public-page evidence before any retry. For `awaiting_email_verification`, use the authorized `gws` mailbox workflow before deciding that manual follow-up is required.
 
 ## CLI helper
 
@@ -146,7 +149,7 @@ Stop browser execution and preserve truthful state when:
 - mandatory backlink registration is rejected, the lease is lost while polling, or homepage verification times out after 6 attempts;
 - required verified product data is missing after earlier eligibility/policy checks pass;
 - manual verification or authentication cannot safely continue;
-- account/email policy requires an unauthorized action;
+- account/email policy requires an action outside the standing authorization in `account-authentication.md`;
 - the final submission outcome is ambiguous;
 - the execution backend cannot safely control the required authenticated surface.
 
@@ -158,4 +161,5 @@ Use a blocked/failed/skipped Run Item result and the closest truthful submission
 - [references/status-mapping.md](references/status-mapping.md): canonical Shipmore status mapping.
 - [references/worker-loop.md](references/worker-loop.md): deterministic worker procedure, product-field mapping, preflight precedence, and retry rules.
 - [references/browser-control-routing.md](references/browser-control-routing.md): backend-neutral browser selection and verification rules.
+- [references/account-authentication.md](references/account-authentication.md): authorized default-account login, free registration, secure runtime credentials, and Gmail verification through `gws`.
 - `scripts/shipmore_queue_client.py`: dependency-free Queue/outbound-link API client and homepage backlink verifier.

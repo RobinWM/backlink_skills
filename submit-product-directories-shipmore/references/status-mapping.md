@@ -59,6 +59,7 @@ The Run Item status describes the result of this execution attempt. The Submissi
 | Final submit action happened but result cannot be determined | `blocked` | `submission_outcome_unknown` | Never blindly resubmit; schedule follow-up/checks |
 | CAPTCHA/Turnstile/manual challenge blocks progress | `blocked` | `blocked_manual_verification` | Usually `awaiting_manual_verification` |
 | Required truthful product field is unavailable | `blocked` | `blocked_missing_verified_data` | Do not invent data; use only after earlier terminal eligibility/policy checks pass |
+| Ordinary account login/free registration/email verification succeeds under `account-authentication.md` | continue current Run Item | preserve current lifecycle until directory outcome | Continue the original directory submission; account-required alone is not a blocker |
 | Account/email policy prevents authorized execution | `blocked` | `blocked_account_or_email_policy` | Preserve exact policy/result |
 | Route/site unavailable | `completed` | `unavailable` | Use structured evidence when possible |
 | Only paid placement is available and payment is not authorized | `completed` | `paid_only` | Do not pay |
