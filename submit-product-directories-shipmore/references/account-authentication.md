@@ -1,60 +1,61 @@
 # Directory account authentication
 
+## Account identity source
+
+Use `productContactEmail` from the Shipmore claim payload as the directory-account email. It is the effective submission identity resolved by Shipmore:
+
+1. `productSubmissionOverride.contactEmail` for this Product, when present;
+2. otherwise the Product owner's `userSubmissionProfile.contactEmail`.
+
+Do not derive, guess, or replace this email from Product prose, the site domain, a founder profile, or a browser account. Do not copy it into evidence, exact results, screenshots, or logs. A site account visibly signed in under a different email is not interchangeable; use it only if Shipmore later returns that email as the effective identity.
+
 ## Authorization scope
 
-Brennan has authorized this worker to use the configured default directory account for ordinary free login and account creation needed to submit legitimate Product listings. This standing authorization covers:
+Brennan has authorized this worker to use the effective directory-account email above to authenticate and create an ordinary free account when needed for a legitimate Product listing. The permitted authentication order is:
 
-- logging in with the configured email/password;
-- creating a free account when the site clearly reports that no account exists;
-- retrieving the site's login/registration verification email from the authorized Gmail mailbox with `gws`;
-- entering a one-time email code or opening the site's ordinary verification link in the same browser session;
-- continuing the original directory submission after authentication succeeds.
+1. Google OAuth through an already-authorized existing browser session;
+2. GitHub OAuth through an already-authorized existing browser session;
+3. the directory's native email code or magic-link flow, retrieving only the matching message through authorized `gws`;
+4. ordinary email/password login.
 
-It does not authorize payment, paid trials, phone verification, identity/KYC checks, social/OAuth account linking, optional newsletters/promotions, unrelated public posts, multiple-account creation, or bypassing CAPTCHA/Turnstile/access controls.
+The worker may continue the original submission after successful authentication. It may create one ordinary free account only after the site explicitly reports that the effective email has no account.
+
+It does not authorize payment, paid trials, phone verification, identity/KYC checks, passkeys/security keys, linking a different Google/GitHub identity, optional newsletters/promotions, unrelated public posts, multiple-account creation, or bypassing CAPTCHA/Turnstile/access controls.
 
 ## Runtime credentials
 
-Credentials are runtime secrets, not repository content. Load them from:
+The claim payload supplies the email; it is not read from a local secret file. The optional password is a runtime secret, never repository content, and may be loaded from:
 
 ```text
 /root/.config/backlink-skills/directory-account.env
 ```
 
-Expected variables:
+Expected optional variable:
 
 ```text
-DIRECTORY_ACCOUNT_EMAIL
 DIRECTORY_ACCOUNT_PASSWORD
 ```
 
-Load without printing:
-
-```bash
-set -a
-source /root/.config/backlink-skills/directory-account.env
-set +a
-```
-
-Never run `env`, `set`, `printenv`, shell tracing (`set -x`), or commands that echo these values. Pass shell variable references to the browser command rather than embedding literal credentials in commands, notes, screenshots, Shipmore payloads, or evidence. Do not commit the runtime file.
+Load it only when the fourth authentication method is necessary, without printing it. Never run `env`, `set`, `printenv`, shell tracing (`set -x`), or commands that echo it. Do not put the effective email or password in command arguments, notes, screenshots, Shipmore payloads, or evidence. Do not commit the runtime file.
 
 ## Login and registration decision tree
 
-1. Reuse a clearly authorized existing authenticated session when available.
-2. If the site requests login, load the runtime credentials and attempt one normal login.
-3. If login succeeds, heartbeat and continue the original submission in the same session.
-4. If the site explicitly says the account does not exist, user is not registered, or equivalent, switch to the ordinary free registration flow.
-5. Do not infer non-registration merely from a generic `invalid credentials` message. Check for an explicit registration signal or use the site's normal password-reset/account-existence surface only when it is non-destructive and does not send unrelated messages.
-6. During registration, use the configured email/password. Fill any required name/company fields only from verified Shipmore Product identity fields. Keep optional unknown fields blank; do not invent a person, company, phone number, address, or username.
+1. Reuse a clearly authorized existing directory session when available.
+2. If the directory offers Google sign-in, use it only when an existing browser Google session visibly corresponds to the effective email. Do not enter Google credentials, choose a different account, grant extra permissions, or create/link a new Google identity. On success, heartbeat and continue the original submission.
+3. Otherwise, if it offers GitHub sign-in, use it only when an existing browser GitHub session visibly corresponds to the effective email. Do not enter GitHub credentials, choose a different account, authorize scopes beyond ordinary sign-in, or create/link a new GitHub identity. On success, heartbeat and continue.
+4. Otherwise, if the directory offers an ordinary email code or magic link, enter the effective email, trigger one verification message, then use the bounded `gws` workflow below. On success, continue in the same browser session.
+5. Otherwise, if the directory supports email/password and `DIRECTORY_ACCOUNT_PASSWORD` is available, attempt one normal login with the effective email and runtime password. On success, heartbeat and continue.
+6. If the site explicitly says this email has no account, register one ordinary free account using the effective email and the available method. Fill required name/company fields only from verified Shipmore Product identity fields. Keep optional unknown fields blank; do not invent a person, company, phone number, address, or username.
 7. Accept only agreements strictly required to create the ordinary free account and use the directory submission feature. Leave newsletters, promotions, partner offers, trials, and unrelated consent unchecked.
-8. After successful registration, remain in the same session and continue the original submission.
-9. Do not create a second account if registration says the email already exists. Return to login once; if that still fails, classify the exact blocker truthfully instead of looping.
-10. Limit the combined login/registration cycle to one login attempt, one registration attempt, and one post-registration login attempt unless the page itself performs a normal redirect/retry without duplicating actions.
+8. Do not infer non-registration from a generic login failure. Do not retry a failed provider, email send, password attempt, or registration cycle unless the site explicitly reports that the preceding attempt expired or did not complete.
+9. Do not create a second account if registration says the email already exists. Return to a supported sign-in method once; if that fails, classify the exact blocker truthfully.
+10. Limit the whole cycle to one attempt per offered provider, one email-verification send, one password login, one registration, and one post-registration authentication attempt unless the site performs its own normal redirect/retry without duplicating actions.
 
 ## Gmail verification with gws
 
 Use only `gws` against the already-authorized Gmail account. Reading a matching verification email is authorized; sending/replying/deleting/archiving email is not needed.
 
-1. Record the UTC time immediately before triggering the verification email. Heartbeat first if a Shipmore lease is active.
+1. Confirm that the authorized `gws` mailbox corresponds to `productContactEmail`; otherwise do not request a code/link. Record the UTC time immediately before triggering the verification email. Heartbeat first if a Shipmore lease is active.
 2. Trigger the site's ordinary email verification once. Do not repeatedly request codes unless the site explicitly reports that the first code expired or was not sent.
 3. Search for recent candidate messages, narrowing by the directory's visible brand/domain and common verification terms. Example shape:
 
@@ -70,7 +71,7 @@ Use only `gws` against the already-authorized Gmail account. Reading a matching 
 
 5. Select the newest message received after the trigger time whose sender/subject/body clearly matches the active directory. Never consume a code or magic link from an unrelated service.
 6. Extract only the required one-time code or verification URL. Do not print it, persist it, include it in evidence, or copy the rest of the mailbox content into logs.
-7. Enter the code or open the verification URL in the same authorized browser session, then re-read the page to confirm verification succeeded.
+7. Enter the code or open the verification URL in the same authorized browser session, then re-read the page to confirm verification succeeded. Do not use the message to authenticate a different email identity.
 8. Poll every 10 seconds for at most 2 minutes, heartbeating as needed. If no matching mail arrives, preserve `awaiting_email_verification` or use the closest truthful blocker/follow-up state rather than registering again.
 9. Treat OTPs and magic links as ephemeral secrets. Never save them to Shipmore, repository files, screenshots, durable notes, or command history.
 
@@ -80,6 +81,7 @@ Stop automatic authentication and classify truthfully when:
 
 - CAPTCHA, Turnstile, phone verification, KYC, security-key/passkey approval, or manual approval is required;
 - the only registration route requires payment or a paid trial;
+- the offered Google/GitHub session is absent, uses a different identity, or asks for credentials/account linking beyond ordinary sign-in;
 - required registration identity data is unavailable from verified Product fields;
 - the mailbox message cannot be confidently matched to the active directory;
 - credentials are rejected without an explicit safe registration path;
