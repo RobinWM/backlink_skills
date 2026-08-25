@@ -78,7 +78,7 @@ For each item:
 
 - Prefer the supplied `submitUrl`; inspect and normalize it before navigation if the site redirects.
 - Reuse an authorized existing session when available. Do not inspect cookies, saved passwords, local storage, recovery codes, or hidden authentication material.
-- When a directory requires authentication, follow [references/account-authentication.md](references/account-authentication.md). Use the claim payload's effective `productContactEmail` as the account email and attempt the authorized methods in order: existing Google session, existing GitHub session, native email code/magic link through authorized `gws`, then email/password. Create one ordinary free account only when the site explicitly reports that no account exists, then continue the original submission after successful authentication.
+- When a directory requires authentication, follow [references/account-authentication.md](references/account-authentication.md). Use the claim payload's effective `productContactEmail` as the account email and attempt the authorized methods in order: existing Google session, existing GitHub session, native email code/magic link (for a Google-hosted mailbox, use authorized `gws` first; only if `gws` is unavailable, use an existing matching Gmail session at `https://mail.google.com`), then email/password. Create one ordinary free account only when the site explicitly reports that no account exists, then continue the original submission after successful authentication.
 - Never print, persist, screenshot, or place credentials, OTPs, magic links, or mailbox content in Shipmore evidence. Runtime credentials live outside the repository in the configured secret file.
 - Never bypass CAPTCHA, Turnstile, email verification, browser security warnings, or site access controls. Completing the site's normal email verification with the authorized mailbox is allowed; bypassing or weakening it is not.
 - Do not subscribe to newsletters, accept optional promotions, pay fees, manually edit the Product site, change DNS, or create unrelated public content. A mandatory backlink/badge is handled only through Shipmore's authorized outbound-link endpoint and the verification flow below.
@@ -107,7 +107,7 @@ awaiting_email_verification
 published
 ```
 
-For these states, perform only the appropriate verification/follow-up work or skip while preserving the current status. An ambiguous prior final action must be checked through available account/backend, authorized mailbox, or public-page evidence before any retry. For `awaiting_email_verification`, use the authorized `gws` mailbox workflow before deciding that manual follow-up is required.
+For these states, perform only the appropriate verification/follow-up work or skip while preserving the current status. An ambiguous prior final action must be checked through available account/backend, authorized mailbox, or public-page evidence before any retry. For `awaiting_email_verification`, use the authorized Gmail mailbox workflow in `account-authentication.md`: prefer `gws`, with the existing matching Gmail web session as the fallback only when `gws` is unavailable.
 
 ## CLI helper
 
@@ -161,5 +161,5 @@ Use a blocked/failed/skipped Run Item result and the closest truthful submission
 - [references/status-mapping.md](references/status-mapping.md): canonical Shipmore status mapping.
 - [references/worker-loop.md](references/worker-loop.md): deterministic worker procedure, product-field mapping, preflight precedence, and retry rules.
 - [references/browser-control-routing.md](references/browser-control-routing.md): backend-neutral browser selection and verification rules.
-- [references/account-authentication.md](references/account-authentication.md): authorized default-account login, free registration, secure runtime credentials, and Gmail verification through `gws`.
+- [references/account-authentication.md](references/account-authentication.md): authorized default-account login, free registration, secure runtime credentials, and Gmail verification through `gws` with a Gmail web fallback when `gws` is unavailable.
 - `scripts/shipmore_queue_client.py`: dependency-free Queue/outbound-link API client and homepage backlink verifier.

@@ -65,7 +65,7 @@ Do not introduce AppleScript, PowerShell UI automation, xdotool, standalone auto
 
 - Never bypass, outsource, weaken, or evade CAPTCHA, Turnstile, email verification, browser security warnings, or access controls.
 - For this Shipmore worker, existing Google or GitHub OAuth sessions, native email verification, ordinary email/password login, and one explicitly-needed free registration are authorized as defined in `account-authentication.md`. Use the claim payload's effective account email; load only an optional password from the runtime secret file, never from repository content.
-- Expose and complete the site's ordinary native email verification flow through authorized `gws`; this is not a bypass. Keep the code/link ephemeral and use the same browser session.
+- Expose and complete the site's ordinary native email verification flow through authorized `gws` for a Google-hosted mailbox. Only when `gws` is unavailable, use an existing matching Gmail session at `https://mail.google.com`; this is not a bypass. Keep the code/link ephemeral and use the same directory browser session.
 - After successful authentication, continue the original directory task. Do not stop solely because an account was required.
 - If manual user action is required, heartbeat before handoff when the lease is valid and preserve the current Shipmore state truthfully.
 - After user intervention, re-read the page and recheck challenge validity before continuing.

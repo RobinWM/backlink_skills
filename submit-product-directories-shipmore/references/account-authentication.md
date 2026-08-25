@@ -15,7 +15,7 @@ Brennan has authorized this worker to use the effective directory-account email 
 
 1. Google OAuth through an already-authorized existing browser session;
 2. GitHub OAuth through an already-authorized existing browser session;
-3. the directory's native email code or magic-link flow, retrieving only the matching message through authorized `gws`;
+3. the directory's native email code or magic-link flow, retrieving only the matching message through authorized `gws` for a Google-hosted mailbox, or an existing matching Gmail web session only when `gws` is unavailable;
 4. ordinary email/password login.
 
 The worker may continue the original submission after successful authentication. It may create one ordinary free account only after the site explicitly reports that the effective email has no account.
@@ -43,7 +43,7 @@ Load it only when the fourth authentication method is necessary, without printin
 1. Reuse a clearly authorized existing directory session when available.
 2. If the directory offers Google sign-in, use it only when an existing browser Google session visibly corresponds to the effective email. Do not enter Google credentials, choose a different account, grant extra permissions, or create/link a new Google identity. On success, heartbeat and continue the original submission.
 3. Otherwise, if it offers GitHub sign-in, use it only when an existing browser GitHub session visibly corresponds to the effective email. Do not enter GitHub credentials, choose a different account, authorize scopes beyond ordinary sign-in, or create/link a new GitHub identity. On success, heartbeat and continue.
-4. Otherwise, if the directory offers an ordinary email code or magic link, enter the effective email, trigger one verification message, then use the bounded `gws` workflow below. On success, continue in the same browser session.
+4. Otherwise, if the directory offers an ordinary email code or magic link, enter the effective email, trigger one verification message, then use the bounded Gmail retrieval workflow below. For a Google-hosted mailbox, prefer `gws`; only if it is unavailable in the current environment, use an existing matching Gmail web session. On success, continue in the same browser session.
 5. Otherwise, if the directory supports email/password and `DIRECTORY_ACCOUNT_PASSWORD` is available, attempt one normal login with the effective email and runtime password. On success, heartbeat and continue.
 6. If the site explicitly says this email has no account, register one ordinary free account using the effective email and the available method. Fill required name/company fields only from verified Shipmore Product identity fields. Keep optional unknown fields blank; do not invent a person, company, phone number, address, or username.
 7. Accept only agreements strictly required to create the ordinary free account and use the directory submission feature. Leave newsletters, promotions, partner offers, trials, and unrelated consent unchecked.
@@ -51,13 +51,13 @@ Load it only when the fourth authentication method is necessary, without printin
 9. Do not create a second account if registration says the email already exists. Return to a supported sign-in method once; if that fails, classify the exact blocker truthfully.
 10. Limit the whole cycle to one attempt per offered provider, one email-verification send, one password login, one registration, and one post-registration authentication attempt unless the site performs its own normal redirect/retry without duplicating actions.
 
-## Gmail verification with gws
+## Gmail verification (`gws` first, Gmail web fallback)
 
-Use only `gws` against the already-authorized Gmail account. Reading a matching verification email is authorized; sending/replying/deleting/archiving email is not needed.
+For a Google-hosted effective email, use only `gws` against the already-authorized Gmail account when `gws` is available. If `gws` is unavailable in the current environment, the permitted fallback is an already-signed-in Gmail browser session at `https://mail.google.com` that visibly corresponds to `productContactEmail`. Reading a matching verification email is authorized; sending, replying, deleting, archiving, changing mailbox settings, or using a different account is not needed.
 
-1. Confirm that the authorized `gws` mailbox corresponds to `productContactEmail`; otherwise do not request a code/link. Record the UTC time immediately before triggering the verification email. Heartbeat first if a Shipmore lease is active.
+1. Determine whether `gws` is available. If it is, confirm that its authorized mailbox corresponds to `productContactEmail`; otherwise do not request a code/link. If `gws` is unavailable, open `https://mail.google.com` and confirm that an existing signed-in Gmail session visibly corresponds to `productContactEmail`. Do not enter Google credentials, select a different account, grant permissions, or create/link an account. If neither permitted mailbox surface can be confirmed, stop before requesting a code/link. Record the UTC time immediately before triggering the verification email. Heartbeat first if a Shipmore lease is active.
 2. Trigger the site's ordinary email verification once. Do not repeatedly request codes unless the site explicitly reports that the first code expired or was not sent.
-3. Search for recent candidate messages, narrowing by the directory's visible brand/domain and common verification terms. Example shape:
+3. If using `gws`, search for recent candidate messages, narrowing by the directory's visible brand/domain and common verification terms. Example shape:
 
    ```bash
    gws gmail users messages list --params '{"userId":"me","q":"newer_than:1d (verification OR verify OR code OR OTP)","maxResults":20}'
@@ -69,11 +69,12 @@ Use only `gws` against the already-authorized Gmail account. Reading a matching 
    gws gmail +read --id <message-id> --headers --format json
    ```
 
-5. Select the newest message received after the trigger time whose sender/subject/body clearly matches the active directory. Never consume a code or magic link from an unrelated service.
-6. Extract only the required one-time code or verification URL. Do not print it, persist it, include it in evidence, or copy the rest of the mailbox content into logs.
-7. Enter the code or open the verification URL in the same authorized browser session, then re-read the page to confirm verification succeeded. Do not use the message to authenticate a different email identity.
-8. Poll every 10 seconds for at most 2 minutes, heartbeating as needed. If no matching mail arrives, preserve `awaiting_email_verification` or use the closest truthful blocker/follow-up state rather than registering again.
-9. Treat OTPs and magic links as ephemeral secrets. Never save them to Shipmore, repository files, screenshots, durable notes, or command history.
+5. If using the Gmail web fallback, search the existing matching mailbox for recent candidate messages by the directory's visible brand/domain and common verification terms, then read only candidates needed to identify the newest matching message. Do not search or read unrelated mail.
+6. Select the newest message received after the trigger time whose sender, subject, and body clearly match the active directory. Never consume a code or magic link from an unrelated service.
+7. Extract only the required one-time code or verification URL. Do not print it, persist it, include it in evidence, or copy the rest of the mailbox content into logs.
+8. Enter the code or open the verification URL in the same authorized directory browser session, then re-read the page to confirm verification succeeded. Do not use the message to authenticate a different email identity.
+9. Poll every 10 seconds for at most 2 minutes, heartbeating as needed. If no matching mail arrives, preserve `awaiting_email_verification` or use the closest truthful blocker/follow-up state rather than registering again.
+10. Treat OTPs and magic links as ephemeral secrets. Never save them to Shipmore, repository files, screenshots, durable notes, or command history.
 
 ## Stop and classify
 

@@ -16,9 +16,11 @@ def test_auth_flow_covers_login_registration_and_gws_verification():
     auth = AUTH_MD.read_text(encoding="utf-8").lower()
     required_phrases = (
         "one normal login",
-        "explicitly says the account does not exist",
+        "explicitly says this email has no account",
         "gws gmail users messages list",
         "gws gmail +read",
+        "`gws` is unavailable",
+        "https://mail.google.com",
         "same browser session",
         "poll every 10 seconds for at most 2 minutes",
     )
