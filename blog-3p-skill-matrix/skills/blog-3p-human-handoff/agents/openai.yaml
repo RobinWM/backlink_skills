@@ -1,4 +1,4 @@
 interface:
-  display_name: "Blog 3P Human Handoff"
-  short_description: "Compile visual rich-text hand-off packages for humans"
-  default_prompt: "Use $blog-3p-human-handoff to compile and validate a visual rich-text publishing hand-off."
+  display_name: "博客 3P 人工发布交接"
+  short_description: "编译并校验可视化富文本人工发布交接包"
+  default_prompt: "使用 $blog-3p-human-handoff 编译并校验一份可视化富文本人工发布交接包。"

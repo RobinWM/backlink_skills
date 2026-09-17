@@ -1,44 +1,34 @@
 ---
 name: blog-3p-human-handoff
-description: Compile and locally validate a minimal browser-opened visual blog hand-off in a fixed title, annotated body, SEO title, tags, description order. Use when a reviewed blog article needs a human-friendly native publishing package without editor or API automation.
+description: "将已验收的博客文章编译为统一、可视化、可直接复制的富文本人工发布交接包，并生成本地交付校验与公开页回传证据。用于 G 已授权人工发布、需要准备交接包或核对人工回传时；不操作平台编辑器。"
 ---
 
-# Blog 3P Human Handoff
+# 博客 3P：人工发布交接包
 
-Compile a final pre-publication audit surface—not raw HTML source and not a second adaptation draft. This Skill has no platform login, editor, upload, publish, delete or rollback action.
+先阅读[术语约定](../../docs/terminology.zh-CN.md)。本技能只在 G 将文章置为 `human_release_ready` 后使用。它生成浏览器可打开、人工可直接选择标题和正文的**可视化富文本交付页**，不登录平台、不输入编辑器、不上传图片、不保存草稿、不发布、不删除或回滚。
 
-## Inputs and output
+## 唯一交接面
 
-Require an approved canonical package, `article-package.json`, `canonical/metadata.json`, `local-seo-issues-reference.md`, a declared title/body transfer mode, and the in-scope platform `format-profile.md` when one is available.
+`article-package.json` 是唯一基准稿、研究证据、视觉清单和交接文件索引的连接点。不要在发布卡、本地预检或图片注释中手工重述这些记录。唯一接受的交付页是编译器生成的 `BLOG_3P_VISUAL_PAYLOAD@2`：W 提供标题、唯一基准稿正文/结构、视觉清单和 SEO 元数据；不得手写 `visual-payload.html`、页面壳、CSS、JavaScript、按钮、卡片或操作顺序。
 
-### Compact source chain
+交付页固定自上而下显示：博客标题、在准确位置带中文图片注释的正文、SEO 标题、标签、描述。没有复制按钮、剪贴板脚本或平台专属控件。`SEPARATE_TITLE_FIELD` 表示人工分开复制标题和正文；`TITLE_IN_BODY` 用于没有独立标题字段的平台。旧 `BODY_H1_REQUIRED` 仅作为兼容输入别名，归一化为 `TITLE_IN_BODY`。本地 `<h1>`/`<h2>`/`<h3>` 标记只是写作和富文本选择辅助，绝不证明目标平台最终标题层级。
 
-- `article-package.json.artifact_sources.evidence_pack` is the article claim/SEO decision index.
-- `article-package.json.artifact_sources.visual_manifest` is the only source for image assets, localized Alt, captions, positions and coverage.
-- `article-package.json.artifact_sources.handoff_manifest` inventories derived hand-off artifacts and their hashes.
+图片位置必须渲染为编号中文注释，包含文件、覆盖区、完整本地化 Alt 与图注。Alt 为空时编译失败，不能以占位文本替代。唯一基准稿只能含文章内容和结构标记；脚本、样式、布局标签、自定义控件和 `<img>` 会被拒绝，因为固定模板拥有布局与图片注释。保留真实链接和可读结构。适用 `LEAD`/`MIDDLE`/`CLOSING` 时，使用 `validate_payload.py` 校验固定模板签名、固定顺序、可见 Alt、冻结 CTA 的锚文本/href/披露以及覆盖区数量。
 
-Do not manually retell those records in the release card, payload annotations, or local precheck. The only accepted output is compiler-generated `BLOG_3P_VISUAL_PAYLOAD@2`: W supplies title, canonical outline/body fragment, the one visual manifest and SEO metadata, but must not hand-author `visual-payload.html`, its shell, CSS, JavaScript, buttons, cards or operation order. Preserve the approved `reader_value_promise` and required CTA's exact visible anchor text, declared href and applicable visible disclosure; do not add a different CTA or platform-side promotional copy. Pass `--article-package article-package.json` to both `scripts/build_visual_payload.py` and `scripts/validate_payload.py`; they reject a missing, changed or untransported required CTA. A missing/`UNVERIFIED` editorial style profile is never a compiler failure.
+交接目录应包含 `RELEASE-CARD.md`、视觉/链接清单、内容指纹、本地预检和 `handoff/handoff-manifest.json`。后者只索引唯一基准稿、证据包、视觉清单、交付页、发布卡、本地预检和 R-Δ 的路径/哈希，不是第二份文章或 SEO 文档。
 
-The page is deliberately plain and always reads top to bottom: blog title, article body with image annotations at the intended positions, SEO title, tags, description. It has no copy button, clipboard script, or platform-specific controls. The publisher manually selects the visible title and body in the browser, then pastes them into the native editor. `SEPARATE_TITLE_FIELD` means that title and body are selected separately; `TITLE_IN_BODY` is for targets without a distinct title field. The old `BODY_H1_REQUIRED` value is accepted only as an input compatibility alias and is normalized to `TITLE_IN_BODY`. The payload's local `<h1>`/`<h2>`/`<h3>` markup only helps authoring and rich-text selection. It never promises, proves, or gates the target platform's final heading tags.
+## 编译与 R 的最终视觉复审
 
-Render local image positions as numbered Chinese annotations with file, coverage zone, complete localized Alt text and caption. Empty Alt text must fail compilation; do not replace it with a placeholder. The canonical input may contain article content and outline markers only; scripts, styles, layout-shell tags, custom controls and `<img>` are rejected because the fixed template owns layout and image annotations. Preserve actual anchors and the readable source outline in the body. For an applicable `LEAD`/`MIDDLE`/`CLOSING` policy, invoke `validate_payload.py` with the required zones and minimum annotation count; it verifies the fixed-template signature, fixed top-down order, visible Alt text, and the frozen CTA anchor/href/disclosure transport. Any locally reported heading markup is diagnostic only. Add `RELEASE-CARD.md`, the linked visual and link manifests, fingerprint, local precheck and `handoff/handoff-manifest.json` to the hand-off directory. The handoff manifest records the canonical, evidence-pack, visual-manifest, payload, release-card, local-precheck and R-delta paths plus their hashes; it is an index, not a second prose or SEO document.
+只有正文、SEO 字段、链接、来源、读者价值承诺和冻结 CTA 稳定后才编译。随后该文章既有 R 仅做一次窄范围 `VISUAL_PAYLOAD_DELTA`：审视觉清单、最终图片/视觉审查、编译交付页及其传递的字段，检查图文邻接适配、可读性、独立读者作用、覆盖区、Alt/图注、CTA 保真和固定模板一致性。
 
-## Final audit
+若正文、元数据、链接、来源、CTA 或读者价值改变，这不是视觉复审，必须回到同一 W → R 正常修复。R 批准后，G 只核验交接清单哈希、适用 `REQ-*` 映射和同一 R 的 `RESEARCH_REVIEW`、`FULL_REVIEW`、`VISUAL_PAYLOAD_DELTA` 回执链；G 不替 R 判断图片或编辑质量。机器校验只证明包装结构，不能证明平台标题层级。
 
-Compile only after canonical text, SEO fields, links, reader-value promise and frozen CTA are stable. Then the article's existing R performs one narrow final `VISUAL_PAYLOAD_DELTA`: inspect the one visual manifest, final assets/visual review sheet, compiled payload and only the fields they transport. It confirms image-to-adjacent-copy fitness, legibility, distinct reader jobs, required coverage zones, localized Alt/captions, CTA anchor/href/disclosure transport, and fixed-template fidelity. It does not repeat the prose, fact, title, localization or commercial-balance review that already produced the text lock. On approval, record the same R's `APPROVED` final receipt with report path/hash, R ID, review-index hash, visual-manifest hash and visual-payload hash, plus its completed visible `VISUAL_PAYLOAD_DELTA` task receipt. If any canonical text, metadata, link, source, CTA or reader-value field changed, this is not a visual delta: return to the existing W → R repair path.
+## 人工发布后的轻量回传
 
-After R approves that narrow delta, G validates only the handoff manifest hashes, applicable `REQ-*` traceability and the compact same-R receipt chain before human release; G does not replace R's image or editorial judgment. The hand-off check must find the registered R's completed visible `RESEARCH_REVIEW`, `FULL_REVIEW`, and `VISUAL_PAYLOAD_DELTA` receipts, with report paths/hashes recorded in `reviews/review-index.json`. A published reader-page mismatch instead stays with the existing article-lane G for the read-only public check and does not restart W/R unless the owner explicitly requests a canonical/payload correction. A passing machine check proves only packaging invariants; it cannot establish final heading hierarchy.
+人工在平台完成操作后，将 `templates/public-return-receipt.json` 复制为 `handoff/public-return-receipt.json`，记录公开 URL、精确 `HUMAN_ACCEPTED` 或 `HUMAN_NEEDS_FIX`、回传时间、已知版本/时间或 `UNVERIFIED`、渲染证据路径和已知限制。限制必须明确平台、账号/站点、编辑器/主题、地区/市场、观察日期、证据、受影响契约项，并设 `not_generalizable: true`。
 
-## Public return receipt and snapshot
+只有该文章既有的 G 使用回执和规范化快照写 `gate/public-qa-report-N.md`。它记录回执时间、文件路径、既有 G ID、尝试次数与 `unverified_retry_count`，并分类为 `PUBLIC_QA_PASSED`、`PUBLIC_QA_PASSED_WITH_LIMITATION`、`HUMAN_TRANSPORT_FIX_REQUIRED`、`PUBLIC_QA_UNVERIFIED` 或 `CANONICAL_CHANGE_REQUESTED`。平台传输修复返回给人工的一份合并清单，再回到同一 G；只有带用户请求 ID 的 `CANONICAL_CHANGE_REQUESTED` 能回到 W → R → G。
 
-After a human publishes or updates the reader page, copy `templates/public-return-receipt.json` into `handoff/public-return-receipt.json`. It names the public URL, exact `HUMAN_ACCEPTED` or `HUMAN_NEEDS_FIX` state, return time, known revision/timestamp or `UNVERIFIED`, rendered-page evidence paths, and any already known platform limitation. A limitation is valid only when it is scoped to platform, account/site, editor/theme, locale/market and observation date, has evidence and affected contract items, and says `not_generalizable: true`.
+`HUMAN_ACCEPTED` 后，标题层级仅凭公开读者页的渲染视觉判断。提供足以辨别页面标题、章节、子章节、顺序和扁平化/重复问题的视觉证据；编辑器 HTML/DOM、公开源码、Feed 与 JSON 快照均不能覆盖该结论。证据不足是 `PUBLIC_QA_UNVERIFIED`，可见层级问题使用稳定 `PUBLIC-VISUAL-HIERARCHY-NNN` 并交由人工修复决定。
 
-Run `harnessctl.py check-public-return-receipt` first. For `HUMAN_ACCEPTED`, run `scripts/capture_public_snapshot.py` with the receipt and the approved `article-package.json`; it makes a bounded HTTP GET only (or reads an explicitly supplied local HTML fixture) and writes `evidence/public-qa/public-snapshot.json`. It does not log in, edit a page, upload, publish, or infer heading levels. `HUMAN_NEEDS_FIX` deliberately skips capture and remains a human platform-side task.
-
-The existing lane G—not R, W, a fresh public reviewer, or a new worktree—uses the receipt and snapshot to write the compact `gate/public-qa-report-N.md`. Its per-article publication record must bind the receipt timestamp, local artifact paths, existing G ID, attempt and `unverified_retry_count`; G appends a timestamped `PUBLIC_QA_READONLY` task row pointing to that report. It classifies `PUBLIC_QA_PASSED`, `PUBLIC_QA_PASSED_WITH_LIMITATION`, `HUMAN_TRANSPORT_FIX_REQUIRED`, `PUBLIC_QA_UNVERIFIED`, or `CANONICAL_CHANGE_REQUESTED`. Transport fixes return to the human in one consolidated checklist and then to this same G. `CANONICAL_CHANGE_REQUESTED` requires an explicit owner request ID and is the only route back to W → R → G.
-
-## Reader-page hierarchy acceptance
-
-After the human returns both a public URL and `HUMAN_ACCEPTED`, the existing lane G judges heading hierarchy **only** from the rendered public reader page. Capture sufficient visual evidence to judge that the page title, section headings and subsection headings are visibly distinguished, correctly ordered and not visibly duplicated or flattened. If the receipt has no usable visual path, this same G may make one bounded, read-only browser capture before reporting `PUBLIC_QA_UNVERIFIED`; it must not create another agent or open a platform editor. The JSON snapshot may record that visual evidence was supplied, but cannot decide this question. Do not inspect, rely on, or ask the human to edit the platform editor's HTML/DOM; it is not a valid acceptance surface. Public source or feed markup also cannot override the visual hierarchy verdict. Missing or inconclusive rendered-page evidence is `PUBLIC_QA_UNVERIFIED`; a visible hierarchy mismatch is a stable `PUBLIC-VISUAL-HIERARCHY-NNN` finding for the owner's human-correction decision and recheck.
-
-Read `../../docs/contracts.md`, `../../docs/compatibility.md` and `../../docs/no-publish-boundary.md`.
+机器字段、HTML 模板签名、`Alt：` 标记、路径与状态码保持不变。

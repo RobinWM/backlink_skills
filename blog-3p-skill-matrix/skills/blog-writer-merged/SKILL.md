@@ -1,18 +1,19 @@
 ---
 name: blog-writer-merged
-description: Editorial-core reference for evidence-backed SEO blog writing, localization, images, and transparent recommendations. Consult from the Blog 3P Writer or use standalone outside a 3P lane; it never creates a second Writer workflow.
+description: "为博客 3P 的唯一写稿角色提供搜索导向写作、事实核验、跨语言本地化、读者价值、图片叙事和标题质量的编辑核心参考。用于需要这些编辑标准时；不是可独立派发的 W 或第二轮调研。"
 ---
 
-# Blog Writer Editorial Core
+# 博客写作编辑核心参考
 
-This is a reference, not an executable 3P role or a second research/drafting stage. In a Blog 3P lane, only `blog-3p-writer` creates the evidence record, canonical article, repairs and package; consult this Skill for editorial judgment only. Do not create a parallel brief, source ledger, image plan, audit or canonical package from this reference.
+先阅读[术语约定](../../docs/terminology.zh-CN.md)。本技能只提供编辑判断框架；它不是文章专属协作组中的可执行角色。实际调研、成稿、修复和文件产出始终由 `blog-3p-writer` 完成，独立判断由 `blog-3p-review` 完成。
 
-## Editorial core
+## 编辑原则
 
-- Build claims from contemporaneous evidence, distinguish fact from analysis, and soften or remove unsupported claims. Do not invent experience, quotes, tests, statistics, rankings, citations, availability or product behavior.
-- Resolve multilingual wording in the frozen order `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK`. A fallback needs two independent no-consensus regional checks and is never called SERP-proven.
-- Make the article independently answer the reader task before its required secondary CTA. Preserve the frozen anchor, destination, evidence basis and applicable disclosure; never convert the article into sales copy or present ownership as independent endorsement.
-- Use natural titles, descriptive links, accessible alt text and an ordered canonical outline. Markdown headings express authoring intent only; public heading hierarchy is judged later from rendered reader-page visuals.
-- For an applicable guide, tutorial, comparison, review or long explainer, require original information-bearing visuals across `LEAD`, `MIDDLE` and `CLOSING`. Each needs a distinct reader job and an adjacent-copy fit; count, filename, dimensions and alt alone do not pass.
+- 先完整回答冻结的读者任务，再以透明、相关且有证据边界的方式保留用户确认的次要 CTA。去掉 CTA 后，文章仍必须独立有用；不得把产品主张写成未经证明的可靠性、排名、实测或可用性结论。
+- 每个实质性事实都应能回溯至来源台账，或明确标为分析/观点与不确定性。不要用流畅表达代替证据。
+- 标题以读者任务、主题清晰度、独特价值、自然语言和目标市场为准；关键词/长度检查只是提示。默认平台标题等于唯一基准稿标题，禁止把短的关键词占位标题误送到平台字段。
+- 多语言表达先采用同语言、同地区、同意图的现有品牌站用语，再查地区 SERP 自然变体，最后才可在两次无共识检索后使用有记录的 `MODEL_TRANSLATION_FALLBACK`。Google Trends 只比较英文概念和英文长尾候选，不能证明本地用语或需求。
+- 配图必须解释相邻内容。适用指南、教程、对比、评测和长解释文时，以 `LEAD`、`MIDDLE`、`CLOSING` 覆盖组织图片；每张图有独立读者作用、Alt、图注、位置和视觉审查，不能用首图或尺寸凑数。
+- 唯一基准稿的标题层级是写作意图与本地结构审稿对象；平台读者页的最终层级只能由 `HUMAN_ACCEPTED` 后的公开渲染视觉裁定。
 
-Read [references/editorial-standard.md](references/editorial-standard.md) for the local audit standard and [references/cross-language-seo.md](references/cross-language-seo.md) only when localization is in scope. Independent R—not this reference—issues editorial verdicts.
+具体执行由 `blog-3p-writer`、`blog-3p-review` 和其引用的[编辑标准](references/editorial-standard.md)、[跨语言 SEO 说明](references/cross-language-seo.md)承担。机器字段、状态码、文件路径与 Skill ID 保持不变。

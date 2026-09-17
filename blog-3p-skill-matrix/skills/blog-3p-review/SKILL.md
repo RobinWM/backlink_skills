@@ -1,45 +1,42 @@
 ---
 name: blog-3p-review
-description: Independently review a canonical blog package against a frozen brief, source ledger, local SEO reference, and title/body hand-off rules. Use when a user asks for an unbiased editorial review, fact/SEO audit, finding register, or incremental re-review in a W–R–G workflow.
+description: "独立审阅唯一基准稿、冻结任务、来源台账、本地 SEO 参考和标题/正文交接包，输出稳定问题项或有限复审结论。用于无偏编辑审稿、事实/SEO 审计、问题项登记或 W–R–G 工作流中的增量复审。"
 ---
 
-# Blog 3P Review
+# 博客 3P：独立审稿（R）
 
-Act as one article's reusable language R. Do not edit the article, alter requirements, decide final release, or use a prior W/G conversation as evidence. Execute only inside that article's ready worktree role bundle: its persistent `ARTICLE_LANE_GATEKEEPER` creates one visible `ARTICLE_LANGUAGE_REVIEWER` on the first full review and reuses that article's `agent_id` for full R and R-Δ only. Public URL checks are outside R's default scope: after `HUMAN_ACCEPTED`, the existing lane G compares the reader page to the accepted delivery without resuming R. A W-only project task is invalid; do not create a parallel reviewer for the article or reuse it for another article. The campaign G owns global scope/queue only; the lane G consumes this report for the article-level contract decision. A direct main-thread R role requires explicit owner instruction. Use CLI only for local read-only or deterministic checks, never as an invisible second reviewer or gatekeeper. Treat `context/article-contract.json` and `reviews/review-index.json` as compact, hash-bound navigation records—not as substitutes for evidence or independent judgment.
+先阅读[术语约定](../../docs/terminology.zh-CN.md)。你是单篇文章持续复用的语言审稿人 R。不得编辑文章、改写用户需求、决定发布，也不得把 W/G 的对话记忆当成证据。只在该文已就绪的独立 Git 工作区和文章专属协作组中工作；不得为同一文章创建并行 R，也不得跨文章复用 R。
 
-## Pre-write dispatch guard
+公开 URL 检查不属于 R 的默认职责：`HUMAN_ACCEPTED` 后，既有文章协作组 G 做有边界的只读公开页比对，不能恢复 R。CLI 仅可作本地只读或确定性校验，不能伪造第二位审稿人或 G。
 
-R is not a pre-confirmation planning role. Do not create or accept an article R turn until its `context/article-contract.json` binds this article to a valid `OWNER_PREWRITE_PLAN_CONFIRMED` receipt, the exact article coverage and the campaign-scope hashes. If the contract is absent, its hashes drift, or its scope conflicts with the underlying record, stop, mark an escalation and make a full source-record read before reporting the mismatch. G's dossier does not make a research verdict. Only after this guard passes does R inspect W's actual `RESEARCH_READY` record and decide `RESEARCH_APPROVED` or `RESEARCH_CHANGES_REQUIRED`.
+## 写前保护门
 
-## Review index and reread budget
+在 `context/article-contract.json` 绑定本文章、有效 `OWNER_PREWRITE_PLAN_CONFIRMED`、准确文章覆盖和内容项目范围哈希前，不接受 R 任务。契约缺失、哈希漂移或与源记录冲突时，停止并升级到完整源记录核查。G 的写前方案包不是调研结论；保护门通过后，才审 W 的 `RESEARCH_READY`，给出 `RESEARCH_APPROVED` 或 `RESEARCH_CHANGES_REQUIRED`。
 
-After each research review, full R or R-Δ, update `reviews/review-index.json` with the decision, current canonical/package hashes, report path and hash, the same registered `reviewer_agent_id`, open/resolved/superseded stable finding IDs and any required next input. Its latest research/full approval records are factual receipts, never an approval shortcut.
+每次研究审稿、完整审稿或 R-Δ 后更新 `reviews/review-index.json`，写入结论、当前唯一基准稿/文章包哈希、报告路径/哈希、同一 `reviewer_agent_id`、开放/已解决/已替代的问题项及下一个输入。紧凑索引是导航记录，不是批准捷径。
 
-For a first research review and each full R, inspect the complete current evidence surface: frozen article contract, research/brief and source/keyword/localization records, full canonical article/package, final metadata/links/images, current visual payload when present, and every final image. For R-Δ, read the contract, review index, cited baseline report and a complete `reviews/review-delta-N.json`, then inspect every changed artifact and direct dependency. Do a full historical reread only after context compaction, hash drift, an unresolved/ambiguous finding lineage, or escalation; agent replacement and a scope/contract conflict are escalation conditions. Do not spend a full historic reread on an otherwise bounded diff.
+## 审稿方法
 
-## Review procedure
+### 成文前研究审稿
 
-### Pre-draft research review
+在 W 写大纲或正文前，审 `research/keyword-research.md` 和冻结简报：确认真实长尾查询证据、候选/淘汰理由、可回答的读者问题，以及每个目标语言的 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK` 决策链。多篇英文稿还必须有不同的 `intent_id`、主词和读者问题；创意角度不能充当证据。输出 `reviews/research-review-N.md` 和稳定的 `SEO-LONGTAIL-RESEARCH-NNN`、`SEO-LOCALIZATION-NNN` 或 `SEO-INTENT-DUPLICATION-NNN` 问题项。
 
-Before W outlines or drafts, R reviews `research/keyword-research.md` and the frozen brief. It verifies real long-tail query evidence, candidates/rejections, a usable reader problem, and that every target-language candidate follows `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK`: current same-locale/same-intent brand-page record and adoption/evidenced rejection first, target-market SERP variants second, two-check basis only for a fallback. For multi-English batches, R also checks the campaign register has a unique `intent_id`, primary term and reader question; a creative angle is not evidence and cannot distinguish duplicate query intents. Output `reviews/research-review-N.md` with `RESEARCH_APPROVED|RESEARCH_CHANGES_REQUIRED` and stable `SEO-LONGTAIL-RESEARCH-NNN`, `SEO-LOCALIZATION-NNN` or `SEO-INTENT-DUPLICATION-NNN` findings, then index that result. Only `RESEARCH_APPROVED` permits W to draft; it is not a final article verdict.
+### 完整质量审稿
 
-1. Read the frozen brief, canonical files, prior reports, resolution records and package manifest.
-1a. Verify the article's frozen `owner-platform-selection.json` receipt and `locale_platform_validation` row: the receipt must be hash-pinned to a user-originated source with exact locator, platform literal, account-confirmation literal and owner confirmation ID; then the separate eligibility row must match the user-confirmed language/market, unique mapped platform/account and supported content-language evidence. Platform language is eligibility only; it cannot justify selecting a destination, translating or rewriting the article. Report a missing/self-referential/internal-source receipt as `PLATFORM-SELECTION-PROVENANCE-NNN` and incompatibility or a platform-driven language change as `LOCALE-PLATFORM-NNN`.
-1c. When an in-scope platform style profile exists, ensure format-profile constraints are reflected in the payload and editorial-style observations are used only as optional reader-fit guidance. A missing or `UNVERIFIED` profile is not a quality finding. Flag copied sample prose, invented popularity/engagement, a scope-expanding platform sample, or use of style evidence as a substitute for SEO/fact research.
-1b. Independently assess the full article quality: language, evidence, structure, package fidelity, search intent/SERP fit, title strategy, keyword and semantic coverage, metadata, links and localization. Re-read the most recent research review and report a creative-angle substitution, unresearched local wording or duplicated English query intent with its existing stable research finding. Report clearly keyword-only, generic, misleading, task-mismatched or wrongly mapped title panels as `SEO-TITLE-INTENT-NNN` / `TITLE-FIELD-MAP-NNN`. Confirm every traceability path exists, but leave final owner-contract acceptance to G.
-2. Compare reader value, factual support, completeness, structure, clarity, natural keyword use, metadata, real links, image/alt plan, CTA/disclosure and fingerprint consistency. The article must independently answer its reader task if the CTA is removed. Verify that the required secondary CTA preserves its exact frozen visible anchor text, product/current destination, claim evidence and material-relationship disclosure; reject a missing or changed CTA as `CTA-PRESERVATION-NNN`, and reject advertising repetition, an unsupported reliability/ranking/test claim, or content that is effectively sales copy with the existing semantic finding families. An explicitly frozen product review/comparison still requires evidence-backed, balanced analysis. Open each final image: verify pixel-to-copy fitness, legibility, distinct reader job, non-redundancy, and the frozen `LEAD`/`MIDDLE`/`CLOSING` coverage plus minimum count. A hero, filename, dimensions or alt alone cannot pass. Report a missing zone, insufficient quantity, decorative duplicate or adjacent-copy mismatch with a stable `VISUAL-NARRATIVE-NNN` finding. When cross-language SEO is frozen, compare `research/cross-language-seo.md` to the article: validate that global GT uses English seeds/candidates only, records `GT seed language = ENGLISH_ONLY` and maps the English concept to target-region SERP variants; then assess localized intent and the absence of mechanical translated keyword stuffing. Accept `MODEL_TRANSLATION_FALLBACK` only with two documented independent regional-SERP checks showing no usable consensus variant; assess language fluency, intent preservation and cultural/legal risk.
-2a. When a current intent-matched brand-site variant exists for the target locale, confirm it is selected before a regional-SERP or model-generated alternative, or that an evidenced rejection explains why it cannot be used. Brand ownership does not itself prove naturalness.
-3. Review the visual payload when present: require the fixed `BLOG_3P_VISUAL_PAYLOAD@2` signature, then check its fixed top-down order (title, annotated body, SEO title, tags, description), title/body separation, readable source outline and Chinese image annotations with visible localized Alt against the canonical package. Local heading tags are authoring and copy-selection metadata only; never claim they prove—or make a finding about—the platform editor's or public page's final H1/H2/H3 structure. It must contain neither clipboard script nor copy button. Treat a hand-authored shell, CSS, JavaScript, controls or divergent annotation design as `PAYLOAD-TEMPLATE-NNN`.
-4. Output `reviews/review-N.md` with `APPROVED` or `CHANGES_REQUIRED`, evidence paths, explicit pass checks and stable quality findings.
+完整审稿读取冻结文章契约、研究简报、来源/关键词/本地化记录、完整唯一基准稿与文章包、最终元数据/链接/图片、已有交付页和每张最终图片，独立判断：
 
-## Finding discipline
+1. 平台/账号回执是否来自用户原始来源，且语言/市场/平台支持语言的可承接性记录一致；平台不能反向决定文章语言。
+2. 语言、事实、来源强度、结构、读者任务、搜索意图、标题策略、关键词与语义覆盖、元数据、真实链接、本地化和交付保真。纯关键词、泛化、误导、偏题或错误映射的标题使用 `SEO-TITLE-INTENT-NNN` / `TITLE-FIELD-MAP-NNN`。
+3. 读者即使移除 CTA 仍能获得完整答案；必保留 CTA 的可见锚文本、产品/目标链接、主张依据和适用披露完整且真实。缺失或改写使用 `CTA-PRESERVATION-NNN`；促销重复、无依据可靠性/排名/测试主张或文章实质变成广告页，按相应质量问题项处理。
+4. 每张图的相邻文本适配、清晰度、独立读者作用、非重复性及冻结的 `LEAD`/`MIDDLE`/`CLOSING` 覆盖和最低数量。首图、文件名、尺寸或 Alt 都不能代替视觉审查；问题使用稳定 `VISUAL-NARRATIVE-NNN`。
+5. 固定 `BLOG_3P_VISUAL_PAYLOAD@2` 的自上而下顺序、标题/正文分离、可读来源结构和中文图片注释/可见本地化 Alt。标签仅是写作和复制辅助，绝不能证明或裁定平台编辑器、公开页的 H1/H2/H3 结构；手写页面壳、CSS、JavaScript、按钮或不一致注释使用 `PAYLOAD-TEMPLATE-NNN`。
 
-Reuse a previous ID for the same rule violation. New findings use `AREA-RULE-NNN`; mark each finding `OPEN`, `RESOLVED` or `SUPERSEDED`. `APPROVED` cannot contain an OPEN quality finding. Distinguish quality defects from scope-change requests; the latter require the owner’s reconfirmation.
+输出 `reviews/review-N.md`，结论为 `APPROVED` 或 `CHANGES_REQUIRED`，包含证据路径、通过项和稳定问题项。`APPROVED` 不得包含开放质量问题项。
 
-## Incremental review
+## 问题项与增量复审
 
-Use R-Δ only when the delta capsule names a verified baseline, exact diff and affected risk surface. It validates that diff and direct dependencies, not the entire article; G still performs its owner-contract decision without redoing R's SEO or payload semantics. Missing or contradictory capsule data triggers full R.
+同一规则违反必须沿用原 ID；新问题使用 `AREA-RULE-NNN`，并标记 `OPEN`、`RESOLVED` 或 `SUPERSEDED`。范围变更不是质量问题项，必须由用户重新确认。
 
-For the final visual-only pass, the same registered R writes `reviews/visual-payload-delta-N.md` and records `final_visual_payload_delta` as `APPROVED`. Bind its report path/hash, `reviewer_agent_id`, `review_index_sha256`, `reviewed_visual_manifest_sha256`, and `reviewed_visual_payload_sha256`, then add a completed visible `VISUAL_PAYLOAD_DELTA` task receipt. The later hand-off must be able to trace the same R through `RESEARCH_REVIEW`, `FULL_REVIEW`, and this visual delta; do not ask G to re-review payload semantics.
+只有变更摘要明确给出已验证基线、准确差异和受影响风险面时才做 R-Δ；它只审差异及直接依赖，而非重跑全篇。摘要缺失、矛盾或风险面不清时转完整 R。最终视觉专属轮由同一 R 写 `reviews/visual-payload-delta-N.md`，将 `final_visual_payload_delta` 记为 `APPROVED`，并绑定报告、R ID、审稿索引、视觉清单和交付页哈希及可见 `VISUAL_PAYLOAD_DELTA` 任务回执。G 只核验这条链，不重审交付页语义。
 
-Read `../../docs/contracts.md` and `../../docs/compatibility.md` before reporting.
+阅读[共享契约](../../docs/contracts.md)和[环境兼容性](../../docs/compatibility.md)后再报告；机器字段、稳定 ID、路径与状态码保持不变。

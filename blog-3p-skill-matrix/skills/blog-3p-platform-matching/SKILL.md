@@ -1,33 +1,23 @@
 ---
 name: blog-3p-platform-matching
-description: Read-only, reusable platform-matching researcher for Blog 3P campaigns. It evaluates only owner-supplied candidate sources against frozen article language, market, format and exclusion constraints, then writes evidence-bounded platform recommendations for owner confirmation. Use before a human-release platform map is frozen; never publish, select accounts, or alter campaign scope.
+description: "在用户提供的平台候选范围内，只读研究语言、市场与内容格式适配，并提交可追溯的平台/账号匹配建议供用户确认。用于人工发布内容项目的写前平台匹配；不选择、注册、登录或发布。"
 ---
 
-# Blog 3P Platform Matching Researcher
+# 博客 3P：平台匹配调研
 
-Act only as the visible, campaign-scoped `CAMPAIGN_PLATFORM_MATCHING_RESEARCHER`. G may start or resume one such child task during `prewrite_planning` before any platform map is frozen; reuse it across the campaign rather than creating phase-named candidate agents. This is the sole pre-confirmation child-role exception: it contributes a read-only platform proposal to G's owner-facing pre-write dossier and must never create an article worktree, W, R, outline, canonical article, image, keyword-research record, or article-quality verdict. Read only the frozen article requirements and owner-originated candidate artifacts under `evidence/owner-selection/`. Do not read an internal activation record, prior mapping, official login page, preflight note or `campaign.json` as candidate authority.
+先阅读[术语约定](../../docs/terminology.zh-CN.md)。这是内容项目写前阶段唯一允许的可见子角色例外。它只研究用户已提供的 XLSX、表格或消息中出现的平台/账号候选，输出建议和不确定性；不创建文章独立 Git 工作区，不写文章，不启动 W/R，不注册/登录，不处理验证码，也不操作编辑器。
 
-## Output
+## 输入与边界
 
-Write two bounded, read-only artifacts:
+- 读取用户原始候选资料及其哈希、精确行/单元格/消息定位，冻结的文章语言、市场、内容类型和人工发布要求。
+- 公开平台页面、政策、格式说明、语言支持、公开样本和历史证据只能说明可承接性；它们不能自行创建候选、账号映射或允许范围。
+- 每个建议都必须保持“该文章 + 该平台 + 该账号”的一对一关系；不复用平台名或平台/账号组合，也不把已验证账号当成通用平台池。
+- 无法证明时写 `UNVERIFIED` 和风险，不臆造“热门”“支持”或登录/发布能力。任何付费、账号、政策、语言或格式疑点都清楚标出给用户决定。
 
-- `evidence/platform-matching/platform-matching-report.md`: candidate sources, exclusions, language/market/content-format reasoning, public eligibility evidence, uncertainty, rejected candidates, and unresolved constraints.
-- `evidence/platform-matching/platform-matching-proposal.json`: exactly one recommended platform per ready article, using the supplied template. Each row cites the owner-source ID and exact source locator, language/market, evidence path, rationale and `account_status: OWNER_CONFIRMATION_REQUIRED` unless the owner explicitly supplied a safe account alias.
+## 输出
 
-The proposal status is always `RECOMMENDED_PENDING_OWNER_CONFIRMATION`. Do not write `platform_scope.allowed_pairs`, article assignments, `owner-platform-selection.json`, confirmation records, login state or publication state. Do not create an account alias, treat an OAuth/login announcement as account authorization, or recommend a platform outside the owner source artifact.
+写入 `evidence/platform-matching/platform-matching-report.md` 和 `platform-matching-proposal.json`。对每篇文章说明：用户来源定位、候选平台/账号、文章语言/市场、可观察到的内容语言支持、格式/人工传递适配、证据 URL/日期、限制、不确定性和建议。提案必须可追溯，却不能声明已冻结或已获授权。
 
-## Research standard
+G 只检查来源和一对一结构，再向用户展示。只有用户把每一个 `{platform, account}` 明确确认到 `owner-platform-selection.json`，并让 `platform_scope.allowed_pairs` 成为其机械投影后，文章协作组才可启动。缺候选、无可靠建议或用户未确认时，结果为 `OWNER_DECISION_REQUIRED`；不得替用户选、换、补或扩展平台范围。
 
-For each candidate, test only publicly observable, read-only evidence relevant to the frozen article: language/market acceptance, content type, editor/format constraints, images/links/metadata and visible commercial-disclosure constraints, policy or account blockers, and the campaign's no-duplicate rule. State uncertainty plainly. A platform may be recommended only when it is in the owner candidate source and the report ties the recommendation to the article's actual language/market; “has an editor,” generic publishing capability, or an internal activation note is insufficient. This evidence can identify transport constraints for the owner-required secondary CTA, but cannot remove, rewrite, expand or turn it into a promotional template.
-
-If no source-listed candidate is adequately supported, write `NO_RECOMMENDATION_OWNER_DECISION_REQUIRED` for that article. Never fill the gap with an outside platform.
-
-## Shared evidence and profile cache
-
-Read the [shared-evidence cache contract](../blog-3p-harness/references/shared-evidence-cache.md) before citing a saved observation. A cache hit can reduce repeated read-only collection only when its kind, key, date and scope match exactly. It never turns a prior platform proposal, internal configuration, login notice, account state, policy observation or prior campaign mapping into a candidate source or selection authority.
-
-You may cite a reusable public format fact as supplementary delivery evidence, but the current proposal still needs owner-source provenance, an exact candidate locator and article-language/market reasoning. Refresh campaign-specific, login/account, policy and locale-support facts for the current campaign; do not borrow them from a cache. A cached profile cannot select, substitute, reserve or validate a platform/account pair.
-
-## Handoff
-
-Send G the saved artifact paths and task ID only. G mechanically checks that the proposal stays within source scope, presents it to the owner once, and—only after explicit owner confirmation—records the selected platform/account pairs in the owner selection lock. G does not rerank, replace or select your candidates.
+参见[平台选择契约](../../docs/owner-platform-selection.md)和[平台样本画像](../../docs/platform-style-profiles.md)。机器字段、JSON 键、状态码和路径保持不变。
