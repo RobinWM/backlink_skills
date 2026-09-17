@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "article_id": "A1",
+  "purpose": "ARTICLE_CLAIM_AND_SEO_DECISION_INDEX",
+  "source_ledger_path": "research/source-ledger.md",
+  "source_ledger_sha256": "REPLACE_AFTER_RESEARCH",
+  "reader_task": "REPLACE_ME",
+  "intent_and_angle": {
+    "selected": "REPLACE_ME",
+    "alternatives_rejected": []
+  },
+  "keyword_and_localization": {
+    "focus_keyword": "REPLACE_ME",
+    "brand_variant_evidence": [],
+    "regional_serp_evidence": [],
+    "fallback_used": false
+  },
+  "claims": [],
+  "visual_jobs": [
+    {"coverage_zone": "LEAD", "adjacent_claim_id": "REPLACE_ME", "reader_job": "REPLACE_ME"},
+    {"coverage_zone": "MIDDLE", "adjacent_claim_id": "REPLACE_ME", "reader_job": "REPLACE_ME"},
+    {"coverage_zone": "CLOSING", "adjacent_claim_id": "REPLACE_ME", "reader_job": "REPLACE_ME"}
+  ],
+  "uncertainties_and_non_claims": []
+}

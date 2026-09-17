@@ -1,0 +1,5 @@
+# Non-publishing boundary
+
+This matrix intentionally excludes external write operations: authentication, editor manipulation, draft creation, uploads, scheduling, publishing, deletion, rollback, API writes and browser fingerprint management.
+
+The sole release-facing artifact is a local, visual rich-text hand-off. A human can paste it into a platform’s native fields, replace image cards and inspect the public reader page. They do not edit platform HTML/DOM to force heading tags. After the human records URL/state in a structured return receipt, the article's existing lane G may make a bounded read-only HTTP/browser observation and contract check. It accepts title hierarchy only from rendered public visual evidence, not local, editor, source or snapshot markup. It does not operate the platform, create a public-QA agent, or restart W/R. A transport repair returns to the human and then this same G; only an explicit owner-requested canonical/payload change can re-enter W–R–G. If an organization later builds a platform adapter, it must live in a separate repository and be separately authorized; it cannot alter this matrix’s W–R–G decisions or platform scope.

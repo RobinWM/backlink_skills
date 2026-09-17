@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blog 3P Research Writer"
+  short_description: "Research and write evidence-backed blog articles"
+  default_prompt: "Use $blog-3p-writer to research and draft an evidence-backed blog article."

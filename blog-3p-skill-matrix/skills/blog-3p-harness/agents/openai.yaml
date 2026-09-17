@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blog 3P Harness"
+  short_description: "Initialize and validate portable blog 3P campaigns"
+  default_prompt: "Use $blog-3p-harness to initialize and validate a portable blog 3P campaign."

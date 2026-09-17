@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "article_id": "A1",
+  "purpose": "SINGLE_SOURCE_FOR_IMAGE_ASSETS_ALT_CAPTIONS_AND_PLACEMENT",
+  "text_baseline_sha256": "REPLACE_AFTER_TEXT_LOCK",
+  "assets": [
+    {
+      "coverage_zone": "LEAD",
+      "file": "images/lead.png",
+      "sha256": "REPLACE_AFTER_IMAGE_GENERATION",
+      "alt": "REPLACE_ME",
+      "caption": "REPLACE_ME",
+      "adjacent_claim_id": "REPLACE_ME",
+      "reader_job": "REPLACE_ME",
+      "placement_reason": "REPLACE_ME",
+      "prompt_record_path": "evidence/images/lead-prompt.md",
+      "visual_review_status": "PENDING"
+    }
+  ],
+  "manual_retelling": "PROHIBITED"
+}

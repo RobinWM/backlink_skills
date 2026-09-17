@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blog Writer Merged"
+  short_description: "Research and draft evidence-backed SEO blog articles"
+  default_prompt: "Use $blog-writer-merged to research and draft an evidence-backed SEO blog article."

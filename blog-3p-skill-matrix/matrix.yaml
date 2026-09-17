@@ -1,0 +1,69 @@
+version: "0.9.21"
+name: "blog-3p-skill-matrix"
+execution_boundary: "NO_EXTERNAL_PLATFORM_WRITES"
+editorial_purpose_policy:
+  mode: "READER_VALUE_FIRST"
+  primary_purpose: "STANDALONE_ANSWER_TO_READER_TASK"
+  cta_role: "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION"
+  cta_must_be_present: true
+  cta_requires_identifiable_product_and_claim_basis: true
+  cta_requires_relationship_disclosure_when_applicable: true
+  cta_must_not_replace_or_dominate_reader_value: true
+  moderation_risk: "RISK_REDUCTION_NOT_RETENTION_GUARANTEE"
+minimum_runtime:
+  python: "3.9"
+  dependencies: "standard-library-only"
+environment_profiles:
+  - local_only
+  - connected_readonly
+  - human_handoff
+orchestration:
+  prewrite_plan: CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN
+  owner_prewrite_confirmation_required: true
+  prewrite_manifest: prewrite-plan.json
+  no_article_roles_before_prewrite_confirmation: true
+  execution_isolation: WORKTREE_FIRST_PER_ARTICLE
+  worktree_autospawn: CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED
+  fallback: VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION
+  silent_fallback: false
+  article_role_bundle: ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE
+  project_worktree_root: ARTICLE_LANE_GATEKEEPER
+  public_qa: REUSE_ARTICLE_LANE_GATEKEEPER_READONLY
+  public_qa_input: STRUCTURED_HUMAN_RETURN_RECEIPT_AND_READONLY_SNAPSHOT
+  public_qa_repair: SAME_LANE_G_RECHECK_ONLY
+  canonical_reopen: OWNER_EXPLICIT_CANONICAL_OR_PAYLOAD_CHANGE_ONLY
+  heading_hierarchy_authority: PUBLIC_READER_PAGE_VISUAL_ONLY
+  article_context: HASH_BOUND_ARTICLE_CONTRACT_AND_REVIEW_INDEX
+  ordinary_turn_context: CONTRACT_INDEX_AND_CHANGED_ARTIFACTS_ONLY
+  full_history_rehydration: ON_COMPACTION_HASH_DRIFT_UNRESOLVED_LINEAGE_OR_ESCALATION
+skills:
+  - id: blog-3p-harness
+    role: campaign_harness
+    requires: []
+  - id: blog-3p-platform-matching
+    role: visible_platform_matching_researcher
+    requires: [blog-3p-harness]
+  - id: blog-writer-merged
+    role: editorial_core_reference
+    requires: []
+    activation: REFERENCE_ONLY_NOT_AN_EXECUTABLE_ARTICLE_ROLE
+  - id: blog-3p-gate
+    role: gatekeeper_controller
+    requires: [blog-3p-harness]
+  - id: blog-3p-writer
+    role: sole_executable_research_writer
+    requires: [blog-3p-harness, blog-3p-gate]
+    consults: [blog-writer-merged]
+  - id: blog-3p-review
+    role: independent_reviewer
+    requires: [blog-3p-writer]
+  - id: blog-3p-human-handoff
+    role: package_compiler
+    requires: [blog-3p-gate]
+forbidden_capabilities:
+  - editor_input
+  - media_upload
+  - publication
+  - deletion
+  - rollback
+  - credential_collection

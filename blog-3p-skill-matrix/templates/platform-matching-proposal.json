@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "REPLACE_ME",
+  "researcher_role": "CAMPAIGN_PLATFORM_MATCHING_RESEARCHER",
+  "status": "RECOMMENDED_PENDING_OWNER_CONFIRMATION",
+  "proposals": [
+    {
+      "article_id": "A1",
+      "language": "REPLACE_ME",
+      "market": "REPLACE_ME",
+      "platform": "REPLACE_ME",
+      "candidate_source_id": "owner-xlsx-001",
+      "candidate_locator": "Sheet: REPLACE_ME; row: REPLACE_ME; column: REPLACE_ME",
+      "rationale": "Evidence-bounded language, market, content-format and policy-fit rationale.",
+      "eligibility_evidence_path": "evidence/platform-matching/A1-eligibility.md",
+      "account_status": "OWNER_CONFIRMATION_REQUIRED"
+    }
+  ]
+}

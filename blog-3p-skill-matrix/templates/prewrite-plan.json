@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.3",
+  "campaign_id": "REPLACE_ME",
+  "status": "PENDING_OWNER_PREWRITE_PLAN_CONFIRMATION",
+  "owner_confirmation_id": null,
+  "artifact_convention": {
+    "canonical_source": "prewrite-plan.json",
+    "owner_view_path": "prewrite-plan.md",
+    "owner_view_mode": "DETERMINISTIC_RENDERED_READ_ONLY",
+    "manual_duplicate_entry": "PROHIBITED",
+    "writer_research_remains_required": true
+  },
+  "shared_evidence_pack": {
+    "path": "evidence/shared/campaign-evidence-pack.json",
+    "sha256": "PENDING",
+    "scope": "CAMPAIGN_READONLY_BASELINE",
+    "does_not_replace_article_research": true
+  },
+  "campaign_summary": {
+    "owner_task_and_scope": "",
+    "content_value_and_cta_policy": "",
+    "sources_checked_and_uncertainty": "",
+    "shared_constraints": "",
+    "platform_matching_status": ""
+  },
+  "article_plans": [
+    {
+      "article_id": "REPLACE_ARTICLE_ID",
+      "evidence_refs": [],
+      "task_and_audience": "",
+      "reader_value_and_secondary_cta": "",
+      "research_evidence_and_uncertainty": "",
+      "keyword_and_localization_strategy": "",
+      "factual_claims_and_sources": "",
+      "title_and_outline": "",
+      "visual_narrative": "",
+      "platform_transport_assumptions": "",
+      "risks_and_owner_decisions": ""
+    }
+  ]
+}

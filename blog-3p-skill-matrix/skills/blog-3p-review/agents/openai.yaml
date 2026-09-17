@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blog 3P Review"
+  short_description: "Independently review canonical articles with stable findings"
+  default_prompt: "Use $blog-3p-review to independently review a blog article package."

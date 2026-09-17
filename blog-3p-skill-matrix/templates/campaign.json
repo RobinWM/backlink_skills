@@ -1,0 +1,238 @@
+{
+  "schema_version": "2.4",
+  "campaign_id": "REPLACE_ME",
+  "scope_lock": {
+    "status": "DRAFT",
+    "owner_confirmation": "PENDING",
+    "prewrite_plan_receipt": {
+      "owner_confirmation_id": null,
+      "report_sha256": null,
+      "manifest_sha256": null,
+      "article_ids": []
+    }
+  },
+  "prewrite_plan_policy": {
+    "mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN",
+    "required_before_article_dispatch": true,
+    "owner_confirmation_required": true,
+    "report_path": "prewrite-plan.md",
+    "manifest_path": "prewrite-plan.json",
+    "confirmation_path": "confirmation.md",
+    "requirements_contract_path": "requirements-contract.md",
+    "requires_per_article_plan": true,
+    "article_plan_sections": [
+      "task_and_audience",
+      "reader_value_and_secondary_cta",
+      "research_evidence_and_uncertainty",
+      "keyword_and_localization_strategy",
+      "factual_claims_and_sources",
+      "title_and_outline",
+      "visual_narrative",
+      "platform_transport_assumptions",
+      "risks_and_owner_decisions"
+    ],
+    "campaign_summary_sections": [
+      "owner_task_and_scope",
+      "content_value_and_cta_policy",
+      "sources_checked_and_uncertainty",
+      "shared_constraints",
+      "platform_matching_status"
+    ],
+    "allow_article_roles_before_confirmation": false,
+    "standalone_article_research_role": "PROHIBITED",
+    "writer_research_remains_required": true,
+    "canonical_source": "prewrite-plan.json",
+    "owner_view_mode": "DETERMINISTIC_RENDERED_READ_ONLY",
+    "manual_duplicate_entry": "PROHIBITED",
+    "sync_command": "sync-prewrite-plan"
+  },
+  "platform_scope": {
+    "source": "OWNER_SELECTION_LOCK_ONLY",
+    "allowed_pairs": [],
+    "automatic_discovery_or_expansion": false,
+    "on_exhaustion": "CAPACITY_BLOCKED",
+    "selection_lock": {
+      "path": "owner-platform-selection.json",
+      "sha256": "PENDING_OWNER_CONFIRMATION",
+      "mode": "OWNER_SOURCE_RECEIPTS_ONLY",
+      "internal_candidates_may_be_selected": false,
+      "eligibility_evidence_may_select_platform": false,
+      "on_missing_receipt": "OWNER_DECISION_REQUIRED"
+    }
+  },
+  "platform_matching_policy": {
+    "mode": "VISIBLE_SUBAGENT_RESEARCH_THEN_OWNER_LOCK",
+    "researcher_role": "CAMPAIGN_PLATFORM_MATCHING_RESEARCHER",
+    "reusable": true,
+    "candidate_universe": "OWNER_SOURCE_ARTIFACT_ONLY",
+    "main_controller_may_select_or_rank": false,
+    "proposal_may_write_allowed_pairs": false,
+    "owner_confirmation_required_before_lock": true,
+    "proposal_path": "evidence/platform-matching/platform-matching-proposal.json"
+  },
+  "articles": [],
+  "article_platform_assignment": {
+    "mode": "ONE_ARTICLE_ONE_DISTINCT_PLATFORM",
+    "required_before_editorial_dispatch": true,
+    "platform_reuse_across_articles": "PROHIBITED",
+    "pair_reuse_across_articles": "PROHIBITED",
+    "assignments": [],
+    "on_missing_or_duplicate": "ARTICLE_PLATFORM_ASSIGNMENT_BLOCKED_RECONFIRM_OWNER"
+  },
+  "locale_platform_validation": {
+    "mode": "ARTICLE_LANGUAGE_MARKET_PLATFORM_EVIDENCE",
+    "required_before_editorial_dispatch": true,
+    "rows": [],
+    "on_mismatch": "LOCALE_PLATFORM_MISMATCH_RECONFIRM_OWNER",
+    "article_language_source": "USER_CONFIRMED_ARTICLE_LANGUAGE_ONLY",
+    "platform_language_role": "ELIGIBILITY_ONLY_NEVER_REWRITE_LANGUAGE"
+  },
+  "title_quality_policy": {
+    "mode": "MODEL_LED_SEMANTIC_REVIEW",
+    "required_before_review": true,
+    "review_dimensions": ["topic_clarity", "reader_intent", "distinct_value", "natural_language", "market_suitability"],
+    "heuristics": {"minimum_word_count": 6, "minimum_visible_char_count": 24, "non_blocking": true}
+  },
+  "content_value_policy": {
+    "mode": "READER_VALUE_FIRST",
+    "primary_purpose": "STANDALONE_ANSWER_TO_READER_TASK",
+    "cta_role": "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION",
+    "cta_must_be_present": true,
+    "cta_requires_identifiable_product_and_claim_basis": true,
+    "cta_requires_relationship_disclosure_when_applicable": true,
+    "cta_must_not_replace_or_dominate_reader_value": true
+  },
+  "keyword_research_policy": {
+    "mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP",
+    "required_after_owner_prewrite_confirmation_before_drafting": true,
+    "creative_angle_is_not_keyword_evidence": true,
+    "variant_priority_order": ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"],
+    "english_multi_article_intents_must_be_distinct": true,
+    "regional_serp_variants_required_for_every_target_language": true,
+    "model_translation_fallback_requires_independent_regional_serp_checks": 2
+  },
+  "platform_style_research_policy": {
+    "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",
+    "attempt_before_drafting": true,
+    "in_scope_platforms_only": true,
+    "sample_shortage": "UNVERIFIED_USE_CONSERVATIVE_GENERIC",
+    "editorial_profile_is_non_binding": true,
+    "durable_harvest_requires_public_qa_passed": true
+  },
+  "visual_narrative_policy": {
+    "mode": "LEAD_MIDDLE_CLOSING_REQUIRED",
+    "default_applies_to": ["guide", "tutorial", "comparison", "review", "long_explainer"],
+    "default_minimum_images": 3,
+    "required_coverage_zones": ["LEAD", "MIDDLE", "CLOSING"],
+    "all_articles_required": false,
+    "exception_requires_owner_confirmation": true
+  },
+  "cross_language_seo": {
+    "status": "NOT_REQUESTED",
+    "target_locales": [],
+    "google_trends_seed_language": "ENGLISH_ONLY",
+    "variant_priority_order": ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"],
+    "minimum_independent_regional_serp_checks_for_fallback": 2
+  },
+  "quality_policy": {
+    "aitdk_local_reference": "required",
+    "plugin_scan": "best_effort_non_blocking",
+    "final_prepublication_target": "visual-payload.html"
+  },
+  "artifact_optimization_policy": {
+    "mode": "CANONICAL_MANIFESTS_AND_DELTA_CONTEXT",
+    "prewrite_manifest_schema": "1.3",
+    "prewrite_manifest_canonical_source": true,
+    "prewrite_owner_view": "HARNESS_DETERMINISTIC_RENDER_ONLY",
+    "manual_duplicate_entry": "PROHIBITED",
+    "article_context": {
+      "path": "context/article-contract.json",
+      "schema_version": "1.0"
+    },
+    "review_index": {
+      "path": "reviews/review-index.json",
+      "schema_version": "1.0"
+    },
+    "review_delta": {
+      "schema_version": "1.0",
+      "max_delta_attempts_before_full_review": 2
+    },
+    "research_evidence_pack": {
+      "path": "research/evidence-pack.json",
+      "canonical": true
+    },
+    "shared_evidence_pack": {
+      "path": "evidence/shared/campaign-evidence-pack.json",
+      "canonical": true
+    },
+    "visual_manifest": {
+      "path": "canonical/visual-manifest.json",
+      "canonical": true
+    },
+    "handoff_manifest": {
+      "path": "handoff/handoff-manifest.json",
+      "canonical": true
+    },
+    "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER",
+    "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY"
+  },
+  "orchestration_policy": {
+    "delegation_default": "VISIBLE_SUBAGENTS",
+    "visible_task_record_required": true,
+    "invisible_cli_agent_sessions": "PROHIBITED",
+    "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE",
+    "cross_article_agent_reuse": "PROHIBITED",
+    "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD",
+    "persistent_requirements_gatekeeper": true,
+    "fresh_agent_roles": [],
+    "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY",
+    "execution_isolation": "WORKTREE_FIRST_PER_ARTICLE",
+    "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED",
+    "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION",
+    "silent_worktree_fallback": false,
+    "article_worktree_role_bundle": "ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE",
+    "project_worktree_root_role": "ARTICLE_LANE_GATEKEEPER",
+    "campaign_gatekeeper_scope": "GLOBAL_REQUIREMENTS_QUEUE_AND_LEDGER_ONLY",
+    "article_public_gate_mode": "REUSE_ARTICLE_LANE_GATEKEEPER_ONLY",
+    "public_qa_policy": {
+      "mode": "REUSE_ARTICLE_LANE_GATEKEEPER_READONLY",
+      "requires_human_acceptance": true,
+      "human_return_receipt": "STRUCTURED_REQUIRED",
+      "public_snapshot": "NORMALIZED_READONLY_REQUIRED",
+      "fresh_public_reviewer": "PROHIBITED",
+      "automatic_wr_reopen": false,
+      "human_transport_fix_recheck": "SAME_LANE_G_ONLY",
+      "canonical_change_reopen": "OWNER_EXPLICIT_REQUEST_ID_REQUIRED",
+      "accepted_platform_limitation": "EVIDENCE_SCOPED_NOT_GENERALIZABLE",
+      "unverified_retry_budget": 1,
+      "on_mismatch": "CLASSIFY_BEFORE_OWNER_DECISION",
+      "outcomes": [
+        "PUBLIC_QA_PASSED",
+        "PUBLIC_QA_PASSED_WITH_LIMITATION",
+        "HUMAN_TRANSPORT_FIX_REQUIRED",
+        "PUBLIC_QA_UNVERIFIED",
+        "CANONICAL_CHANGE_REQUESTED"
+      ]
+    },
+    "queue_resume_policy": "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE",
+    "article_agent_replacement_requires_full_rehydration": true,
+    "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]
+  },
+  "release_policy": {
+    "mode": "HUMAN_NATIVE_ONLY",
+    "machine_external_writes_allowed": false,
+    "default_title_transfer_mode": "SEPARATE_TITLE_FIELD",
+    "heading_hierarchy_policy": {
+      "authority": "PUBLIC_READER_PAGE_VISUAL_ONLY",
+      "editor_html_or_dom": "NOT_A_VALID_QA_SURFACE",
+      "local_payload_markup": "AUTHORING_AND_COPY_SELECTION_AID_ONLY",
+      "public_visual_check_requires_human_accepted_url": true
+    },
+    "visual_payload_template": {
+      "id": "BLOG_3P_VISUAL_PAYLOAD",
+      "version": "2",
+      "rendering": "COMPILER_ONLY",
+      "model_authored_shell_css_js": "PROHIBITED"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blog 3P Gatekeeper"
+  short_description: "Control and gate a portable blog content workflow"
+  default_prompt: "Use $blog-3p-gate to control and gate a portable blog 3P campaign."
