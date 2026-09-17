@@ -30,7 +30,7 @@ Render one compact card for every `article_plans[]` item. Use its `evidence_refs
 1. **Task and audience** — language, market, reader task, content type, and scope boundary.
 2. **Reader value and secondary CTA** — the useful result a reader receives without relying on the CTA; the required secondary recommendation's exact visible anchor text, product identity/current destination, evidence basis, reader-task relevance, relationship disclosure, and non-claims. Render the frozen declaration exactly.
 3. **Research evidence and uncertainty** — evidence IDs/paths, dates, supported conclusions, gaps, and non-claims.
-4. **Keyword and localization strategy** — long-tail intent, candidate/rejection rationale, and CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK evidence.
+4. **Keyword and localization strategy** — long-tail reader problem, candidate/rejection rationale, source route (brand, regional SERP, or target-platform audience need), optional global Trends context or an explicit data-limit boundary, and CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK evidence.
 5. **Factual claims and sources** — planned claim classes, source plan, and mandatory caveats.
 6. **Title and outline** — provisional article title/platform title/SEO title, angle, visible section/subsection route, and reader promise.
 7. **Visual narrative** — LEAD/MIDDLE/CLOSING jobs, image count, adjacent claims, rights constraints, and the future single visual-manifest reference.

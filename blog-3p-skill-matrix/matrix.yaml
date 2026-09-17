@@ -1,4 +1,4 @@
-version: "0.9.21"
+version: "0.9.22"
 name: "blog-3p-skill-matrix"
 execution_boundary: "NO_EXTERNAL_PLATFORM_WRITES"
 editorial_purpose_policy:
@@ -10,6 +10,16 @@ editorial_purpose_policy:
   cta_requires_relationship_disclosure_when_applicable: true
   cta_must_not_replace_or_dominate_reader_value: true
   moderation_risk: "RISK_REDUCTION_NOT_RETENTION_GUARANTEE"
+keyword_evidence_policy:
+  google_trends: "OPTIONAL_ENGLISH_GLOBAL_RELATIVE_CONTEXT_ONLY"
+  insufficient_data_route: "TARGET_PLATFORM_AUDIENCE_NEED_WITH_EXPLICIT_BOUNDARY"
+  prohibited_inferences:
+    - "SEARCH_VOLUME"
+    - "LOW_BASE_HIGH_MOMENTUM"
+    - "LOCAL_DEMAND"
+    - "POPULARITY"
+    - "COMMERCIAL_INTENT"
+    - "MODEL_CAPABILITY"
 minimum_runtime:
   python: "3.9"
   dependencies: "standard-library-only"

@@ -6,7 +6,7 @@ Use a cache only to avoid repeating the same bounded, read-only observation. A c
 
 | Record kind | A cache hit requires | What the receiving article still records |
 | --- | --- | --- |
-| `GLOBAL_ENGLISH_TRENDS` | The same `english_concept_id`, English seed/candidate set, observation date, and Trends window. A different concept, candidate set, date, or window is a miss. | Its own selected long-tail opportunity and English-to-target-market mapping. Trends remains global context, not local-demand evidence. |
+| `GLOBAL_ENGLISH_TRENDS` | The same `english_concept_id`, English seed/candidate set, observation date, and Trends window. A different concept, candidate set, date, or window is a miss. This optional record is absent when data is insufficient or inconclusive. | Its own selected long-tail reader-problem rationale and English-to-target-market mapping. Trends remains global relative-interest context, not local-demand, volume, popularity, commercial-intent, or momentum evidence. |
 | `BRAND_SITE_VARIANT` | The same target locale and reader intent, a current public brand page, and a fresh recheck of the page or an explicitly recorded valid-through date. | Adoption or evidence-backed rejection for that article's wording. Brand ownership alone does not prove naturalness. |
 | `REGIONAL_SERP_VARIANT` | The exact locale, market, reader intent, query context, and dated SERP observation. Any locale, market, intent, query, or stale-observation change is a miss. | The selected natural variant, rejected literal translations, and its article-specific intent rationale. |
 

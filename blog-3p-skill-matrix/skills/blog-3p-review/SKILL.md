@@ -19,7 +19,7 @@ description: "独立审阅唯一基准稿、冻结任务、来源台账、本地
 
 ### 成文前研究审稿
 
-在 W 写大纲或正文前，审 `research/keyword-research.md` 和冻结简报：确认真实长尾查询证据、候选/淘汰理由、可回答的读者问题，以及每个目标语言的 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK` 决策链。多篇英文稿还必须有不同的 `intent_id`、主词和读者问题；创意角度不能充当证据。输出 `reviews/research-review-N.md` 和稳定的 `SEO-LONGTAIL-RESEARCH-NNN`、`SEO-LOCALIZATION-NNN` 或 `SEO-INTENT-DUPLICATION-NNN` 问题项。
+在 W 写大纲或正文前，审 `research/keyword-research.md` 和冻结简报：确认可追溯的长尾读者问题/意图、候选/淘汰理由、选用依据和每个目标语言的 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK` 决策链。Google Trends 仅是可选的英文全球相对关注度背景；数据不足、无 `Breakout` 或没有清晰趋势时，接受有明确边界的“目标平台可追溯主流读者需求 + 品牌站 + 地区 SERP”理由，不得仅因缺少 Trends 而判 `CHANGES`。若无选用理由、读者问题不可回答、证据边界缺失，或把相对热度写成搜索量、低基数/高势头、本地需求、商业意图或模型能力，才提出问题项。多篇英文稿还必须有不同的 `intent_id`、主词和读者问题；创意角度不能充当证据。输出 `reviews/research-review-N.md` 和稳定的 `SEO-LONGTAIL-RESEARCH-NNN`、`SEO-LOCALIZATION-NNN` 或 `SEO-INTENT-DUPLICATION-NNN` 问题项。
 
 ### 完整质量审稿
 

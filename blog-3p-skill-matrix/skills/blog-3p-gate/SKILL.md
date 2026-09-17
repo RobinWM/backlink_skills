@@ -13,7 +13,7 @@ G 不写文章、不替 R 写审稿结论、不重审 SEO/来源/图片语义，
 
 1. 先用 `blog-3p-harness` 初始化并校验隔离工作区。普通轮次读取 `campaign.json`、`state.json`、活动文章的 `context/article-contract.json`、`reviews/review-index.json`、当前报告和未解决问题项；只有上下文压缩、哈希漂移、问题项谱系不清或升级时才完整回读历史，并登记 `CONTEXT_REHYDRATED`。
 2. 在 `prewrite_planning` 阶段，任何文章独立 Git 工作区、`ARTICLE_LANE_GATEKEEPER`、W、R、文章队列、大纲、正文、图片或唯一基准稿都不得存在。G 维护唯一可编辑的 `prewrite-plan.json`，运行 `harnessctl.py sync-prewrite-plan` 生成只读的 `prewrite-plan.md`。
-3. 写前方案必须逐篇覆盖：任务与受众、独立读者价值、必保留的次要 CTA（精确可见锚文本、目标链接、主张依据、关联与披露）、证据与不确定性、关键词/本地化、事实来源、暂定标题/大纲、图文叙事、人工发布传递假设和待用户决定事项。它只是方向和风险记录，不是 `RESEARCH_READY` 或 `RESEARCH_APPROVED`，不能替代 W 的一体化调研。
+3. 写前方案必须逐篇覆盖：任务与受众、独立读者价值、必保留的次要 CTA（精确可见锚文本、目标链接、主张依据、关联与披露）、证据与不确定性、关键词/本地化、事实来源、暂定标题/大纲、图文叙事、人工发布传递假设和待用户决定事项。关键词方案须区分可选的英文 Google Trends 相对关注度背景与数据不足时的目标平台读者需求路径；不能把无趋势当作阻塞或把相对热度当作需求证明。它只是方向和风险记录，不是 `RESEARCH_READY` 或 `RESEARCH_APPROVED`，不能替代 W 的一体化调研。
 4. 需要人工发布时，确认前唯一可见子角色是可复用的 `CAMPAIGN_PLATFORM_MATCHING_RESEARCHER`。它只在用户给出的候选资料中做只读语言/市场/格式匹配；G 只核对来源可追溯性与不重复结构，不得排序、选择或补充平台。
 5. 向用户展示完整方案后停在 `awaiting_owner_prewrite_confirmation`。只有明确回执 `OWNER_PREWRITE_PLAN_CONFIRMED` 才可继续；在 `state.json`、`confirmation.md`、`requirements-contract.md` 和 `campaign.json.scope_lock.prewrite_plan_receipt` 中绑定相同确认 ID、文章集合、报告哈希和清单哈希。任何实质变更使回执失效。
 6. 回执有效后，只把用户明确确认的要求写入 `requirements-contract.md` 并分配稳定 `REQ-<AREA>-NNN`。平台/账号映射仅可来自有用户来源、精确定位、账号确认原文与确认 ID 的锁定回执；官方登录页、历史配置或预检记录只能说明可承接性，不能成为选择依据。
@@ -38,7 +38,7 @@ G 不写文章、不替 R 写审稿结论、不重审 SEO/来源/图片语义，
 
 - 写前方案与 `OWNER_PREWRITE_PLAN_CONFIRMED` 回执完整绑定，且准确覆盖全部已配置文章。
 - 每篇人工发布文章都有唯一、用户确认的平台/账号映射及兼容的语言/市场记录；不得借用、替换或发现新平台。
-- R 已批准调研与当前文章质量，全部质量问题项已解决或已替代；G 只核验用户需求、标题/CTA 声明、文件产物、视觉交付页和哈希链的保真。
+- R 已批准调研与当前文章质量，全部质量问题项已解决或已替代；G 只核验用户需求、标题/CTA 声明、文件产物、视觉交付页和哈希链的保真。G 不会仅因 Google Trends 缺失、数据不足或没有 `Breakout`/清晰趋势而阻塞；它只确认 W/R 已记录适用的读者需求理由与证据边界。
 - `PASS` 仅进入 `human_release_ready` 并提供人工发布交接，不会触发任何平台写入。`CHANGES` 回到 W；`CAPACITY_BLOCKED` 等待用户明确变更范围；`HUMAN_NEEDS_FIX` 不等于完成。
 
 阅读[共享契约](../../docs/contracts.md)、[环境兼容性](../../docs/compatibility.md)和[不发布边界](../../docs/no-publish-boundary.md)；机器字段、状态码和路径保持原样。

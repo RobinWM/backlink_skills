@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.4",
+  "schema_version": "2.5",
   "campaign_id": "REPLACE_ME",
   "scope_lock": {
     "status": "DRAFT",
@@ -109,7 +109,19 @@
     "variant_priority_order": ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"],
     "english_multi_article_intents_must_be_distinct": true,
     "regional_serp_variants_required_for_every_target_language": true,
-    "model_translation_fallback_requires_independent_regional_serp_checks": 2
+    "model_translation_fallback_requires_independent_regional_serp_checks": 2,
+    "trend_evidence_policy": {
+      "mode": "OPTIONAL_ENGLISH_GLOBAL_RELATIVE_CONTEXT_ONLY",
+      "insufficient_data_route": "TARGET_PLATFORM_AUDIENCE_NEED_WITH_EXPLICIT_BOUNDARY",
+      "prohibited_inferences": [
+        "SEARCH_VOLUME",
+        "LOW_BASE_HIGH_MOMENTUM",
+        "LOCAL_DEMAND",
+        "POPULARITY",
+        "COMMERCIAL_INTENT",
+        "MODEL_CAPABILITY"
+      ]
+    }
   },
   "platform_style_research_policy": {
     "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",

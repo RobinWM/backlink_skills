@@ -89,6 +89,18 @@ ARTIFACT_OPTIMIZATION_POLICY_2_4 = {
     "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER",
     "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY",
 }
+TREND_EVIDENCE_POLICY_2_5 = {
+    "mode": "OPTIONAL_ENGLISH_GLOBAL_RELATIVE_CONTEXT_ONLY",
+    "insufficient_data_route": "TARGET_PLATFORM_AUDIENCE_NEED_WITH_EXPLICIT_BOUNDARY",
+    "prohibited_inferences": [
+        "SEARCH_VOLUME",
+        "LOW_BASE_HIGH_MOMENTUM",
+        "LOCAL_DEMAND",
+        "POPULARITY",
+        "COMMERCIAL_INTENT",
+        "MODEL_CAPABILITY",
+    ],
+}
 
 
 def parse_schema_version(value: object) -> tuple[int, int] | None:
@@ -1365,7 +1377,7 @@ def exact_article_coverage(candidate_ids: object, article_ids: list[str]) -> boo
 
 def campaign(campaign_id: str) -> dict:
     return {
-        "schema_version": "2.4", "campaign_id": campaign_id,
+        "schema_version": "2.5", "campaign_id": campaign_id,
         "scope_lock": {"status": "DRAFT", "owner_confirmation": "PENDING", "prewrite_plan_receipt": {"owner_confirmation_id": None, "report_sha256": None, "manifest_sha256": None, "article_ids": []}},
         "prewrite_plan_policy": {"mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN", "required_before_article_dispatch": True, "owner_confirmation_required": True, "report_path": "prewrite-plan.md", "manifest_path": "prewrite-plan.json", "confirmation_path": "confirmation.md", "requirements_contract_path": "requirements-contract.md", "requires_per_article_plan": True, "article_plan_sections": PREWRITE_PLAN_SECTIONS, "campaign_summary_sections": PREWRITE_SUMMARY_SECTIONS, "allow_article_roles_before_confirmation": False, "standalone_article_research_role": "PROHIBITED", "writer_research_remains_required": True, "canonical_source": "prewrite-plan.json", "owner_view_mode": "DETERMINISTIC_RENDERED_READ_ONLY", "manual_duplicate_entry": "PROHIBITED", "sync_command": "sync-prewrite-plan"},
         "platform_scope": {"source": "OWNER_SELECTION_LOCK_ONLY", "allowed_pairs": [], "automatic_discovery_or_expansion": False, "on_exhaustion": "CAPACITY_BLOCKED", "selection_lock": {"path": "owner-platform-selection.json", "sha256": "PENDING_OWNER_CONFIRMATION", "mode": "OWNER_SOURCE_RECEIPTS_ONLY", "internal_candidates_may_be_selected": False, "eligibility_evidence_may_select_platform": False, "on_missing_receipt": "OWNER_DECISION_REQUIRED"}},
@@ -1375,7 +1387,7 @@ def campaign(campaign_id: str) -> dict:
         "locale_platform_validation": {"mode": "ARTICLE_LANGUAGE_MARKET_PLATFORM_EVIDENCE", "required_before_editorial_dispatch": True, "rows": [], "on_mismatch": "LOCALE_PLATFORM_MISMATCH_RECONFIRM_OWNER", "article_language_source": "USER_CONFIRMED_ARTICLE_LANGUAGE_ONLY", "platform_language_role": "ELIGIBILITY_ONLY_NEVER_REWRITE_LANGUAGE"},
         "title_quality_policy": {"mode": "MODEL_LED_SEMANTIC_REVIEW", "required_before_review": True, "review_dimensions": ["topic_clarity", "reader_intent", "distinct_value", "natural_language", "market_suitability"], "heuristics": {"minimum_word_count": 6, "minimum_visible_char_count": 24, "non_blocking": True}},
         "content_value_policy": {"mode": "READER_VALUE_FIRST", "primary_purpose": "STANDALONE_ANSWER_TO_READER_TASK", "cta_role": "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION", "cta_must_be_present": True, "cta_requires_identifiable_product_and_claim_basis": True, "cta_requires_relationship_disclosure_when_applicable": True, "cta_must_not_replace_or_dominate_reader_value": True},
-        "keyword_research_policy": {"mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP", "required_after_owner_prewrite_confirmation_before_drafting": True, "creative_angle_is_not_keyword_evidence": True, "variant_priority_order": PRIORITY, "english_multi_article_intents_must_be_distinct": True, "regional_serp_variants_required_for_every_target_language": True, "model_translation_fallback_requires_independent_regional_serp_checks": 2},
+        "keyword_research_policy": {"mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP", "required_after_owner_prewrite_confirmation_before_drafting": True, "creative_angle_is_not_keyword_evidence": True, "variant_priority_order": PRIORITY, "english_multi_article_intents_must_be_distinct": True, "regional_serp_variants_required_for_every_target_language": True, "model_translation_fallback_requires_independent_regional_serp_checks": 2, "trend_evidence_policy": TREND_EVIDENCE_POLICY_2_5},
         "platform_style_research_policy": {"mode": "IN_SCOPE_READONLY_DUAL_PROFILE", "attempt_before_drafting": True, "in_scope_platforms_only": True, "sample_shortage": "UNVERIFIED_USE_CONSERVATIVE_GENERIC", "editorial_profile_is_non_binding": True, "durable_harvest_requires_public_qa_passed": True},
         "visual_narrative_policy": {"mode": "LEAD_MIDDLE_CLOSING_REQUIRED", "default_applies_to": ["guide", "tutorial", "comparison", "review", "long_explainer"], "default_minimum_images": 3, "required_coverage_zones": VISUAL_ZONES, "all_articles_required": False, "exception_requires_owner_confirmation": True},
         "cross_language_seo": {"status": "NOT_REQUESTED", "target_locales": [], "google_trends_seed_language": "ENGLISH_ONLY", "variant_priority_order": PRIORITY, "minimum_independent_regional_serp_checks_for_fallback": 2},
@@ -1456,6 +1468,7 @@ def init(workspace: Path, campaign_id: str) -> int:
         "- [ ] G writes the canonical `prewrite-plan.json`, runs `sync-prewrite-plan`, and presents the generated `prewrite-plan.md`: every article/subtask has task/audience, independent reader value and a required secondary CTA with exact visible anchor text, product/current destination, evidence basis, reader-task relevance, disclosure and non-claims, plus research evidence and uncertainty, keyword/localization strategy, factual-source plan, title/outline, visual narrative, platform transport assumptions and risks/owner decisions. The Markdown view is read-only and does not replace W's integrated research.\n"
         "- [ ] No article worktree, ARTICLE_LANE_GATEKEEPER, W or R exists before the owner records OWNER_PREWRITE_PLAN_CONFIRMED. The only permitted pre-confirmation child role is the reusable read-only CAMPAIGN_PLATFORM_MATCHING_RESEARCHER when human release is requested.\n"
         "- [ ] Scope, audience, sources, image rights and locales are confirmed. Every new article has a frozen CTA: its exact visible anchor text, product identity, current destination, claim evidence, reader relevance and material-relationship disclosure. It remains secondary and may not be presented as independently tested or ranked.\n"
+        "- [ ] For long-tail research, Google Trends is optional English-only global relative-interest context. If data is unavailable or inconclusive, do not force a signal: document a target-platform audience-need rationale with brand-site and regional-SERP evidence plus its boundary. Never infer search volume, low-base/high-momentum, local demand, popularity, commercial intent or model capability from a relative index.\n"
         "- [ ] Start or resume the visible reusable CAMPAIGN_PLATFORM_MATCHING_RESEARCHER. It reads only the owner candidate source artifacts and public eligibility evidence, then writes evidence/platform-matching/platform-matching-report.md and platform-matching-proposal.json. G must not rank or select candidates.\n"
         "- [ ] For every human-release platform/account pair, have the owner confirm the subagent proposal, then populate owner-platform-selection.json from a user-originated XLSX/table/message artifact: record its hash, exact row/cell or message locator, platform literal, account confirmation literal and owner confirmation ID. Only then hash and lock it in campaign.json. Official login notices, preflight, activation records and campaign configuration are eligibility evidence only and may never select a pair.\n"
         "- [ ] Freeze a visual-narrative policy: coverage zones, minimum image count, each image's adjacent claim and reader job. For a ten-article all-required batch, set all_articles_required: true; do not record a silent exception.\n"
@@ -1488,12 +1501,13 @@ def check(workspace: Path) -> int:
         errors.append("campaign schema_version must use exact major.minor form")
         # Apply current strict policy after a malformed version so it cannot
         # quietly select a weaker legacy validation path.
-        parsed_schema_version = (2, 4)
+        parsed_schema_version = (2, 5)
     requires_prewrite_policy = parsed_schema_version >= (2, 0)
     requires_content_value_policy = parsed_schema_version >= (2, 1)
     requires_required_cta_policy = parsed_schema_version >= (2, 2)
     requires_streamlined_public_qa_policy = parsed_schema_version >= (2, 3)
     requires_artifact_optimization_policy = parsed_schema_version >= (2, 4)
+    requires_trend_evidence_policy = parsed_schema_version >= (2, 5)
     required_plan_sections = PREWRITE_PLAN_SECTIONS if requires_content_value_policy else LEGACY_PREWRITE_PLAN_SECTIONS
     required_summary_sections = PREWRITE_SUMMARY_SECTIONS if requires_content_value_policy else LEGACY_PREWRITE_SUMMARY_SECTIONS
     prewrite_files_available = all((workspace / name).is_file() for name in ("prewrite-plan.md", "prewrite-plan.json"))
@@ -1521,12 +1535,12 @@ def check(workspace: Path) -> int:
         elif prewrite_policy.get("allow_article_roles_before_confirmation") is not False: errors.append("article roles may not start before owner confirms the pre-write plan")
         elif prewrite_policy.get("standalone_article_research_role") != "PROHIBITED": errors.append("pre-write planning must not create a second article-research role")
         elif prewrite_policy.get("writer_research_remains_required") is not True: errors.append("pre-write plan cannot replace writer integrated research")
-        elif requires_artifact_optimization_policy and prewrite_policy.get("canonical_source") != "prewrite-plan.json": errors.append("schema 2.4 pre-write source must be canonical JSON")
-        elif requires_artifact_optimization_policy and prewrite_policy.get("owner_view_mode") != "DETERMINISTIC_RENDERED_READ_ONLY": errors.append("schema 2.4 pre-write owner view must be deterministically rendered")
-        elif requires_artifact_optimization_policy and prewrite_policy.get("manual_duplicate_entry") != "PROHIBITED": errors.append("schema 2.4 pre-write duplicate manual entry must be prohibited")
-        elif requires_artifact_optimization_policy and prewrite_policy.get("sync_command") != "sync-prewrite-plan": errors.append("schema 2.4 pre-write synchronization command is invalid")
+        elif requires_artifact_optimization_policy and prewrite_policy.get("canonical_source") != "prewrite-plan.json": errors.append("schema 2.4+ pre-write source must be canonical JSON")
+        elif requires_artifact_optimization_policy and prewrite_policy.get("owner_view_mode") != "DETERMINISTIC_RENDERED_READ_ONLY": errors.append("schema 2.4+ pre-write owner view must be deterministically rendered")
+        elif requires_artifact_optimization_policy and prewrite_policy.get("manual_duplicate_entry") != "PROHIBITED": errors.append("schema 2.4+ pre-write duplicate manual entry must be prohibited")
+        elif requires_artifact_optimization_policy and prewrite_policy.get("sync_command") != "sync-prewrite-plan": errors.append("schema 2.4+ pre-write synchronization command is invalid")
     if requires_artifact_optimization_policy and cfg.get("artifact_optimization_policy") != ARTIFACT_OPTIMIZATION_POLICY_2_4:
-        errors.append("schema 2.4 artifact optimization policy is missing or changed")
+        errors.append("schema 2.4+ artifact optimization policy is missing or changed")
     if requires_prewrite_policy and not prewrite_files_available:
         print("CHECK_FAILED\n" + "\n".join(errors)); return 1
     scope = cfg.get("platform_scope", {})
@@ -1679,6 +1693,8 @@ def check(workspace: Path) -> int:
     elif keyword_policy.get("english_multi_article_intents_must_be_distinct") is not True: errors.append("English multi-article intents must be distinct")
     elif keyword_policy.get("regional_serp_variants_required_for_every_target_language") is not True: errors.append("regional SERP variants are required for every target language")
     elif keyword_policy.get("model_translation_fallback_requires_independent_regional_serp_checks") != 2: errors.append("model translation fallback requires two regional SERP checks")
+    if requires_trend_evidence_policy and (not isinstance(keyword_policy, dict) or keyword_policy.get("trend_evidence_policy") != TREND_EVIDENCE_POLICY_2_5):
+        errors.append("schema 2.5 keyword research requires the optional-trends evidence policy")
     style_policy = cfg.get("platform_style_research_policy", {})
     if not isinstance(style_policy, dict) or style_policy.get("mode") != "IN_SCOPE_READONLY_DUAL_PROFILE": errors.append("platform style research mode must be IN_SCOPE_READONLY_DUAL_PROFILE")
     elif style_policy.get("attempt_before_drafting") is not True: errors.append("platform style research must be attempted before drafting")
@@ -2021,7 +2037,7 @@ def check_public_return_receipt(workspace: Path, receipt_path: Path, package_pat
     parsed_schema_version = parse_schema_version(cfg.get("schema_version"))
     if parsed_schema_version is None:
         errors.append("campaign schema_version must use exact major.minor form")
-        parsed_schema_version = (2, 4)
+        parsed_schema_version = (2, 5)
     if parsed_schema_version < (2, 3):
         print("PUBLIC_RETURN_RECEIPT_CHECK_SKIPPED_LEGACY_SCHEMA")
         return 0

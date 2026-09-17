@@ -141,7 +141,7 @@ class PublicQaEfficiencyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.4")
+        self.assertEqual(template["schema_version"], "2.5")
         self.assertEqual(template["orchestration_policy"]["public_qa_policy"], HARNESS.PUBLIC_QA_POLICY_2_3)
         self.assertEqual(HARNESS.state("test")["publication"]["articles"], {})
         temp_dir, workspace = self.initialize()

@@ -64,12 +64,12 @@ class ContentValuePolicyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.4")
+        self.assertEqual(template["schema_version"], "2.5")
         policy = template["content_value_policy"]
         self.assertEqual(policy["cta_role"], "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION")
         self.assertTrue(policy["cta_must_be_present"])
 
-    def test_fresh_schema_2_4_workspace_checks(self) -> None:
+    def test_fresh_schema_2_5_workspace_checks(self) -> None:
         temp_dir, workspace = self.initialize()
         with temp_dir:
             manifest = json.loads((workspace / "prewrite-plan.json").read_text(encoding="utf-8"))
@@ -186,7 +186,7 @@ class ContentValuePolicyTests(unittest.TestCase):
             )
             self.assertEqual(legacy_package.returncode, 0, legacy_package.stdout + legacy_package.stderr)
 
-    def test_schema_2_4_package_requires_exact_required_cta_declaration(self) -> None:
+    def test_schema_2_5_package_requires_exact_required_cta_declaration(self) -> None:
         temp_dir, workspace = self.initialize()
         with temp_dir:
             campaign_path = workspace / "campaign.json"

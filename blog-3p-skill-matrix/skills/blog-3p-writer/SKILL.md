@@ -17,15 +17,15 @@ description: "在 W–R–G 工作流中，以一条连续证据链完成搜索�
 
 ## 一体化调研与写作
 
-1. **先做研究，后写大纲。** 在 `research/keyword-research.md` 记录主长尾意图、候选/淘汰词、读者问题、查询/日期/证据和选用表述；`creative_angle` 只能作为编辑角度，不能充当关键词证据。提交 `RESEARCH_READY` 后，必须等同一文章的 R 给出 `RESEARCH_APPROVED`。
-2. 每个目标语言都遵循 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK`：先记录同语言、同地区、同意图的现有品牌页及采用或有据拒绝；再记录地区 SERP 自然变体；只有两次独立地区检索都无可用共识时，才可记录有理由和风险的 `MODEL_TRANSLATION_FALLBACK`。Google Trends 仅比较英文种子/英文候选，不能替代本地用语证据。
+1. **先做研究，后写大纲。** 在 `research/keyword-research.md` 记录主长尾读者问题/意图、候选/淘汰词、选用理由、查询/日期/证据和证据边界；`creative_angle` 只能作为编辑角度，不能充当关键词证据。若 Google Trends 数据不足、无结果或无明确趋势，不得反复试探或编造趋势理由：改以目标平台可追溯的主流读者需求、品牌站和地区 SERP 制定长尾意图，并明确它不是搜索量、热度或需求的断言。提交 `RESEARCH_READY` 后，必须等同一文章的 R 给出 `RESEARCH_APPROVED`。
+2. 每个目标语言都遵循 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK`：先记录同语言、同地区、同意图的现有品牌页及采用或有据拒绝；再记录地区 SERP 自然变体；只有两次独立地区检索都无可用共识时，才可记录有理由和风险的 `MODEL_TRANSLATION_FALLBACK`。Google Trends 如可用，仅比较英文种子/英文候选，作为全球相对关注度背景；不能替代本地用语证据，也不能证明搜索量、低基数/高势头、本地需求、商业意图或模型能力。缺少 `Breakout` 或清晰趋势本身不阻塞研究或写作。
 3. 在 `research/brief.md` 固化读者问题、搜索意图、受众、关键词/批准变体、事实边界、视觉要求、读者价值承诺和 CTA 声明。在 `research/source-ledger.md` 逐项记录来源、访问日期、支持的主张和证据强度；不可访问或冲突的证据写 `UNVERIFIED`，不得凭信心补全。
 4. 写作前建立 `research/visual-narrative-plan.md`。每张计划图片要有章节锚点、相邻主张、独立读者作用、权利/来源、提示词或视觉简报、Alt 和图注。适用 `LEAD`/`MIDDLE`/`CLOSING` 策略时，首图只覆盖 `LEAD`，其余覆盖区和最低数量同样必须满足，除非用户确认例外。
 5. 编写并依据证据修订唯一基准稿。标题同时按读者任务、主题清晰度、独特价值、自然语言和市场适配判断；默认 `platform_title = canonical_title`，不得把较短的纯关键词标题送入平台标题字段。关键词自然出现于标题、正文前段、有意义的小节与结尾，不追求密度。
 
 ## 文章包与交接
 
-创建 `canonical/article.md`、`canonical/metadata.json`、`canonical/links.json`、`canonical/images.json` 和 `article-package.json`。当前 schema-2.4 项目使用文章包 schema `1.3`，准确引用 `research/evidence-pack.json`、`canonical/visual-manifest.json` 与 `handoff/handoff-manifest.json`；运行 `harnessctl.py check-article-package`，它只校验文件链和冻结声明保真，不替代 R 的语义判断。
+创建 `canonical/article.md`、`canonical/metadata.json`、`canonical/links.json`、`canonical/images.json` 和 `article-package.json`。当前 schema-2.5 项目使用文章包 schema `1.3`，准确引用 `research/evidence-pack.json`、`canonical/visual-manifest.json` 与 `handoff/handoff-manifest.json`；运行 `harnessctl.py check-article-package`，它只校验文件链和冻结声明保真，不替代 R 的语义判断。
 
 先稳定正文、SEO 字段、链接、来源与 CTA，再确认最终图片并请求同一 R 的窄范围 `VISUAL_PAYLOAD_DELTA`。W 只能向固定的 `BLOG_3P_VISUAL_PAYLOAD@2` 编译器提供唯一基准稿输入，不能自行设计页面壳、CSS、JavaScript、按钮或图片注释样式。标题层级标记只是写作/复制辅助，不证明平台页面结构。
 

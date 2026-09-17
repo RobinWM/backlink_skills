@@ -9,7 +9,7 @@ description: "初始化、冻结、恢复并机械校验可移植的博客 3P �
 
 ## 初始化
 
-运行 `scripts/harnessctl.py init --workspace <absolute-path> --campaign-id <id>`。它只创建本地文件：`campaign.json`、`state.json`、`confirmation.md`、`requirements-contract.md`、唯一可编辑的 `prewrite-plan.json`、确定性只读视图 `prewrite-plan.md`、一次性 `pre-clearance-checklist.md` 及标准证据/输出目录。当前 schema-2.4 工作区的写前方案清单为 schema `1.3`。
+运行 `scripts/harnessctl.py init --workspace <absolute-path> --campaign-id <id>`。它只创建本地文件：`campaign.json`、`state.json`、`confirmation.md`、`requirements-contract.md`、唯一可编辑的 `prewrite-plan.json`、确定性只读视图 `prewrite-plan.md`、一次性 `pre-clearance-checklist.md` 及标准证据/输出目录。当前 schema-2.5 工作区的写前方案清单为 schema `1.3`。
 
 ## 写前方案与用户确认
 
@@ -25,7 +25,7 @@ G 的第一阶段是 `prewrite_planning`。在用户确认前，不得存在文�
 - `platform_scope.allowed_pairs` 只是已确认 `owner-platform-selection.json` 的投影，不能自行授权。人工发布的每个 `{platform, account}` 必须有用户来源哈希、精确定位、平台原文、账号确认原文和确认 ID；每篇文章只绑定一个且不可重复的平台/账号组合。
 - 登录页、注册公告、编辑器行为、会话恢复、内部配置和历史记录只能说明可承接性，绝不能新增允许的平台/账号。模糊的“新增语言”或“平台不重复”请求没有平台选择授权，只能返回 `OWNER_DECISION_REQUIRED`。
 - 文章语言来自用户确认；平台支持语言只决定可否承接。对每篇人工发布文章记录 `locale_platform_validation`，不兼容时写 `LOCALE_PLATFORM_MISMATCH_RECONFIRM_OWNER`，不得自动翻译或改配。
-- 跨语言用语顺序固定为 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK`。Google Trends 只比较英文种子和英文候选；目标语言用语由地区 SERP 或有据的模型翻译兜底决定。
+- 跨语言用语顺序固定为 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK`。Google Trends 如可用，只比较英文种子和英文候选，并且只是全球相对关注度背景；数据不足、无 `Breakout` 或无清晰趋势时，不得强求或阻塞，改以有边界的目标平台读者需求、品牌站和地区 SERP 制定长尾意图。目标语言用语仍由地区 SERP 或有据的模型翻译兜底决定。
 
 ## 运行与交接
 
@@ -36,7 +36,7 @@ G 的第一阶段是 `prewrite_planning`。在用户确认前，不得存在文�
 
 可见、可复用的角色与独立 Git 工作区是不同概念。支持独立 Git 工作区时，每篇就绪文章必须由 `ARTICLE_LANE_GATEKEEPER` 作为根创建可见独立 Git 工作区，再在其中复用唯一 W/R；不支持时仅可使用已记录、路径互不重叠的共享工作区降级。CLI 只可执行文件读取、JSON 校验、哈希、脚本测试和版本控制等确定性本地操作，不能代替独立角色。
 
-每次交接前运行 `scripts/harnessctl.py check --workspace <absolute-path>`。当前 schema-2.4 文章包还运行 `check-article-package` 和 `check-handoff-manifest`；它们验证结构、哈希、同一 R 的可见回执和声明保真，不评分文章质量。公开回传先运行 `check-public-return-receipt`。
+每次交接前运行 `scripts/harnessctl.py check --workspace <absolute-path>`。当前 schema-2.5 文章包还运行 `check-article-package` 和 `check-handoff-manifest`；它们验证结构、哈希、同一 R 的可见回执和声明保真，不评分文章质量。公开回传先运行 `check-public-return-receipt`。
 
 ## 恢复
 
