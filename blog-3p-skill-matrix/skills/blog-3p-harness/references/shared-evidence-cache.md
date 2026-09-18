@@ -20,7 +20,7 @@ When a record is stale, mismatched, inaccessible, contradicted, or lacks a clear
 
 ## Role boundary and review cost
 
-- G may cite a shared record in the pre-write plan only as known evidence or a research lead. It still needs owner confirmation before an article worktree, and shared evidence can never select, lock, replace, or validate a platform/account pair.
+- G may cite a shared record in the pre-write plan only as known evidence or a research lead. It still needs owner confirmation before an article artifact path is created, and shared evidence can never select, lock, replace, or validate a platform/account pair.
 - W verifies the exact key, records only the article-level difference and required freshness check, and gathers all non-reusable or fresh evidence. A cited source never turns into `RESEARCH_READY` by itself.
 - R independently judges the receiving article's use. For a cited pack, R reads the exact cited records plus that article's `article_delta`; it does not reload unrelated records from the whole shared pack. This is not a new role, review round, or shared W/R conversation memory.
 - G checks only that a declared pack/hash/record-ID reference remains in confirmed scope. A changed shared-pack hash must not silently modify an approved article; only articles that cite the affected record follow the applicable R delta or full-review path.

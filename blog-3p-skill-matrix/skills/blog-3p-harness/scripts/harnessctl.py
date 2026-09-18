@@ -18,7 +18,7 @@ PRIORITY = ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"]
 VISUAL_ZONES = ["LEAD", "MIDDLE", "CLOSING"]
 OWNER_SOURCE_TYPES = {"OWNER_XLSX", "OWNER_TABLE", "OWNER_MESSAGE"}
 MATCHING_ROLE = "CAMPAIGN_PLATFORM_MATCHING_RESEARCHER"
-CURRENT_CAMPAIGN_SCHEMA = "2.12"
+CURRENT_CAMPAIGN_SCHEMA = "2.13"
 CURRENT_PREWRITE_PLAN_SCHEMA = "1.7"
 CURRENT_EVIDENCE_PACK_SCHEMA = "1.3"
 RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA = "1.6"
@@ -108,6 +108,15 @@ FINAL_VISUAL_DELTA_FIELDS = (
 CURRENT_ARTICLE_PACKAGE_SCHEMA = "1.5"
 PACKAGE_SCHEMA_WITH_METADATA_SOURCE = {"1.4", CURRENT_ARTICLE_PACKAGE_SCHEMA}
 OPTIMIZED_ARTICLE_PACKAGE_SCHEMAS = {"1.3", *PACKAGE_SCHEMA_WITH_METADATA_SOURCE}
+MAIN_SESSION_PATH_ISOLATION = "MAIN_SESSION_PATH_ISOLATED"
+GIT_WORKTREE_ISOLATION = "GIT_WORKTREE"
+ARTICLE_ARTIFACT_ROOT_TEMPLATE = "articles/{article_id}"
+WORKTREE_AUTOSPAWN_POLICY = "EXPLICIT_EXCEPTION_ONLY"
+WORKTREE_DISPATCH_REASONS = {
+    "TRUE_CONCURRENT_WRITE",
+    "HIGH_RISK_REWRITE_OR_ROLLBACK",
+    "OWNER_REQUESTED_GIT_ISOLATION",
+}
 DELTA_CHANGE_KINDS = {
     "CANONICAL_TEXT",
     "METADATA_OR_CTA",
@@ -266,6 +275,37 @@ LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 = {
         "review_surface": "HTML_PRIMARY_MARKDOWN_COMPILER_VERIFIED_FALLBACK",
     },
     "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER_HTML_PRIMARY",
+}
+LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13 = {
+    **LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12,
+    "article_artifact_root_template": ARTICLE_ARTIFACT_ROOT_TEMPLATE,
+    "article_context": {
+        "path": "articles/{article_id}/context/article-contract.json",
+        "schema_version": ARTICLE_CONTEXT_SCHEMA,
+    },
+    "review_index": {
+        "path": "articles/{article_id}/reviews/review-index.json",
+        "schema_version": REVIEW_INDEX_SCHEMA,
+    },
+    "research_evidence_pack": {
+        "path": "articles/{article_id}/research/evidence-pack.json",
+        "canonical": True,
+        "schema_version": CURRENT_EVIDENCE_PACK_SCHEMA,
+    },
+    "visual_manifest": {
+        "path": "articles/{article_id}/canonical/visual-manifest.json",
+        "canonical": True,
+    },
+    "handoff_manifest": {
+        "path": "articles/{article_id}/handoff/handoff-manifest.json",
+        "canonical": True,
+    },
+    "visual_payloads": {
+        "html": "articles/{article_id}/handoff/visual-payload.html",
+        "markdown": "articles/{article_id}/handoff/visual-payload.md",
+        "both_required": True,
+        "review_surface": "HTML_PRIMARY_MARKDOWN_COMPILER_VERIFIED_FALLBACK",
+    },
 }
 MODEL_FIRST_EXECUTION_POLICY_2_6 = {
     "mode": "MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION",
@@ -1641,6 +1681,101 @@ def relative_path(workspace: Path, path: Path) -> str:
     return str(resolved.relative_to(root))
 
 
+def article_id_is_safe_path_component(article_id: object) -> bool:
+    """Article IDs may name a deterministic directory, never a path fragment."""
+    if not non_empty_string(article_id):
+        return False
+    value = article_id.strip()
+    path = Path(value)
+    return not path.is_absolute() and value not in {".", ".."} and path.name == value and "/" not in value and "\\" not in value
+
+
+def uses_main_session_path_isolation(cfg: object) -> bool:
+    """Return whether this campaign uses the schema-2.13 article-root layout."""
+    return isinstance(cfg, dict) and schema_at_least(cfg.get("schema_version"), 2, 13)
+
+
+def article_artifact_root_relative(cfg: object, article_id: object) -> str:
+    """Resolve the one allowed article root for a current main-session campaign."""
+    if not uses_main_session_path_isolation(cfg):
+        return ""
+    if not article_id_is_safe_path_component(article_id):
+        raise ValueError("article_id is not safe for an article artifact root")
+    return ARTICLE_ARTIFACT_ROOT_TEMPLATE.format(article_id=str(article_id).strip())
+
+
+def article_artifact_paths_for_campaign(cfg: object, article_id: object) -> dict[str, str]:
+    """Return campaign-root-relative single-article paths without collisions."""
+    root = article_artifact_root_relative(cfg, article_id)
+
+    def article_path(value: str) -> str:
+        return str(Path(root, value)) if root else value
+
+    return {
+        "evidence_pack": article_path("research/evidence-pack.json"),
+        "canonical_article": article_path(canonical_article_path_for_campaign(cfg)),
+        "visual_manifest": article_path("canonical/visual-manifest.json"),
+        "article_package": article_path("article-package.json"),
+        "review_index": article_path("reviews/review-index.json"),
+        "handoff_manifest": article_path("handoff/handoff-manifest.json"),
+        "visual_payload": article_path("handoff/visual-payload.html"),
+        "visual_payload_markdown": article_path("handoff/visual-payload.md"),
+    }
+
+
+def article_workspace_isolation_errors(records: object, *, article_ids: set[str]) -> list[str]:
+    """Validate optional execution records without treating Git isolation as default.
+
+    A current campaign may have no records before dispatch.  Once a record is
+    created, its artifact root is deterministic.  A Git worktree is an
+    explicit exception with a recorded operational reason, never a shortcut
+    for lower token cost.
+    """
+    if not isinstance(records, dict):
+        return ["state article workspaces must be an object"]
+    errors: list[str] = []
+    seen_roots: dict[str, str] = {}
+    for raw_article_id, record in records.items():
+        article_id = str(raw_article_id).strip()
+        if article_id not in article_ids:
+            errors.append(f"article workspace {article_id or '<unknown>'}: article_id is not configured")
+            continue
+        if not article_id_is_safe_path_component(article_id):
+            errors.append(f"article workspace {article_id}: artifact_root cannot be derived from this article_id")
+            continue
+        if not isinstance(record, dict):
+            errors.append(f"article workspace {article_id}: record must be an object")
+            continue
+        expected_root = ARTICLE_ARTIFACT_ROOT_TEMPLATE.format(article_id=article_id)
+        root = record.get("artifact_root")
+        if root != expected_root:
+            errors.append(f"article workspace {article_id}: artifact_root must be {expected_root}")
+        elif root in seen_roots:
+            errors.append(
+                f"article workspace {article_id}: artifact_root duplicates {seen_roots[root]}"
+            )
+        else:
+            seen_roots[root] = article_id
+        isolation = record.get("isolation")
+        if isolation not in {MAIN_SESSION_PATH_ISOLATION, GIT_WORKTREE_ISOLATION}:
+            errors.append(
+                f"article workspace {article_id}: isolation must be "
+                f"{MAIN_SESSION_PATH_ISOLATION} or {GIT_WORKTREE_ISOLATION}"
+            )
+            continue
+        decision = record.get("worktree_dispatch_decision")
+        if isolation == GIT_WORKTREE_ISOLATION:
+            if not isinstance(decision, dict):
+                errors.append(f"article workspace {article_id}: GIT_WORKTREE requires worktree_dispatch_decision")
+            elif decision.get("reason") not in WORKTREE_DISPATCH_REASONS:
+                errors.append(f"article workspace {article_id}: worktree_dispatch_decision.reason is invalid")
+        elif decision not in (None, {}):
+            errors.append(
+                f"article workspace {article_id}: main-session isolation may not carry a worktree_dispatch_decision"
+            )
+    return errors
+
+
 def manifest_text(value: object, *, pending: str = "PENDING") -> str:
     return value.strip() if isinstance(value, str) and value.strip() else pending
 
@@ -2145,10 +2280,12 @@ def dispatch_readiness(workspace: Path) -> int:
     for article_id in article_ids:
         _, _, mapping_errors = human_native_release_mapping_for_article(workspace, cfg, article_id)
         blockers.extend(mapping_errors)
+    article_root_example = article_artifact_root_relative(cfg, article_ids[0]) if article_ids else "articles/<article_id>"
     next_steps = [
-        "Provision one visible W/R pair and an isolated worktree (when available) for each ready article.",
-        "Write the owner-confirmed REQ-* entries before building each context/article-contract.json.",
-        f"After W has created {canonical_article_path_for_campaign(cfg)}, build reviews/review-index.json; a bootstrap index is not a review approval.",
+        "Continue in the campaign main session and reuse visible W/R roles where suitable; process articles sequentially or only in path-disjoint batches.",
+        "Create a Git worktree only for a recorded true concurrent write, high-risk rewrite/rollback, or owner-requested isolation; it is not a token-saving default.",
+        f"Write each article only below {article_root_example}/, including its context, canonical source, reviews and handoff files.",
+        f"After W has created {article_root_example}/{canonical_article_path_for_campaign(cfg)}, build that article's reviews/review-index.json; a bootstrap index is not a review approval.",
     ]
     if blockers:
         print("DISPATCH_NOT_READY\n" + "\n".join(f"- {item}" for item in blockers))
@@ -2511,7 +2648,7 @@ def canonical_article_path_for_campaign(cfg: object) -> str:
 
 
 def build_article_context(workspace: Path, article_id: str, output: Path) -> int:
-    """Create context from a campaign root or a complete campaign Git worktree."""
+    """Create a compact article contract at its deterministic artifact root."""
     cfg, cfg_error = read_workspace_json(workspace, "campaign.json")
     st, state_error = read_workspace_json(workspace, "state.json")
     manifest, manifest_error = read_workspace_json(workspace, "prewrite-plan.json")
@@ -2530,6 +2667,18 @@ def build_article_context(workspace: Path, article_id: str, output: Path) -> int
     plan = article_plan_record(manifest, article_id)
     if article is None or plan is None:
         print("ARTICLE_CONTEXT_BUILD_FAILED\narticle must exist exactly once in campaign.json and prewrite-plan.json")
+        return 1
+    try:
+        artifact_root = article_artifact_root_relative(cfg, article_id)
+    except ValueError as exc:
+        print("ARTICLE_CONTEXT_BUILD_FAILED\n" + str(exc))
+        return 1
+    expected_context = workspace / artifact_root / "context/article-contract.json" if artifact_root else None
+    if expected_context is not None and output.resolve() != expected_context.resolve():
+        print(
+            "ARTICLE_CONTEXT_BUILD_FAILED\n"
+            f"schema 2.13 article context must be {relative_path(workspace, expected_context)}"
+        )
         return 1
     policy_errors = human_native_release_policy_errors(cfg)
     assignment, locale_row, mapping_errors = human_native_release_mapping_for_article(workspace, cfg, article_id)
@@ -2553,16 +2702,8 @@ def build_article_context(workspace: Path, article_id: str, output: Path) -> int
         "platform_assignment": assignment,
         "locale_platform_validation": locale_row,
         "source_hashes": {name: sha256_file(workspace / name) for name in source_paths},
-        "artifact_paths": {
-            "evidence_pack": "research/evidence-pack.json",
-            "canonical_article": canonical_article_path,
-            "visual_manifest": "canonical/visual-manifest.json",
-            "article_package": "article-package.json",
-            "review_index": "reviews/review-index.json",
-            "handoff_manifest": "handoff/handoff-manifest.json",
-            "visual_payload": "handoff/visual-payload.html",
-            "visual_payload_markdown": "handoff/visual-payload.md",
-        },
+        "artifact_root": artifact_root or ".",
+        "artifact_paths": article_artifact_paths_for_campaign(cfg, article_id),
         "rehydration_protocol": MODEL_FIRST_REHYDRATION_PROTOCOL,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -2627,16 +2768,10 @@ def article_context_errors(workspace: Path, context_path: Path) -> list[str]:
                 errors.append(path_error)
             elif path is not None and expected_hash != sha256_file(path):
                 errors.append(f"article context source hash changed: {relative}")
-    expected_paths = {
-        "evidence_pack": "research/evidence-pack.json",
-        "canonical_article": canonical_article_path_for_campaign(cfg),
-        "visual_manifest": "canonical/visual-manifest.json",
-        "article_package": "article-package.json",
-        "review_index": "reviews/review-index.json",
-        "handoff_manifest": "handoff/handoff-manifest.json",
-        "visual_payload": "handoff/visual-payload.html",
-        "visual_payload_markdown": "handoff/visual-payload.md",
-    }
+    expected_paths = article_artifact_paths_for_campaign(cfg, article_id) if cfg is not None and article_id else {}
+    expected_root = article_artifact_root_relative(cfg, article_id) if cfg is not None and article_id else "."
+    if uses_main_session_path_isolation(cfg) and context.get("artifact_root") != expected_root:
+        errors.append("article context artifact_root is invalid")
     if context.get("artifact_paths") != expected_paths:
         errors.append("article context artifact paths are invalid")
     protocol = context.get("rehydration_protocol")
@@ -2670,11 +2805,30 @@ def build_review_index(workspace: Path, context_path: Path, output: Path, canoni
     if context.get("schema_version") != ARTICLE_CONTEXT_SCHEMA or not non_empty_string(context.get("article_id")):
         print("REVIEW_INDEX_BUILD_FAILED\narticle contract schema or article_id is invalid")
         return 1
+    artifact_paths = context.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        print("REVIEW_INDEX_BUILD_FAILED\narticle contract artifact paths are invalid")
+        return 1
+    if uses_main_session_path_isolation(read_workspace_json(workspace, "campaign.json")[0]):
+        expected_output = workspace / str(artifact_paths.get("review_index", ""))
+        expected_canonical = workspace / str(artifact_paths.get("canonical_article", ""))
+        if output.resolve() != expected_output.resolve():
+            print(
+                "REVIEW_INDEX_BUILD_FAILED\n"
+                f"schema 2.13 review index must be {relative_path(workspace, expected_output)}"
+            )
+            return 1
+        if canonical_path is not None and canonical_path.resolve() != expected_canonical.resolve():
+            print(
+                "REVIEW_INDEX_BUILD_FAILED\n"
+                f"schema 2.13 canonical article must be {relative_path(workspace, expected_canonical)}"
+            )
+            return 1
     state_record, state_error = read_workspace_json(workspace, "state.json")
     if state_error or state_record is None:
         print("REVIEW_INDEX_BUILD_FAILED\n" + (state_error or "state.json is invalid"))
         return 1
-    canonical = canonical_path or workspace / str(context.get("artifact_paths", {}).get("canonical_article", "canonical/article.md"))
+    canonical = canonical_path or workspace / str(artifact_paths.get("canonical_article", "canonical/article.md"))
     canonical_record = {"path": relative_path(workspace, canonical), "sha256": sha256_file(canonical)} if canonical.is_file() else {"path": relative_path(workspace, canonical), "sha256": None}
     review_effort = context.get("review_effort")
     review_effort_errors = model_first_review_effort_errors(review_effort)
@@ -2903,9 +3057,12 @@ def reviewer_task_receipt_errors(
     ]
 
 
-def handoff_review_approval_errors(workspace: Path, article_id: str) -> tuple[list[str], dict | None, str | None]:
+def handoff_review_approval_errors(
+    workspace: Path, article_id: str, *, article_root: Path | None = None,
+) -> tuple[list[str], dict | None, str | None]:
     """Bind hand-off to the registered R's route-appropriate final approval."""
-    index_path = workspace / "reviews/review-index.json"
+    root = article_root or workspace
+    index_path = root / "reviews/review-index.json"
     index, index_error = json_object_file(index_path, label="handoff review index")
     errors: list[str] = []
     if index_error or index is None:
@@ -3162,10 +3319,10 @@ def campaign(campaign_id: str) -> dict:
         "visual_narrative_policy": {"mode": "LEAD_MIDDLE_CLOSING_REQUIRED", "default_applies_to": ["guide", "tutorial", "comparison", "review", "long_explainer"], "default_minimum_images": 3, "required_coverage_zones": VISUAL_ZONES, "all_articles_required": False, "exception_requires_owner_confirmation": True},
         "cross_language_seo": {"status": "NOT_REQUESTED", "target_locales": [], "google_trends_seed_language": "ENGLISH_ONLY", "variant_priority_order": PRIORITY, "minimum_independent_regional_serp_checks_for_fallback": 2},
         "quality_policy": {"aitdk_local_reference": "required", "plugin_scan": "best_effort_non_blocking", "final_prepublication_target": "visual-payload.html+visual-payload.md"},
-        "artifact_optimization_policy": LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12,
+        "artifact_optimization_policy": LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13,
         "model_first_execution_policy": MODEL_FIRST_EXECUTION_POLICY_2_6,
         "live_execution_profile": HUMAN_RELEASE_PROFILE_2_9,
-        "orchestration_policy": {"delegation_default": "VISIBLE_SUBAGENTS", "visible_task_record_required": True, "invisible_cli_agent_sessions": "PROHIBITED", "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE", "cross_article_agent_reuse": "CAMPAIGN_GATEKEEPER_ONLY", "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD", "persistent_requirements_gatekeeper": True, "fresh_agent_roles": [], "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY", "execution_isolation": "WORKTREE_FIRST_PER_ARTICLE", "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED", "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION", "silent_worktree_fallback": False, "article_worktree_role_bundle": "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G", "project_worktree_root_role": "ARTICLE_WRITER_REVIEWER_PAIR", "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA", "batch_gate_policy": GATE_BATCH_POLICY_2_7, "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY", "public_qa_policy": PUBLIC_QA_POLICY_2_7, "queue_resume_policy": "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE", "article_agent_replacement_requires_full_rehydration": True, "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]},
+        "orchestration_policy": {"delegation_default": "VISIBLE_SUBAGENTS", "visible_task_record_required": True, "invisible_cli_agent_sessions": "PROHIBITED", "writer_reviewer_pair_mode": "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION", "cross_article_agent_reuse": "CAMPAIGN_W_R_G_REUSE_ALLOWED", "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD", "persistent_requirements_gatekeeper": True, "fresh_agent_roles": [], "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY", "execution_session": "CONTINUOUS_CAMPAIGN_MAIN_SESSION", "execution_isolation": MAIN_SESSION_PATH_ISOLATION, "article_artifact_root_template": ARTICLE_ARTIFACT_ROOT_TEMPLATE, "article_artifact_roots": "REQUIRED_DISJOINT", "worktree_autospawn": WORKTREE_AUTOSPAWN_POLICY, "worktree_dispatch_decision": "REQUIRED_FOR_GIT_WORKTREE_ONLY", "worktree_allowed_reasons": ["TRUE_CONCURRENT_WRITE", "HIGH_RISK_REWRITE_OR_ROLLBACK", "OWNER_REQUESTED_GIT_ISOLATION"], "worktree_fallback": "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED", "silent_worktree_fallback": False, "article_worktree_role_bundle": "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G", "project_worktree_root_role": "ARTICLE_ARTIFACT_ROOT", "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA", "batch_gate_policy": GATE_BATCH_POLICY_2_7, "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY", "public_qa_policy": PUBLIC_QA_POLICY_2_7, "queue_resume_policy": "MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH", "article_agent_replacement_requires_full_rehydration": True, "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]},
         "release_policy": {
             "mode": "HUMAN_NATIVE_ONLY",
             "machine_external_writes_allowed": False,
@@ -3182,7 +3339,7 @@ def campaign(campaign_id: str) -> dict:
 
 
 def state(campaign_id: str) -> dict:
-    return {"schema_version": "2.3", "campaign_id": campaign_id, "phase": "prewrite_planning", "round": 0, "history": [], "finding_status": {}, "locale_platform_validation": {}, "prewrite_plan": {"status": "PENDING_OWNER_PREWRITE_PLAN_CONFIRMATION", "report_path": "prewrite-plan.md", "report_sha256": None, "manifest_path": "prewrite-plan.json", "manifest_sha256": None, "article_ids": [], "owner_confirmation_id": None, "owner_confirmation_receipt": None, "scope_snapshot": None, "scope_snapshot_sha256": None}, "artifact_index": {"article_contexts": {}, "review_indexes": {}, "review_deltas": {}, "gate_batches": {}, "public_qa_batches": {}}, "orchestration": {"controller_role": "CAMPAIGN_GATEKEEPER", "campaign_gatekeeper_agent_id": None, "tasks": [], "article_queue": [], "article_agents": {}, "article_workspaces": {}, "service_agents": {"campaign_operations": {"role": "CAMPAIGN_OPERATIONS_STEWARD", "agent_id": None, "status": "NOT_STARTED", "reusable": True, "last_rehydrated_at": None}, "platform_matching": {"role": MATCHING_ROLE, "agent_id": None, "status": "NOT_STARTED", "reusable": True, "last_rehydrated_at": None}}, "capacity": {"available_slots": "RUNTIME_DISCOVERED", "active_article_pairs": [], "active_article_worktrees": [], "spawn_policy": "AUTHORIZED_MAXIMIZE_AVAILABLE_CAPACITY", "last_dispatch_at": None}}, "publication": {"status": "NOT_STARTED", "articles": {}}}
+    return {"schema_version": "2.4", "campaign_id": campaign_id, "phase": "prewrite_planning", "round": 0, "history": [], "finding_status": {}, "locale_platform_validation": {}, "prewrite_plan": {"status": "PENDING_OWNER_PREWRITE_PLAN_CONFIRMATION", "report_path": "prewrite-plan.md", "report_sha256": None, "manifest_path": "prewrite-plan.json", "manifest_sha256": None, "article_ids": [], "owner_confirmation_id": None, "owner_confirmation_receipt": None, "scope_snapshot": None, "scope_snapshot_sha256": None}, "artifact_index": {"article_contexts": {}, "review_indexes": {}, "review_deltas": {}, "gate_batches": {}, "public_qa_batches": {}}, "orchestration": {"controller_role": "CAMPAIGN_GATEKEEPER", "campaign_gatekeeper_agent_id": None, "campaign_writer_agent_id": None, "campaign_reviewer_agent_id": None, "execution_session": "CONTINUOUS_CAMPAIGN_MAIN_SESSION", "article_artifact_root_template": ARTICLE_ARTIFACT_ROOT_TEMPLATE, "tasks": [], "article_queue": [], "article_agents": {}, "article_workspaces": {}, "service_agents": {"campaign_operations": {"role": "CAMPAIGN_OPERATIONS_STEWARD", "agent_id": None, "status": "NOT_STARTED", "reusable": True, "last_rehydrated_at": None}, "platform_matching": {"role": MATCHING_ROLE, "agent_id": None, "status": "NOT_STARTED", "reusable": True, "last_rehydrated_at": None}}, "capacity": {"available_slots": "RUNTIME_DISCOVERED", "active_article_pairs": [], "active_article_worktrees": [], "spawn_policy": "MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH", "last_dispatch_at": None}}, "publication": {"status": "NOT_STARTED", "articles": {}}}
 
 
 def init(workspace: Path, campaign_id: str) -> int:
@@ -3190,7 +3347,7 @@ def init(workspace: Path, campaign_id: str) -> int:
         print(f"ERROR: workspace is not empty: {workspace}")
         return 2
     workspace.mkdir(parents=True, exist_ok=True)
-    for name in ("research", "canonical", "reviews", "gate", "handoff", "evidence", "resolutions", "context"):
+    for name in ("research", "canonical", "reviews", "gate", "handoff", "evidence", "resolutions", "context", "articles"):
         (workspace / name).mkdir(exist_ok=True)
     (workspace / "evidence" / "owner-selection").mkdir(exist_ok=True)
     (workspace / "evidence" / "platform-matching").mkdir(exist_ok=True)
@@ -3285,6 +3442,7 @@ def check(workspace: Path) -> int:
     requires_research_integrity = parsed_schema_version >= (2, 10)
     requires_topic_governance = parsed_schema_version >= (2, 11)
     requires_single_source_payload = parsed_schema_version >= (2, 12)
+    requires_main_session_path_isolation = parsed_schema_version >= (2, 13)
     required_plan_sections = (
         MODEL_FIRST_PREWRITE_PLAN_SECTIONS if requires_model_first_execution_policy
         else PREWRITE_PLAN_SECTIONS if requires_content_value_policy
@@ -3328,7 +3486,8 @@ def check(workspace: Path) -> int:
         elif requires_live_execution_profile and prewrite_policy.get("confirmation_command") != "confirm-prewrite-plan": errors.append("schema 2.8+ pre-write confirmation command is invalid")
         elif requires_live_execution_profile and prewrite_policy.get("owner_confirmation_receipt_required") is not True: errors.append("schema 2.8+ pre-write confirmation requires an owner receipt")
     expected_artifact_policy = (
-        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 if requires_single_source_payload
+        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13 if parsed_schema_version >= (2, 13)
+        else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 if requires_single_source_payload
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11 if requires_topic_governance
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_10 if requires_research_integrity
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_8 if requires_live_execution_profile
@@ -3655,15 +3814,33 @@ def check(workspace: Path) -> int:
     if orchestration.get("delegation_default") != "VISIBLE_SUBAGENTS": errors.append("visible subagents must be the default delegation mode")
     if orchestration.get("visible_task_record_required") is not True: errors.append("visible task records must be required")
     if orchestration.get("invisible_cli_agent_sessions") != "PROHIBITED": errors.append("invisible CLI agent sessions must be prohibited")
-    if orchestration.get("writer_reviewer_pair_mode") != "ONE_REUSABLE_PAIR_PER_ARTICLE": errors.append("each article must have one reusable writer-reviewer pair")
-    expected_cross_article_reuse = "CAMPAIGN_GATEKEEPER_ONLY" if uses_batch_control_plane else "PROHIBITED"
+    expected_pair_mode = (
+        "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION"
+        if requires_main_session_path_isolation else "ONE_REUSABLE_PAIR_PER_ARTICLE"
+    )
+    if orchestration.get("writer_reviewer_pair_mode") != expected_pair_mode:
+        errors.append("main-session campaigns must allow reusable W/R roles with per-article artifact isolation" if requires_main_session_path_isolation else "each article must have one reusable writer-reviewer pair")
+    expected_cross_article_reuse = (
+        "CAMPAIGN_W_R_G_REUSE_ALLOWED" if requires_main_session_path_isolation
+        else "CAMPAIGN_GATEKEEPER_ONLY" if uses_batch_control_plane else "PROHIBITED"
+    )
     if orchestration.get("cross_article_agent_reuse") != expected_cross_article_reuse:
         errors.append("only the persistent campaign gatekeeper may be reused across articles" if uses_batch_control_plane else "writer-reviewer agents may not be reused across articles")
     if orchestration.get("operations_steward_mode") != "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD": errors.append("campaign operations must use one reusable visible steward")
     if orchestration.get("persistent_requirements_gatekeeper") is not True: errors.append("G must be the persistent requirements gatekeeper")
     if orchestration.get("fresh_agent_roles") != []: errors.append("public QA must not create a fresh agent")
     if orchestration.get("pair_activation") != "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY": errors.append("article pairs must be scheduled by the G queue and runtime capacity")
-    if requires_worktree_policy:
+    if requires_main_session_path_isolation:
+        if orchestration.get("execution_session") != "CONTINUOUS_CAMPAIGN_MAIN_SESSION": errors.append("schema 2.13 requires a continuous campaign main session")
+        if orchestration.get("execution_isolation") != MAIN_SESSION_PATH_ISOLATION: errors.append("schema 2.13 execution isolation must be MAIN_SESSION_PATH_ISOLATED")
+        if orchestration.get("article_artifact_root_template") != ARTICLE_ARTIFACT_ROOT_TEMPLATE: errors.append("schema 2.13 article artifact root template must be articles/{article_id}")
+        if orchestration.get("article_artifact_roots") != "REQUIRED_DISJOINT": errors.append("schema 2.13 article artifact roots must be required and disjoint")
+        if orchestration.get("worktree_autospawn") != WORKTREE_AUTOSPAWN_POLICY: errors.append("schema 2.13 worktree autospawn must be EXPLICIT_EXCEPTION_ONLY")
+        if orchestration.get("worktree_dispatch_decision") != "REQUIRED_FOR_GIT_WORKTREE_ONLY": errors.append("schema 2.13 Git worktrees require a recorded exception decision")
+        if orchestration.get("worktree_allowed_reasons") != ["TRUE_CONCURRENT_WRITE", "HIGH_RISK_REWRITE_OR_ROLLBACK", "OWNER_REQUESTED_GIT_ISOLATION"]: errors.append("schema 2.13 worktree reasons are invalid")
+        if orchestration.get("worktree_fallback") != "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED": errors.append("schema 2.13 must not use a worktree fallback as its normal path")
+        if orchestration.get("silent_worktree_fallback") is not False: errors.append("worktree decisions must never be silent")
+    elif requires_worktree_policy:
         if orchestration.get("execution_isolation") != "WORKTREE_FIRST_PER_ARTICLE": errors.append("execution isolation must be WORKTREE_FIRST_PER_ARTICLE")
         if orchestration.get("worktree_autospawn") != "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED": errors.append("ready articles must auto-spawn visible project worktrees when supported")
         if orchestration.get("worktree_fallback") != "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION": errors.append("worktree fallback must preserve visible shared-workspace path isolation")
@@ -3672,8 +3849,10 @@ def check(workspace: Path) -> int:
     if requires_lane_bundle:
         public_qa = orchestration.get("public_qa_policy")
         if uses_batch_control_plane:
-            if orchestration.get("article_worktree_role_bundle") != "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G": errors.append("each article worktree must carry one reusable W-R pair plus the shared campaign G")
-            if orchestration.get("project_worktree_root_role") != "ARTICLE_WRITER_REVIEWER_PAIR": errors.append("the project worktree root must be the article writer-reviewer pair")
+            expected_role_bundle = "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G" if requires_main_session_path_isolation else "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G"
+            expected_root_role = "ARTICLE_ARTIFACT_ROOT" if requires_main_session_path_isolation else "ARTICLE_WRITER_REVIEWER_PAIR"
+            if orchestration.get("article_worktree_role_bundle") != expected_role_bundle: errors.append("main-session article execution must use reusable W/R plus the shared campaign G" if requires_main_session_path_isolation else "each article worktree must carry one reusable W-R pair plus the shared campaign G")
+            if orchestration.get("project_worktree_root_role") != expected_root_role: errors.append("main-session articles must root artifacts at ARTICLE_ARTIFACT_ROOT" if requires_main_session_path_isolation else "the project worktree root must be the article writer-reviewer pair")
             if orchestration.get("campaign_gatekeeper_scope") != "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA": errors.append("campaign G must own pre-write, batch contract acceptance and batch public QA")
             if orchestration.get("article_public_gate_mode") != "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY": errors.append("public QA must reuse the registered campaign gatekeeper in batch read-only mode")
             errors.extend(batch_gate_policy_errors(orchestration.get("batch_gate_policy")))
@@ -3691,7 +3870,8 @@ def check(workspace: Path) -> int:
             elif public_qa.get("requires_human_acceptance") is not True: errors.append("public QA requires explicit human acceptance")
             elif public_qa.get("automatic_wr_reopen") is not False: errors.append("public QA must not automatically reopen the W-R loop")
             elif public_qa.get("on_mismatch") != "OWNER_DECISION_REQUIRED": errors.append("public QA mismatch must require an owner decision")
-    if orchestration.get("queue_resume_policy") != "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE": errors.append("next ready task must auto-start when a runtime slot becomes available")
+    expected_resume_policy = "MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH" if requires_main_session_path_isolation else "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE"
+    if orchestration.get("queue_resume_policy") != expected_resume_policy: errors.append("main-session campaigns must process sequentially or by a safe path-disjoint batch" if requires_main_session_path_isolation else "next ready task must auto-start when a runtime slot becomes available")
     if orchestration.get("article_agent_replacement_requires_full_rehydration") is not True: errors.append("article-agent replacement must require full rehydration")
     state_orchestration = st.get("orchestration", {})
     if requires_artifact_optimization_policy:
@@ -3711,6 +3891,9 @@ def check(workspace: Path) -> int:
     if not isinstance(article_queue, list): errors.append("state article queue must be a list")
     if not isinstance(article_agents, dict): errors.append("state article agents must be an object")
     article_workspaces = state_orchestration.get("article_workspaces") if isinstance(state_orchestration, dict) else None
+    if requires_main_session_path_isolation:
+        if state_orchestration.get("execution_session") != "CONTINUOUS_CAMPAIGN_MAIN_SESSION": errors.append("state must record the continuous campaign main session")
+        if state_orchestration.get("article_artifact_root_template") != ARTICLE_ARTIFACT_ROOT_TEMPLATE: errors.append("state article artifact root template must be articles/{article_id}")
     if requires_worktree_policy and not isinstance(article_workspaces, dict): errors.append("state article workspaces must be an object")
     elif article_workspaces is not None and not isinstance(article_workspaces, dict): errors.append("state article workspaces must be an object when present")
     elif requires_lane_bundle and isinstance(article_workspaces, dict):
@@ -3718,19 +3901,23 @@ def check(workspace: Path) -> int:
             str(article.get("article_id", "")).strip()
             for article in articles if isinstance(article, dict) and str(article.get("article_id", "")).strip()
         }
+        if requires_main_session_path_isolation:
+            errors.extend(article_workspace_isolation_errors(
+                article_workspaces, article_ids=configured_workspace_article_ids,
+            ))
         seen_writers: set[str] = set()
         seen_reviewers: set[str] = set()
         campaign_gatekeeper_id = state_orchestration.get("campaign_gatekeeper_agent_id") if isinstance(state_orchestration, dict) else None
         if uses_batch_control_plane and article_workspaces and not non_empty_string(campaign_gatekeeper_id):
             errors.append("batch control plane requires state orchestration campaign_gatekeeper_agent_id")
-        for article_id, workspace in article_workspaces.items():
+        for article_id, workspace_record in article_workspaces.items():
             if article_id not in configured_workspace_article_ids:
                 errors.append(f"article workspace {article_id}: article_id is not configured")
-            if not isinstance(workspace, dict):
+            if not isinstance(workspace_record, dict):
                 errors.append(f"article workspace {article_id}: record must be an object"); continue
-            bundle = workspace.get("role_bundle")
+            bundle = workspace_record.get("role_bundle")
             if uses_batch_control_plane:
-                if workspace.get("root_role") != "ARTICLE_WRITER_REVIEWER_PAIR": errors.append(f"article workspace {article_id}: root role must be ARTICLE_WRITER_REVIEWER_PAIR")
+                if workspace_record.get("root_role") != "ARTICLE_WRITER_REVIEWER_PAIR": errors.append(f"article workspace {article_id}: root role must be ARTICLE_WRITER_REVIEWER_PAIR")
                 if not isinstance(bundle, dict): errors.append(f"article workspace {article_id}: role_bundle must be an object")
                 elif set(("campaign_gatekeeper_agent", "writer_agent", "reviewer_agent")) - set(bundle): errors.append(f"article workspace {article_id}: role_bundle must declare shared campaign G, W and R")
                 elif any(not non_empty_string(bundle.get(field)) for field in ("campaign_gatekeeper_agent", "writer_agent", "reviewer_agent")):
@@ -3740,11 +3927,11 @@ def check(workspace: Path) -> int:
                         errors.append(f"article workspace {article_id}: campaign G must match the registered campaign gatekeeper")
                     writer_id = bundle.get("writer_agent")
                     reviewer_id = bundle.get("reviewer_agent")
-                    if writer_id in seen_writers: errors.append(f"article workspace {article_id}: writer may not be reused across articles")
-                    if reviewer_id in seen_reviewers: errors.append(f"article workspace {article_id}: reviewer may not be reused across articles")
+                    if not requires_main_session_path_isolation and writer_id in seen_writers: errors.append(f"article workspace {article_id}: writer may not be reused across articles")
+                    if not requires_main_session_path_isolation and reviewer_id in seen_reviewers: errors.append(f"article workspace {article_id}: reviewer may not be reused across articles")
                     seen_writers.add(writer_id); seen_reviewers.add(reviewer_id)
             else:
-                if workspace.get("root_role") != "ARTICLE_LANE_GATEKEEPER": errors.append(f"article workspace {article_id}: root role must be ARTICLE_LANE_GATEKEEPER")
+                if workspace_record.get("root_role") != "ARTICLE_LANE_GATEKEEPER": errors.append(f"article workspace {article_id}: root role must be ARTICLE_LANE_GATEKEEPER")
                 if not isinstance(bundle, dict): errors.append(f"article workspace {article_id}: role_bundle must be an object")
                 elif set(("lane_gatekeeper_agent", "writer_agent", "reviewer_agent")) - set(bundle): errors.append(f"article workspace {article_id}: role_bundle must declare lane G, W and R")
                 elif any(not non_empty_string(bundle.get(field)) for field in ("lane_gatekeeper_agent", "writer_agent", "reviewer_agent")):
@@ -3756,7 +3943,7 @@ def check(workspace: Path) -> int:
     if not isinstance(matcher, dict) or matcher.get("role") != MATCHING_ROLE or matcher.get("reusable") is not True: errors.append("state requires one reusable visible platform matching researcher")
     capacity = state_orchestration.get("capacity", {}) if isinstance(state_orchestration, dict) else {}
     if not isinstance(capacity, dict): errors.append("state orchestration capacity must be an object")
-    elif capacity.get("spawn_policy") != "AUTHORIZED_MAXIMIZE_AVAILABLE_CAPACITY": errors.append("state capacity must maximize visible runtime capacity")
+    elif capacity.get("spawn_policy") != ("MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH" if requires_main_session_path_isolation else "AUTHORIZED_MAXIMIZE_AVAILABLE_CAPACITY"): errors.append("state capacity must use main-session sequential or safe path batches" if requires_main_session_path_isolation else "state capacity must maximize visible runtime capacity")
     elif requires_worktree_policy and not isinstance(capacity.get("active_article_worktrees"), list): errors.append("state capacity must track active article worktrees")
     elif not isinstance(capacity.get("active_article_pairs"), list): errors.append("state capacity must track active article pairs")
     prewrite_state = st.get("prewrite_plan")
@@ -4038,6 +4225,13 @@ def article_package_errors(workspace: Path, package_path: Path) -> tuple[list[st
         if len(matches) != 1:
             errors.append("article package article_id must match exactly one campaign article")
         else:
+            if uses_main_session_path_isolation(cfg):
+                try:
+                    expected_package = workspace / article_artifact_root_relative(cfg, article_id) / "article-package.json"
+                    if resolved_package.resolve() != expected_package.resolve():
+                        errors.append("article package must be inside its deterministic article artifact root")
+                except ValueError as exc:
+                    errors.append(str(exc))
             errors.extend(article_package_declaration_errors(
                 matches[0], package, required_cta=requires_required_cta_policy,
                 package_schema=OPTIMIZED_ARTICLE_PACKAGE_SCHEMAS if requires_artifact_optimization_policy else None,
@@ -4183,7 +4377,14 @@ def review_ready_errors(
         return errors + ["review-ready requires an article package supported by the current workflow"]
     if package.get("article_id") != context.get("article_id"):
         errors.append("review-ready article package does not bind the article contract article_id")
-    errors.extend(package_current_artifact_errors(workspace, package))
+    resolved_package = package_path if package_path.is_absolute() else workspace / package_path
+    package_root = resolved_package.parent
+    current_cfg, _ = read_workspace_json(workspace, "campaign.json")
+    if uses_main_session_path_isolation(current_cfg):
+        expected_package = workspace / str(context.get("artifact_paths", {}).get("article_package", ""))
+        if resolved_package.resolve() != expected_package.resolve():
+            errors.append("review-ready article package must use the article contract artifact root")
+    errors.extend(package_current_artifact_errors(package_root, package))
     errors.extend(research_evidence_pack_integrity_errors(workspace, context))
     payload_relative = context.get("artifact_paths", {}).get("visual_payload") if isinstance(context.get("artifact_paths"), dict) else None
     payload_path, payload_error = workspace_file(
@@ -4205,7 +4406,6 @@ def review_ready_errors(
     if not validator.is_file():
         errors.append("review-ready payload validator is unavailable")
         return errors
-    current_cfg, _ = read_workspace_json(workspace, "campaign.json")
     release_policy = current_cfg.get("release_policy", {}) if isinstance(current_cfg, dict) else {}
     title_transfer_mode = (
         release_policy.get("default_title_transfer_mode", "SEPARATE_TITLE_FIELD")
@@ -4524,14 +4724,31 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
         errors.append("handoff manifest requires article package schema_version 1.3, 1.4 or 1.5")
     errors.extend(package_artifact_source_errors(package))
     article_id = str(package.get("article_id", "")).strip()
+    article_root = resolved_package.parent
+    cfg, cfg_error = read_workspace_json(workspace, "campaign.json")
+    if cfg_error:
+        errors.append(cfg_error)
+    elif uses_main_session_path_isolation(cfg):
+        try:
+            expected_root = workspace / article_artifact_root_relative(cfg, article_id)
+        except ValueError as exc:
+            errors.append(str(exc))
+            expected_root = None
+        if expected_root is not None and article_root.resolve() != expected_root.resolve():
+            errors.append("handoff article package must be inside its deterministic article artifact root")
+        expected_manifest = article_root / "handoff/handoff-manifest.json"
+        if resolved_manifest.resolve() != expected_manifest.resolve():
+            errors.append("handoff manifest must be inside the article package handoff directory")
     if manifest.get("article_id") != article_id:
         errors.append("handoff manifest article_id does not match article package")
     if manifest.get("purpose") != "DERIVED_HANDOFF_ARTIFACT_AND_HASH_INDEX":
         errors.append("handoff manifest purpose is invalid")
 
-    review_errors, review_index, registered_reviewer_id = handoff_review_approval_errors(workspace, article_id)
+    review_errors, review_index, registered_reviewer_id = handoff_review_approval_errors(
+        workspace, article_id, article_root=article_root,
+    )
     errors.extend(review_errors)
-    review_index_path = workspace / "reviews/review-index.json"
+    review_index_path = article_root / "reviews/review-index.json"
     review_index_sha256 = sha256_file(review_index_path) if review_index_path.is_file() else None
 
     def verify_artifact(key: str, expected_path: str | None = None) -> None:
@@ -4541,7 +4758,7 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
             return
         if expected_path is not None and record.get("path") != expected_path:
             errors.append(f"handoff manifest {key} path does not match the canonical declaration")
-        artifact, artifact_error = workspace_file(workspace, record.get("path"), label=f"handoff manifest {key}")
+        artifact, artifact_error = workspace_file(article_root, record.get("path"), label=f"handoff manifest {key}")
         if artifact_error:
             errors.append(artifact_error)
         elif artifact is not None and record.get("sha256") != sha256_file(artifact):
@@ -4551,7 +4768,7 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
     verify_artifact("visual_payload_markdown", "handoff/visual-payload.md")
     verify_artifact("metadata", "canonical/metadata.json")
     try:
-        expected_package_path = relative_path(workspace, resolved_package)
+        expected_package_path = relative_path(article_root, resolved_package)
     except ValueError:
         expected_package_path = None
         errors.append("handoff article package must stay inside workspace")
@@ -4576,22 +4793,22 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
     if isinstance(artifact_sources, dict):
         evidence_source = artifact_sources.get("evidence_pack")
         if isinstance(evidence_source, dict):
-            evidence_pack, evidence_error = workspace_file(workspace, evidence_source.get("path"), label="handoff evidence pack")
+            evidence_pack, evidence_error = workspace_file(article_root, evidence_source.get("path"), label="handoff evidence pack")
             if evidence_error:
                 errors.append(evidence_error)
             elif evidence_pack is not None and evidence_source.get("sha256") != sha256_file(evidence_pack):
                 errors.append("handoff evidence pack sha256 does not match article package")
             else:
                 evidence_pack_sha256 = evidence_source.get("sha256")
-        canonical_path, canonical_error = workspace_file(workspace, package.get("canonical_path"), label="handoff canonical article")
+        canonical_path, canonical_error = workspace_file(article_root, package.get("canonical_path"), label="handoff canonical article")
         if canonical_error:
             errors.append(canonical_error)
         elif canonical_path is not None and package.get("canonical_sha256") != sha256_file(canonical_path):
             errors.append("handoff canonical article sha256 does not match article package")
-    visual_payload, visual_payload_error = workspace_file(workspace, "handoff/visual-payload.html", label="handoff visual payload")
+    visual_payload, visual_payload_error = workspace_file(article_root, "handoff/visual-payload.html", label="handoff visual payload")
     visual_payload_sha256 = sha256_file(visual_payload) if visual_payload is not None and not visual_payload_error else None
     visual_payload_markdown, visual_payload_markdown_error = workspace_file(
-        workspace, "handoff/visual-payload.md", label="handoff Markdown payload",
+        article_root, "handoff/visual-payload.md", label="handoff Markdown payload",
     )
     visual_payload_markdown_sha256 = (
         sha256_file(visual_payload_markdown)
@@ -4667,7 +4884,7 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
     if not isinstance(gate_input, dict):
         errors.append("handoff manifest requires gate_input")
     else:
-        trace_path, trace_error = workspace_file(workspace, gate_input.get("requirements_traceability_path"), label="handoff manifest requirements traceability")
+        trace_path, trace_error = workspace_file(article_root, gate_input.get("requirements_traceability_path"), label="handoff manifest requirements traceability")
         if trace_error:
             errors.append(trace_error)
         elif trace_path is not None and gate_input.get("requirements_traceability_sha256") != sha256_file(trace_path):
@@ -4701,6 +4918,32 @@ def article_root_mapping_errors(values: list[str]) -> tuple[dict[str, Path], lis
             continue
         roots[article_id] = root
     return roots, errors
+
+
+def batch_article_root(
+    workspace: Path, cfg: dict, state_record: dict, article_id: str, explicit_roots: dict[str, Path],
+) -> tuple[Path | None, str | None]:
+    """Resolve a batch row's root without making every normal row a worktree."""
+    explicit = explicit_roots.get(article_id)
+    if not uses_main_session_path_isolation(cfg):
+        if explicit is None:
+            return None, f"requires --article-root {article_id}=..."
+        return explicit, None
+    orchestration = state_record.get("orchestration")
+    records = orchestration.get("article_workspaces") if isinstance(orchestration, dict) else {}
+    record = records.get(article_id) if isinstance(records, dict) else None
+    isolation = record.get("isolation") if isinstance(record, dict) else MAIN_SESSION_PATH_ISOLATION
+    if isolation == GIT_WORKTREE_ISOLATION:
+        if explicit is None:
+            return None, f"GIT_WORKTREE article requires --article-root {article_id}=..."
+        return explicit, None
+    try:
+        expected = workspace / article_artifact_root_relative(cfg, article_id)
+    except ValueError as exc:
+        return None, str(exc)
+    if explicit is not None and explicit.resolve() != expected.resolve():
+        return None, f"main-session article root must be {relative_path(workspace, expected)}; use --article-root only for GIT_WORKTREE"
+    return expected, None
 
 
 def batch_row_artifact_errors(article_root: Path, row: dict, *, key: str, prefix: str) -> tuple[Path | None, list[str]]:
@@ -4805,9 +5048,11 @@ def check_batch_gate(workspace: Path, report_path: Path, article_root_values: li
             ready_count += 1
         else:
             changes_count += 1
-        article_root = roots.get(article_id)
-        if article_root is None:
-            errors.append(f"{prefix}: requires --article-root {article_id}=...")
+        article_root, article_root_error = batch_article_root(
+            workspace, cfg, state_record, article_id, roots,
+        )
+        if article_root_error or article_root is None:
+            errors.append(f"{prefix}: {article_root_error or 'article root is unavailable'}")
             continue
         context_path, context_errors = batch_row_artifact_errors(article_root, row, key="article_contract", prefix=prefix)
         index_path, index_errors = batch_row_artifact_errors(article_root, row, key="review_index", prefix=prefix)
@@ -4819,7 +5064,11 @@ def check_batch_gate(workspace: Path, report_path: Path, article_root_values: li
             context, context_error = json_object_file(context_path, label=f"{prefix} article contract")
             if context_error or context is None or context.get("article_id") != article_id:
                 errors.append(f"{prefix}: article contract does not bind the article ID")
-            elif current_human_release:
+            else:
+                errors.extend(f"{prefix}: {error}" for error in article_context_errors(workspace, context_path))
+            if context_error or context is None:
+                context = None
+            if context is not None and current_human_release:
                 expected_assignment, expected_locale_row, mapping_errors = human_native_release_mapping_for_article(
                     workspace, cfg, article_id,
                 )
@@ -4830,7 +5079,7 @@ def check_batch_gate(workspace: Path, report_path: Path, article_root_values: li
                     errors.append(f"{prefix}: article contract locale_platform_validation does not match the owner-confirmed release mapping")
         review_index: dict | None = None
         if index_path is not None:
-            errors.extend(f"{prefix}: {error}" for error in review_index_errors(article_root, index_path, require_full_approved=True))
+            errors.extend(f"{prefix}: {error}" for error in review_index_errors(workspace, index_path, require_full_approved=True))
             review_index, index_error = json_object_file(index_path, label=f"{prefix} review index")
             if index_error or review_index is None or review_index.get("article_id") != article_id:
                 errors.append(f"{prefix}: review index does not bind the article ID")
@@ -4895,7 +5144,7 @@ def main() -> int:
     p_invalidate = sub.add_parser("invalidate-prewrite-confirmation"); p_invalidate.add_argument("--workspace", type=Path, required=True); p_invalidate.add_argument("--reason", required=True)
     p_dispatch = sub.add_parser("dispatch-readiness"); p_dispatch.add_argument("--workspace", type=Path, required=True)
     p_render = sub.add_parser("render-prewrite-plan"); p_render.add_argument("--manifest", type=Path, required=True); p_render.add_argument("--output", type=Path, required=True)
-    p_context = sub.add_parser("build-article-context"); p_context.add_argument("--workspace", type=Path, required=True, help="campaign root or complete campaign Git worktree; never an empty article directory"); p_context.add_argument("--article-id", required=True); p_context.add_argument("--output", type=Path, required=True)
+    p_context = sub.add_parser("build-article-context"); p_context.add_argument("--workspace", type=Path, required=True, help="campaign root; schema 2.13 writes each article below articles/<article_id>/"); p_context.add_argument("--article-id", required=True); p_context.add_argument("--output", type=Path, required=True)
     p_context_check = sub.add_parser("check-article-context"); p_context_check.add_argument("--workspace", type=Path, required=True); p_context_check.add_argument("--context", type=Path, required=True)
     p_index = sub.add_parser("build-review-index"); p_index.add_argument("--workspace", type=Path, required=True); p_index.add_argument("--article-contract", type=Path, required=True); p_index.add_argument("--output", type=Path, required=True); p_index.add_argument("--canonical", type=Path)
     p_index_check = sub.add_parser("check-review-index"); p_index_check.add_argument("--workspace", type=Path, required=True); p_index_check.add_argument("--index", type=Path, required=True)

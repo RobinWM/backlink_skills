@@ -104,6 +104,14 @@ def current_package_for(item: dict, *, canonical_sha: str, metadata_sha: str, ev
     }
 
 
+def article_root(workspace: Path, article_id: str = "A1") -> Path:
+    """Create and return the disjoint schema-2.13 artifact root for an article."""
+    root = workspace / "articles" / article_id
+    for relative in ("canonical", "research", "context", "reviews", "handoff", "images"):
+        (root / relative).mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def write_visual_asset(workspace: Path, *, ordinal: int = 1, zone: str = "LEAD") -> dict:
     """Create a small real PNG plus the current visual-manifest record."""
     filename = f"images/{ordinal:02d}-{zone.casefold()}-workflow.png"
@@ -125,29 +133,34 @@ def write_visual_asset(workspace: Path, *, ordinal: int = 1, zone: str = "LEAD")
     }
 
 
-def record_research_and_full_approvals(workspace: Path, index_path: Path, canonical: Path, evidence_pack: Path) -> dict:
+def record_research_and_full_approvals(
+    workspace: Path, root: Path, index_path: Path, canonical: Path, evidence_pack: Path,
+) -> dict:
     """Create route-appropriate compact R receipts used by hand-off fixtures."""
-    research_report = workspace / "reviews/research-review-1.md"
-    full_report = workspace / "reviews/review-1.md"
+    research_report = root / "reviews/research-review-1.md"
+    full_report = root / "reviews/review-1.md"
     research_report.write_text("R: research approved.\n", encoding="utf-8")
     full_report.write_text("R: full review approved.\n", encoding="utf-8")
     state_path = workspace / "state.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["orchestration"]["campaign_gatekeeper_agent_id"] = "G-CAMPAIGN"
     state["orchestration"]["article_workspaces"] = {
         "A1": {
-            "root_role": "ARTICLE_LANE_GATEKEEPER",
+            "root_role": "ARTICLE_WRITER_REVIEWER_PAIR",
             "role_bundle": {
-                "lane_gatekeeper_agent": "G-A1",
+                "campaign_gatekeeper_agent": "G-CAMPAIGN",
                 "writer_agent": "W-A1",
                 "reviewer_agent": "R-A1",
             },
+            "isolation": "MAIN_SESSION_PATH_ISOLATED",
+            "artifact_root": "articles/A1",
         },
     }
     state["orchestration"]["tasks"] = [
         {
             "article_id": "A1", "role": "ARTICLE_LANGUAGE_REVIEWER", "agent_id": "R-A1",
             "workflow_stage": "FULL_REVIEW", "result": "APPROVED",
-            "result_path": "reviews/review-1.md", "status": "COMPLETED",
+            "result_path": "articles/A1/reviews/review-1.md", "status": "COMPLETED",
         },
     ]
     index = json.loads(index_path.read_text(encoding="utf-8"))
@@ -156,12 +169,12 @@ def record_research_and_full_approvals(workspace: Path, index_path: Path, canoni
         state["orchestration"]["tasks"].insert(0, {
             "article_id": "A1", "role": "ARTICLE_LANGUAGE_REVIEWER", "agent_id": "R-A1",
             "workflow_stage": "RESEARCH_REVIEW", "result": "RESEARCH_APPROVED",
-            "result_path": "reviews/research-review-1.md", "status": "COMPLETED",
+            "result_path": "articles/A1/reviews/research-review-1.md", "status": "COMPLETED",
         })
         index["latest_research_review"] = {
             "status": "RESEARCH_APPROVED",
             "coverage": None,
-            "report_path": "reviews/research-review-1.md",
+            "report_path": "articles/A1/reviews/research-review-1.md",
             "report_sha256": HARNESS.sha256_file(research_report),
             "reviewer_agent_id": "R-A1",
             "reviewed_evidence_pack_sha256": HARNESS.sha256_file(evidence_pack),
@@ -169,7 +182,7 @@ def record_research_and_full_approvals(workspace: Path, index_path: Path, canoni
     state_path.write_text(json.dumps(state), encoding="utf-8")
     index["latest_full_review"] = {
         "status": "APPROVED",
-        "report_path": "reviews/review-1.md",
+        "report_path": "articles/A1/reviews/review-1.md",
         "report_sha256": HARNESS.sha256_file(full_report),
         "reviewer_agent_id": "R-A1",
         "canonical_sha256": HARNESS.sha256_file(canonical),
@@ -256,12 +269,13 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_context_review_index_and_delta_validate_only_changed_artifacts(self) -> None:
         temp_dir, workspace, _ = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text("# Example\n\nBody.\n", encoding="utf-8")
-            evidence_pack = workspace / "research/evidence-pack.json"
+            evidence_pack = root / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            context = workspace / "context/article-contract.json"
-            built = self.run_harness("build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", "context/article-contract.json")
+            context = root / "context/article-contract.json"
+            built = self.run_harness("build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context))
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
             context_data = json.loads(context.read_text(encoding="utf-8"))
             self.assertEqual(context_data["review_effort"], HARNESS.STANDARD_REVIEW_EFFORT)
@@ -271,10 +285,10 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 context_data["rehydration_protocol"]["expand_historical_material_when"],
             )
             self.assertEqual(self.run_harness("check-article-context", "--workspace", str(workspace), "--context", str(context)).returncode, 0)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             index_built = self.run_harness("build-review-index", "--workspace", str(workspace), "--article-contract", str(context), "--output", str(index))
             self.assertEqual(index_built.returncode, 0, index_built.stdout + index_built.stderr)
-            record_research_and_full_approvals(workspace, index, canonical, evidence_pack)
+            record_research_and_full_approvals(workspace, root, index, canonical, evidence_pack)
             self.assertEqual(self.run_harness("check-review-index", "--workspace", str(workspace), "--index", str(index)).returncode, 0)
             approved_index = index.read_text(encoding="utf-8")
             tampered_index = json.loads(approved_index)
@@ -284,17 +298,17 @@ class ArtifactOptimizationTests(unittest.TestCase):
             self.assertNotEqual(evidence_mismatch.returncode, 0)
             self.assertIn("evidence_pack_sha256", evidence_mismatch.stdout)
             index.write_text(approved_index, encoding="utf-8")
-            delta = workspace / "reviews/review-delta-1.json"
+            delta = root / "reviews/review-delta-1.json"
             delta.write_text(json.dumps({
                 "schema_version": "1.0",
                 "article_id": "A1",
-                "review_index_path": "reviews/review-index.json",
+                "review_index_path": "articles/A1/reviews/review-index.json",
                 "review_index_sha256": HARNESS.sha256_file(index),
                 "review_scope": "R_DELTA",
                 "r_delta_attempt": 1,
                 "full_review_required": False,
                 "changed_artifacts": [{
-                    "path": "canonical/article.html",
+                    "path": "articles/A1/canonical/article.html",
                     "sha256": HARNESS.sha256_file(canonical),
                     "change_kind": "CANONICAL_TEXT",
                     "affected_requirement_ids": ["REQ-SEO-001"],
@@ -313,7 +327,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             campaign_path.write_text(json.dumps(campaign), encoding="utf-8")
             stale_build = self.run_harness(
                 "build-review-index", "--workspace", str(workspace),
-                "--article-contract", str(context), "--output", str(workspace / "reviews/stale-index.json"),
+                "--article-contract", str(context), "--output", str(root / "reviews/stale-index.json"),
             )
             self.assertNotEqual(stale_build.returncode, 0)
             self.assertIn("article contract is stale or invalid", stale_build.stdout)
@@ -324,9 +338,10 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_new_finding_stays_in_review_index_not_frozen_article_contract(self) -> None:
         temp_dir, workspace, _ = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text("# Example\n\nBody.\n", encoding="utf-8")
-            context = workspace / "context/article-contract.json"
+            context = root / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace),
                 "--article-id", "A1", "--output", str(context),
@@ -335,7 +350,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             state = json.loads(state_path.read_text(encoding="utf-8"))
             state["finding_status"]["SEO-EXAMPLE-001"] = {
                 "article_id": "A1", "status": "OPEN",
-                "report_path": "reviews/review-1.md", "supersedes": None,
+                "report_path": "articles/A1/reviews/review-1.md", "supersedes": None,
                 "split_from": None,
             }
             state_path.write_text(json.dumps(state), encoding="utf-8")
@@ -344,7 +359,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             )
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertNotIn("open_findings", json.loads(context.read_text(encoding="utf-8")))
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             built = self.run_harness(
                 "build-review-index", "--workspace", str(workspace),
                 "--article-contract", str(context), "--output", str(index),
@@ -355,13 +370,14 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_review_ready_checks_current_artifacts_without_issuing_editorial_verdict(self) -> None:
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text(
                 '<p>Useful answer.</p><!-- BLOG_3P_IMAGE:01 --><p><a href="https://example.com/product">Try Example Product</a></p>',
                 encoding="utf-8",
             )
             body = canonical
-            metadata = workspace / "canonical/metadata.json"
+            metadata = root / "canonical/metadata.json"
             metadata.write_text(json.dumps({
                 "canonical_title": "Example workflow",
                 "platform_title": "Example workflow",
@@ -369,11 +385,11 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "tags": ["example"],
                 "description": "A useful example workflow.",
             }), encoding="utf-8")
-            visual_manifest = workspace / "canonical/visual-manifest.json"
+            visual_manifest = root / "canonical/visual-manifest.json"
             visual_manifest.write_text(json.dumps({
-                "schema_version": "1.0", "assets": [write_visual_asset(workspace)],
+                "schema_version": "1.0", "assets": [write_visual_asset(root)],
             }), encoding="utf-8")
-            evidence_pack = workspace / "research/evidence-pack.json"
+            evidence_pack = root / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({
                 "schema_version": HARNESS.CURRENT_EVIDENCE_PACK_SCHEMA, "claims": [],
                 "topic_slot_alignment": {
@@ -401,17 +417,17 @@ class ArtifactOptimizationTests(unittest.TestCase):
                     "documented_record": None,
                 },
             }), encoding="utf-8")
-            context = workspace / "context/article-contract.json"
+            context = root / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace),
                 "--article-id", "A1", "--output", str(context),
             ).returncode, 0)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             self.assertEqual(self.run_harness(
                 "build-review-index", "--workspace", str(workspace),
                 "--article-contract", str(context), "--output", str(index),
             ).returncode, 0)
-            package = workspace / "article-package.json"
+            package = root / "article-package.json"
             package.write_text(json.dumps(current_package_for(
                 item,
                 canonical_sha=HARNESS.sha256_file(canonical),
@@ -419,7 +435,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 evidence_sha=HARNESS.sha256_file(evidence_pack),
                 visual_sha=HARNESS.sha256_file(visual_manifest),
             )), encoding="utf-8")
-            payload = workspace / "handoff/visual-payload.html"
+            payload = root / "handoff/visual-payload.html"
             compiled = subprocess.run(
                 [
                     sys.executable, str(BUILD_PAYLOAD), "--title", "Example workflow",
@@ -560,21 +576,22 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "--receipt-type", "OWNER_MESSAGE", "--source-locator", "test-owner-message-002",
             )
             self.assertEqual(confirmed.returncode, 0, confirmed.stdout + confirmed.stderr)
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text("# Example\n\nBody.\n", encoding="utf-8")
-            evidence_pack = workspace / "research/evidence-pack.json"
+            evidence_pack = root / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            context = workspace / "context/article-contract.json"
+            context = root / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context),
             ).returncode, 0)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             self.assertEqual(self.run_harness(
                 "build-review-index", "--workspace", str(workspace), "--article-contract", str(context), "--output", str(index),
             ).returncode, 0)
             index_data = json.loads(index.read_text(encoding="utf-8"))
             self.assertEqual(index_data["latest_research_review"]["status"], "PENDING")
-            record_research_and_full_approvals(workspace, index, canonical, evidence_pack)
+            record_research_and_full_approvals(workspace, root, index, canonical, evidence_pack)
             self.assertEqual(self.run_harness("check-review-index", "--workspace", str(workspace), "--index", str(index)).returncode, 0)
             missing_research = json.loads(index.read_text(encoding="utf-8"))
             missing_research["latest_research_review"] = {
@@ -594,53 +611,54 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_compiler_builds_and_harness_checks_compact_handoff_manifest(self) -> None:
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text("# Example\n", encoding="utf-8")
-            (workspace / "canonical/body.html").write_text(
+            (root / "canonical/body.html").write_text(
                 '<p>Useful answer.</p><p><a href="https://example.com/product">Try Example Product</a></p>',
                 encoding="utf-8",
             )
-            (workspace / "canonical/metadata.json").write_text(
+            (root / "canonical/metadata.json").write_text(
                 json.dumps({"seo_title": "Example workflow guide", "tags": ["example"], "description": "A useful example workflow."}),
                 encoding="utf-8",
             )
-            visual_manifest = workspace / "canonical/visual-manifest.json"
+            visual_manifest = root / "canonical/visual-manifest.json"
             visual_manifest.write_text(json.dumps({"schema_version": "1.0", "assets": []}), encoding="utf-8")
-            evidence_pack = workspace / "research/evidence-pack.json"
+            evidence_pack = root / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            (workspace / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
-            context = workspace / "context/article-contract.json"
+            (root / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
+            context = root / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context),
             ).returncode, 0)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             self.assertEqual(self.run_harness(
                 "build-review-index", "--workspace", str(workspace), "--article-contract", str(context), "--output", str(index),
             ).returncode, 0)
-            record_research_and_full_approvals(workspace, index, canonical, evidence_pack)
+            record_research_and_full_approvals(workspace, root, index, canonical, evidence_pack)
             visual_sha = HARNESS.sha256_file(visual_manifest)
-            package = workspace / "article-package.json"
+            package = root / "article-package.json"
             package_data = package_for(item, visual_sha)
             package_data["canonical_sha256"] = HARNESS.sha256_file(canonical)
             package_data["artifact_sources"]["evidence_pack"]["sha256"] = HARNESS.sha256_file(evidence_pack)
             package.write_text(json.dumps(package_data), encoding="utf-8")
-            output = workspace / "handoff/visual-payload.html"
-            handoff = workspace / "handoff/handoff-manifest.json"
+            output = root / "handoff/visual-payload.html"
+            handoff = root / "handoff/handoff-manifest.json"
             initial_payload = subprocess.run(
                 [
                     sys.executable, str(BUILD_PAYLOAD), "--title", "Example workflow",
-                    "--body-html", str(workspace / "canonical/body.html"), "--article-package", str(package),
-                    "--metadata-json", str(workspace / "canonical/metadata.json"), "--output", str(output),
+                    "--body-html", str(root / "canonical/body.html"), "--article-package", str(package),
+                    "--metadata-json", str(root / "canonical/metadata.json"), "--output", str(output),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(initial_payload.returncode, 0, initial_payload.stdout + initial_payload.stderr)
-            visual_report = workspace / "reviews/visual-payload-delta-1.md"
+            visual_report = root / "reviews/visual-payload-delta-1.md"
             visual_report.write_text("R: visual payload approved.\n", encoding="utf-8")
             index_data = json.loads(index.read_text(encoding="utf-8"))
             index_data["last_delta"] = {
                 "review_scope": "R_VISUAL_DELTA",
                 "status": "APPROVED",
-                "report_path": "reviews/visual-payload-delta-1.md",
+                "report_path": "articles/A1/reviews/visual-payload-delta-1.md",
                 "report_sha256": HARNESS.sha256_file(visual_report),
                 "reviewer_agent_id": "R-A1",
                 "reviewed_visual_manifest_sha256": visual_sha,
@@ -652,7 +670,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             state["orchestration"]["tasks"].append({
                 "article_id": "A1", "role": "ARTICLE_LANGUAGE_REVIEWER", "agent_id": "R-A1",
                 "workflow_stage": "VISUAL_PAYLOAD_DELTA", "result": "APPROVED",
-                "result_path": "reviews/visual-payload-delta-1.md", "status": "COMPLETED",
+                "result_path": "articles/A1/reviews/visual-payload-delta-1.md", "status": "COMPLETED",
             })
             state_path.write_text(json.dumps(state), encoding="utf-8")
             package_data = json.loads(package.read_text(encoding="utf-8"))
@@ -660,7 +678,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "precondition": "TEXT_AND_SEO_FIELDS_STABLE",
                 "scope": "VISUAL_MANIFEST_ASSETS_AND_COMPILED_PAYLOAD_ONLY",
                 "reviewer_result": "APPROVED",
-                "report_path": "reviews/visual-payload-delta-1.md",
+                "report_path": "articles/A1/reviews/visual-payload-delta-1.md",
                 "report_sha256": HARNESS.sha256_file(visual_report),
                 "reviewer_agent_id": "R-A1",
                 "review_index_sha256": HARNESS.sha256_file(index),
@@ -671,10 +689,10 @@ class ArtifactOptimizationTests(unittest.TestCase):
             built = subprocess.run(
                 [
                     sys.executable, str(BUILD_PAYLOAD), "--title", "Example workflow",
-                    "--body-html", str(workspace / "canonical/body.html"), "--article-package", str(package),
-                    "--metadata-json", str(workspace / "canonical/metadata.json"), "--output", str(output),
-                    "--handoff-manifest-output", str(handoff), "--workspace", str(workspace),
-                    "--requirements-traceability", str(workspace / "requirements-traceability.md"),
+                    "--body-html", str(root / "canonical/body.html"), "--article-package", str(package),
+                    "--metadata-json", str(root / "canonical/metadata.json"), "--output", str(output),
+                    "--handoff-manifest-output", str(handoff), "--workspace", str(root),
+                    "--requirements-traceability", str(root / "requirements-traceability.md"),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
@@ -708,13 +726,14 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_current_package_uses_one_final_full_review_without_a_default_visual_delta(self) -> None:
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text(
                 '<p>Useful answer.</p><p><a href="https://example.com/product">Try Example Product</a></p><!-- BLOG_3P_IMAGE:01 -->',
                 encoding="utf-8",
             )
             body = canonical
-            metadata = workspace / "canonical/metadata.json"
+            metadata = root / "canonical/metadata.json"
             metadata.write_text(json.dumps({
                 "canonical_title": "Example workflow",
                 "platform_title": "Example workflow",
@@ -722,22 +741,22 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "tags": ["example"],
                 "description": "A useful example workflow.",
             }), encoding="utf-8")
-            visual_manifest = workspace / "canonical/visual-manifest.json"
+            visual_manifest = root / "canonical/visual-manifest.json"
             visual_manifest.write_text(json.dumps({
-                "schema_version": "1.0", "assets": [write_visual_asset(workspace)],
+                "schema_version": "1.0", "assets": [write_visual_asset(root)],
             }), encoding="utf-8")
-            evidence_pack = workspace / "research/evidence-pack.json"
+            evidence_pack = root / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            (workspace / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
-            context = workspace / "context/article-contract.json"
+            (root / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
+            context = root / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context),
             ).returncode, 0)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             self.assertEqual(self.run_harness(
                 "build-review-index", "--workspace", str(workspace), "--article-contract", str(context), "--output", str(index),
             ).returncode, 0)
-            package = workspace / "article-package.json"
+            package = root / "article-package.json"
             package.write_text(json.dumps(current_package_for(
                 item,
                 canonical_sha=HARNESS.sha256_file(canonical),
@@ -745,7 +764,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 evidence_sha=HARNESS.sha256_file(evidence_pack),
                 visual_sha=HARNESS.sha256_file(visual_manifest),
             )), encoding="utf-8")
-            output = workspace / "handoff/visual-payload.html"
+            output = root / "handoff/visual-payload.html"
             compiled = subprocess.run(
                 [
                     sys.executable, str(BUILD_PAYLOAD), "--title", "Example workflow",
@@ -755,7 +774,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
-            record_research_and_full_approvals(workspace, index, canonical, evidence_pack)
+            record_research_and_full_approvals(workspace, root, index, canonical, evidence_pack)
             index_data = json.loads(index.read_text(encoding="utf-8"))
             index_data["latest_full_review"].update({
                 "metadata_sha256": HARNESS.sha256_file(metadata),
@@ -765,7 +784,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "article_package_sha256": HARNESS.sha256_file(package),
             })
             index.write_text(json.dumps(index_data), encoding="utf-8")
-            handoff = workspace / "handoff/handoff-manifest.json"
+            handoff = root / "handoff/handoff-manifest.json"
             reviewed_payload = output.read_bytes()
             reviewed_stat = output.stat()
             built = subprocess.run(
@@ -774,7 +793,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                     "--body-html", str(body), "--article-package", str(package),
                     "--metadata-json", str(metadata), "--visual-manifest", str(visual_manifest),
                     "--output", str(output), "--handoff-manifest-output", str(handoff),
-                    "--workspace", str(workspace), "--requirements-traceability", str(workspace / "requirements-traceability.md"),
+                    "--workspace", str(root), "--requirements-traceability", str(root / "requirements-traceability.md"),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
@@ -787,7 +806,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                     "--body-html", str(body), "--article-package", str(package),
                     "--metadata-json", str(metadata), "--visual-manifest", str(visual_manifest),
                     "--output", str(output), "--handoff-manifest-output", str(output),
-                    "--workspace", str(workspace), "--requirements-traceability", str(workspace / "requirements-traceability.md"),
+                    "--workspace", str(root), "--requirements-traceability", str(root / "requirements-traceability.md"),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertNotEqual(colliding_manifest.returncode, 0)
@@ -819,7 +838,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                     "--body-html", str(body), "--article-package", str(package),
                     "--metadata-json", str(metadata), "--visual-manifest", str(visual_manifest),
                     "--output", str(output), "--handoff-manifest-output", str(handoff),
-                    "--workspace", str(workspace), "--requirements-traceability", str(workspace / "requirements-traceability.md"),
+                    "--workspace", str(root), "--requirements-traceability", str(root / "requirements-traceability.md"),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertNotEqual(guarded_handoff.returncode, 0)
@@ -842,35 +861,35 @@ class ArtifactOptimizationTests(unittest.TestCase):
                     "--body-html", str(body), "--article-package", str(package),
                     "--metadata-json", str(metadata), "--visual-manifest", str(visual_manifest),
                     "--output", str(output), "--handoff-manifest-output", str(handoff),
-                    "--workspace", str(workspace), "--requirements-traceability", str(workspace / "requirements-traceability.md"),
+                    "--workspace", str(root), "--requirements-traceability", str(root / "requirements-traceability.md"),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertNotEqual(missing_delta.returncode, 0)
             self.assertIn("R_VISUAL_DELTA", missing_delta.stderr + missing_delta.stdout)
-            delta_path = workspace / "reviews/review-delta-1.json"
+            delta_path = root / "reviews/review-delta-1.json"
             delta_path.write_text(json.dumps({
                 "schema_version": "1.0", "article_id": "A1",
-                "review_index_path": "reviews/review-index.json",
+                "review_index_path": "articles/A1/reviews/review-index.json",
                 "review_index_sha256": HARNESS.sha256_file(index),
                 "review_scope": "R_VISUAL_DELTA", "r_delta_attempt": 1,
                 "full_review_required": False,
                 "changed_artifacts": [
-                    {"path": "canonical/visual-manifest.json", "sha256": HARNESS.sha256_file(visual_manifest), "change_kind": "VISUAL_MANIFEST", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
-                    {"path": "handoff/visual-payload.html", "sha256": HARNESS.sha256_file(output), "change_kind": "VISUAL_PAYLOAD", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
-                    {"path": "handoff/visual-payload.md", "sha256": HARNESS.sha256_file(output.with_suffix(".md")), "change_kind": "VISUAL_PAYLOAD", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
-                    {"path": "article-package.json", "sha256": HARNESS.sha256_file(package), "change_kind": "ARTICLE_PACKAGE_VISUAL_POINTER", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
+                    {"path": "articles/A1/canonical/visual-manifest.json", "sha256": HARNESS.sha256_file(visual_manifest), "change_kind": "VISUAL_MANIFEST", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
+                    {"path": "articles/A1/handoff/visual-payload.html", "sha256": HARNESS.sha256_file(output), "change_kind": "VISUAL_PAYLOAD", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
+                    {"path": "articles/A1/handoff/visual-payload.md", "sha256": HARNESS.sha256_file(output.with_suffix(".md")), "change_kind": "VISUAL_PAYLOAD", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
+                    {"path": "articles/A1/article-package.json", "sha256": HARNESS.sha256_file(package), "change_kind": "ARTICLE_PACKAGE_VISUAL_POINTER", "affected_requirement_ids": ["REQ-VISUAL-001"], "affected_finding_ids": ["VISUAL-NARRATIVE-001"]},
                 ],
             }), encoding="utf-8")
             validated_delta = self.run_harness(
                 "check-review-delta", "--workspace", str(workspace), "--delta", str(delta_path),
             )
             self.assertEqual(validated_delta.returncode, 0, validated_delta.stdout + validated_delta.stderr)
-            delta_report = workspace / "reviews/visual-payload-delta-1.md"
+            delta_report = root / "reviews/visual-payload-delta-1.md"
             delta_report.write_text("R: visual payload delta approved.\n", encoding="utf-8")
             index_data = json.loads(index.read_text(encoding="utf-8"))
             index_data["last_delta"] = {
                 "review_scope": "R_VISUAL_DELTA", "status": "APPROVED",
-                "report_path": "reviews/visual-payload-delta-1.md",
+                "report_path": "articles/A1/reviews/visual-payload-delta-1.md",
                 "report_sha256": HARNESS.sha256_file(delta_report), "reviewer_agent_id": "R-A1",
                 "reviewed_canonical_sha256": HARNESS.sha256_file(canonical),
                 "reviewed_metadata_sha256": HARNESS.sha256_file(metadata),
@@ -884,7 +903,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             state["orchestration"]["tasks"].append({
                 "article_id": "A1", "role": "ARTICLE_LANGUAGE_REVIEWER", "agent_id": "R-A1",
                 "workflow_stage": "VISUAL_PAYLOAD_DELTA", "result": "APPROVED",
-                "result_path": "reviews/visual-payload-delta-1.md", "status": "COMPLETED",
+                "result_path": "articles/A1/reviews/visual-payload-delta-1.md", "status": "COMPLETED",
             })
             (workspace / "state.json").write_text(json.dumps(state), encoding="utf-8")
             rebuilt = subprocess.run(
@@ -893,7 +912,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                     "--body-html", str(body), "--article-package", str(package),
                     "--metadata-json", str(metadata), "--visual-manifest", str(visual_manifest),
                     "--output", str(output), "--handoff-manifest-output", str(handoff),
-                    "--workspace", str(workspace), "--requirements-traceability", str(workspace / "requirements-traceability.md"),
+                    "--workspace", str(root), "--requirements-traceability", str(root / "requirements-traceability.md"),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(rebuilt.returncode, 0, rebuilt.stdout + rebuilt.stderr)
@@ -915,13 +934,14 @@ class ArtifactOptimizationTests(unittest.TestCase):
         """
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.html"
+            root = article_root(workspace)
+            canonical = root / "canonical/article.html"
             canonical.write_text(
                 '<p>Useful answer.</p><p><a href="https://example.com/product">Try Example Product</a></p>',
                 encoding="utf-8",
             )
             body = canonical
-            metadata = workspace / "canonical/metadata.json"
+            metadata = root / "canonical/metadata.json"
             metadata.write_text(json.dumps({
                 "canonical_title": "Example workflow",
                 "platform_title": "Example workflow",
@@ -929,22 +949,22 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "tags": ["example"],
                 "description": "A useful example workflow.",
             }), encoding="utf-8")
-            visual_manifest = workspace / "canonical/visual-manifest.json"
+            visual_manifest = root / "canonical/visual-manifest.json"
             visual_manifest.write_text(json.dumps({"schema_version": "1.0", "assets": []}), encoding="utf-8")
-            evidence_pack = workspace / "research/evidence-pack.json"
+            evidence_pack = root / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            traceability = workspace / "requirements-traceability.md"
+            traceability = root / "requirements-traceability.md"
             traceability.write_text("REQ-SEO-001 -> canonical/metadata.json\n", encoding="utf-8")
 
-            context = workspace / "context/article-contract.json"
+            context = root / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context),
             ).returncode, 0)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             self.assertEqual(self.run_harness(
                 "build-review-index", "--workspace", str(workspace), "--article-contract", str(context), "--output", str(index),
             ).returncode, 0)
-            package = workspace / "article-package.json"
+            package = root / "article-package.json"
             package.write_text(json.dumps(current_package_for(
                 item,
                 canonical_sha=HARNESS.sha256_file(canonical),
@@ -952,7 +972,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 evidence_sha=HARNESS.sha256_file(evidence_pack),
                 visual_sha=HARNESS.sha256_file(visual_manifest),
             )), encoding="utf-8")
-            payload = workspace / "handoff/visual-payload.html"
+            payload = root / "handoff/visual-payload.html"
             compiled = subprocess.run(
                 [
                     sys.executable, str(BUILD_PAYLOAD), "--title", "Example workflow",
@@ -963,7 +983,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             )
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
 
-            record_research_and_full_approvals(workspace, index, canonical, evidence_pack)
+            record_research_and_full_approvals(workspace, root, index, canonical, evidence_pack)
             index_data = json.loads(index.read_text(encoding="utf-8"))
             index_data["latest_full_review"].update({
                 "metadata_sha256": HARNESS.sha256_file(metadata),
@@ -997,39 +1017,39 @@ class ArtifactOptimizationTests(unittest.TestCase):
             self.assertEqual(recompiled.returncode, 0, recompiled.stdout + recompiled.stderr)
 
             baseline_full = index_data["latest_full_review"]
-            delta_capsule = workspace / "reviews/review-delta-1.json"
+            delta_capsule = root / "reviews/review-delta-1.json"
             delta_capsule.write_text(json.dumps({
                 "schema_version": "1.0",
                 "article_id": "A1",
-                "review_index_path": "reviews/review-index.json",
+                "review_index_path": "articles/A1/reviews/review-index.json",
                 "review_index_sha256": HARNESS.sha256_file(index),
                 "review_scope": "R_DELTA",
                 "r_delta_attempt": 1,
                 "full_review_required": False,
                 "changed_artifacts": [
                     {
-                        "path": "canonical/metadata.json",
+                        "path": "articles/A1/canonical/metadata.json",
                         "sha256": HARNESS.sha256_file(metadata),
                         "change_kind": "METADATA_OR_CTA",
                         "affected_requirement_ids": ["REQ-SEO-001"],
                         "affected_finding_ids": ["SEO-TITLE-001"],
                     },
                     {
-                        "path": "article-package.json",
+                        "path": "articles/A1/article-package.json",
                         "sha256": HARNESS.sha256_file(package),
                         "change_kind": "METADATA_OR_CTA",
                         "affected_requirement_ids": ["REQ-SEO-001"],
                         "affected_finding_ids": ["SEO-TITLE-001"],
                     },
                     {
-                        "path": "handoff/visual-payload.html",
+                        "path": "articles/A1/handoff/visual-payload.html",
                         "sha256": HARNESS.sha256_file(payload),
                         "change_kind": "VISUAL_PAYLOAD",
                         "affected_requirement_ids": ["REQ-SEO-001"],
                         "affected_finding_ids": ["SEO-TITLE-001"],
                     },
                     {
-                        "path": "handoff/visual-payload.md",
+                        "path": "articles/A1/handoff/visual-payload.md",
                         "sha256": HARNESS.sha256_file(payload.with_suffix(".md")),
                         "change_kind": "VISUAL_PAYLOAD",
                         "affected_requirement_ids": ["REQ-SEO-001"],
@@ -1042,14 +1062,14 @@ class ArtifactOptimizationTests(unittest.TestCase):
             )
             self.assertEqual(delta_checked.returncode, 0, delta_checked.stdout + delta_checked.stderr)
 
-            delta_report = workspace / "reviews/review-delta-approval-1.md"
+            delta_report = root / "reviews/review-delta-approval-1.md"
             delta_report.write_text("R: targeted repair approved.\n", encoding="utf-8")
             index_data = json.loads(index.read_text(encoding="utf-8"))
             index_data["last_delta"] = {
                 "review_scope": "R_DELTA",
                 "status": "APPROVED",
                 "full_review_required": False,
-                "report_path": "reviews/review-delta-approval-1.md",
+                "report_path": "articles/A1/reviews/review-delta-approval-1.md",
                 "report_sha256": HARNESS.sha256_file(delta_report),
                 "reviewer_agent_id": "R-A1",
                 "baseline_full_review_report_sha256": baseline_full["report_sha256"],
@@ -1067,18 +1087,18 @@ class ArtifactOptimizationTests(unittest.TestCase):
             state["orchestration"]["tasks"].append({
                 "article_id": "A1", "role": "ARTICLE_LANGUAGE_REVIEWER", "agent_id": "R-A1",
                 "workflow_stage": "REVIEW_DELTA", "result": "APPROVED",
-                "result_path": "reviews/review-delta-approval-1.md", "status": "COMPLETED",
+                "result_path": "articles/A1/reviews/review-delta-approval-1.md", "status": "COMPLETED",
             })
             state_path.write_text(json.dumps(state), encoding="utf-8")
 
-            handoff = workspace / "handoff/handoff-manifest.json"
+            handoff = root / "handoff/handoff-manifest.json"
             built = subprocess.run(
                 [
                     sys.executable, str(BUILD_PAYLOAD), "--title", "Example workflow",
                     "--body-html", str(body), "--article-package", str(package),
                     "--metadata-json", str(metadata), "--visual-manifest", str(visual_manifest),
                     "--output", str(payload), "--handoff-manifest-output", str(handoff),
-                    "--workspace", str(workspace), "--requirements-traceability", str(traceability),
+                    "--workspace", str(root), "--requirements-traceability", str(traceability),
                 ], cwd=ROOT, text=True, capture_output=True, check=False,
             )
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)

@@ -40,12 +40,20 @@ orchestration:
   separate_research_review: ELEVATED_EARLY_CHALLENGE_ONLY
   final_independent_review: REQUIRED
   gate_mode: CAMPAIGN_G_BATCH_CONTRACT_AND_EXCEPTION_ONLY
-  execution_isolation: WORKTREE_FIRST_PER_ARTICLE
-  worktree_autospawn: CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED
-  fallback: VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION
+  execution_session: CONTINUOUS_CAMPAIGN_MAIN_SESSION
+  execution_isolation: MAIN_SESSION_PATH_ISOLATED
+  article_artifact_root_template: articles/{article_id}
+  article_artifact_roots: REQUIRED_DISJOINT
+  worktree_autospawn: EXPLICIT_EXCEPTION_ONLY
+  worktree_dispatch_decision: REQUIRED_FOR_GIT_WORKTREE_ONLY
+  worktree_allowed_reasons:
+    - TRUE_CONCURRENT_WRITE
+    - HIGH_RISK_REWRITE_OR_ROLLBACK
+    - OWNER_REQUESTED_GIT_ISOLATION
+  fallback: NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED
   silent_fallback: false
-  article_role_bundle: ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G
-  project_worktree_root: ARTICLE_WRITER_REVIEWER_PAIR
+  article_role_bundle: REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G
+  article_artifact_root_role: ARTICLE_ARTIFACT_ROOT
   contract_acceptance: CAMPAIGN_G_BATCH_CONTRACT_ACCEPTANCE
   public_qa: REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY
   public_qa_input: STRUCTURED_HUMAN_RETURN_RECEIPT_AND_READONLY_SNAPSHOT

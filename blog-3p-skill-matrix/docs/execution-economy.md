@@ -6,15 +6,18 @@
 
 | 做法 | 在本矩阵中的实现 | 为什么可行 |
 | --- | --- | --- |
-| 最小充分上下文 | `context/article-contract.json`、`reviews/review-index.json` 和发生变化的文件；历史只以路径/哈希按需回读 | 冻结范围、CTA 和 finding 谱系不丢失，同时避免每轮重灌历史日志。 |
+| 最小充分上下文 | 当前文章的 `articles/<article_id>/context/article-contract.json`、`articles/<article_id>/reviews/review-index.json` 和发生变化的文件；历史只以路径/哈希按需回读 | 冻结范围、CTA 和 finding 谱系不丢失，同时避免每轮重灌历史日志。 |
 | 程序先处理确定性错误 | `check-article-package`、`check-review-ready`、载荷校验、哈希和批量 G 检查 | 路径、hash、精确 CTA、固定载荷顺序不需要占用 R 的编辑推理。脚本通过绝不等于文章通过。 |
 | 项目内共享证据、文章内差异判断 | 共享包只保存哈希固定、精确 key 命中的稳定观察；文章 evidence pack 只引实际引用记录和本篇采用/拒绝/新鲜度/补充 | 同一品牌用语、同一地区 SERP 观察不必逐篇重新收集；W 仍做本篇判断，易变、账号和文章专属事实绝不复用。未命中不建空缓存。 |
+| 持续主会话、文章路径隔离 | `CONTINUOUS_CAMPAIGN_MAIN_SESSION`；每篇只使用 `articles/<article_id>/{context,research,canonical,reviews,handoff}` | 免去普通文章重复建立工作树和角色上下文；目录仍保证文章文件互不覆盖。可见 W/R 可跨普通文章复用，但 R 对每篇保持独立审稿。 |
 | 单源编译的主／从交付页 | `article-package.json@1.5` 声明 `canonical/article.html`、metadata、evidence pack 与 visual manifest；同一编译器生成 HTML 和 Markdown | 避免同一正文被手工投影为多份可漂移载荷。HTML 是人工发布与 R 的主审面；Markdown 由机械一致性校验覆盖，只有 `COMPANION_DUAL_READ_REQUIRED` 才人工双读。 |
 | 首次完整审稿，后续按差异审 | 同一 R 的 `FULL_REVIEW`，以及有边界的 `R_DELTA` / `R_VISUAL_DELTA` | 初次独立性保留；已定位、小范围修复不强迫全文重读。 |
 | 批量 G | 一次 `BATCH_GATE_ACCEPTANCE` 与按 URL 回传批次的公开页 G | G 只验收范围、哈希和例外，不重做 R 的 SEO/语义审稿。 |
 | 只记录异常 | 不生成逐项 PASS 表、重复研究摘要或空泛复盘 | 降低输出与下轮输入，不丢失真正的 finding ID、来源与哈希。 |
 
 `check-review-ready` 是一个节省模型调用的保险丝：它在 R 前运行，但只发现机械不一致。它不写新证据、不做关键词密度或长度打分、不阻断创作，也不把“结构正确”错误升级为“文章优秀”。
+
+Git 工作树不天然节省 token，也不能因运行槽位充足或主会话繁忙而自动建立。当前 schema-2.13 只在 `TRUE_CONCURRENT_WRITE`、`HIGH_RISK_REWRITE_OR_ROLLBACK` 或 `OWNER_REQUESTED_GIT_ISOLATION` 时使用它，并在该文章记录 `worktree_dispatch_decision`。普通文章继续留在主会话的互斥路径中处理；共享 G 仍只做范围与交付契约控制。
 
 ## 受控试验，而非默认规则
 
@@ -25,6 +28,7 @@
 | 增加辩论/更多审稿代理 | 不默认采用 | 同一篇文章的 W→R 有依赖关系；额外辩论通常增加上下文与协调成本。只有重大来源冲突可临时增加一次盲挑战，且由原 R 依据来源裁决。 |
 | 所有主张拆成原子台账 | 不采用 | 机械拆分会让普通背景写作变成填表。仅对价格、日期、比较、性能、易变政策和高后果表述优先建可核验记录。 |
 | 缓存整篇文章或所有网页 | 不采用 | 可变内容、平台政策和具体文章证据不能跨任务盲复用；只按已有共享证据规则复用精确、非易变且同语境的材料。 |
+| 为节省 token 或填满槽位而自动创建 Git 工作树 | 不采用 | 工作树只隔离真实的并发写入、重写／回滚风险或用户明确要求的 Git 状态；常规文章用不重叠的主会话目录即可。 |
 
 ## 量什么，而非猜什么
 

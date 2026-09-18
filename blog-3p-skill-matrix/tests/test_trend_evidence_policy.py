@@ -40,6 +40,40 @@ def set_schema_2_4_legacy_policy(cfg: dict) -> None:
         "attempt_before_drafting": True,
     })
     cfg["artifact_optimization_policy"] = copy.deepcopy(HARNESS.ARTIFACT_OPTIMIZATION_POLICY_2_4)
+    orchestration = cfg["orchestration_policy"]
+    for field in (
+        "execution_session",
+        "article_artifact_root_template",
+        "article_artifact_roots",
+        "worktree_dispatch_decision",
+        "worktree_allowed_reasons",
+        "batch_gate_policy",
+    ):
+        orchestration.pop(field, None)
+    orchestration.update({
+        "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE",
+        "cross_article_agent_reuse": "PROHIBITED",
+        "execution_isolation": "WORKTREE_FIRST_PER_ARTICLE",
+        "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED",
+        "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION",
+        "silent_worktree_fallback": False,
+        "article_worktree_role_bundle": "ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE",
+        "project_worktree_root_role": "ARTICLE_LANE_GATEKEEPER",
+        "campaign_gatekeeper_scope": "GLOBAL_REQUIREMENTS_QUEUE_AND_LEDGER_ONLY",
+        "article_public_gate_mode": "REUSE_ARTICLE_LANE_GATEKEEPER_ONLY",
+        "public_qa_policy": copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_3),
+        "queue_resume_policy": "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE",
+    })
+
+
+def set_legacy_state_execution_policy(workspace: Path) -> None:
+    state_path = workspace / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    orchestration = state["orchestration"]
+    orchestration.pop("execution_session", None)
+    orchestration.pop("article_artifact_root_template", None)
+    orchestration["capacity"]["spawn_policy"] = "AUTHORIZED_MAXIMIZE_AVAILABLE_CAPACITY"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
 
 
 class TrendEvidencePolicyTests(unittest.TestCase):
@@ -103,6 +137,7 @@ class TrendEvidencePolicyTests(unittest.TestCase):
             set_schema_2_4_legacy_policy(cfg)
             cfg["keyword_research_policy"].pop("trend_evidence_policy")
             campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
+            set_legacy_state_execution_policy(workspace)
             manifest_path = workspace / "prewrite-plan.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             manifest["schema_version"] = "1.3"

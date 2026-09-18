@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.12",
+  "schema_version": "2.13",
   "campaign_id": "REPLACE_ME",
   "scope_lock": {
     "status": "DRAFT",
@@ -205,11 +205,11 @@
     "prewrite_owner_view": "HARNESS_DETERMINISTIC_RENDER_ONLY",
     "manual_duplicate_entry": "PROHIBITED",
     "article_context": {
-      "path": "context/article-contract.json",
+      "path": "articles/{article_id}/context/article-contract.json",
       "schema_version": "1.0"
     },
     "review_index": {
-      "path": "reviews/review-index.json",
+      "path": "articles/{article_id}/reviews/review-index.json",
       "schema_version": "1.0"
     },
     "review_delta": {
@@ -217,7 +217,7 @@
       "max_delta_attempts_before_full_review": 2
     },
     "research_evidence_pack": {
-      "path": "research/evidence-pack.json",
+      "path": "articles/{article_id}/research/evidence-pack.json",
       "canonical": true,
       "schema_version": "1.3"
     },
@@ -226,7 +226,7 @@
       "canonical": true
     },
     "visual_manifest": {
-      "path": "canonical/visual-manifest.json",
+      "path": "articles/{article_id}/canonical/visual-manifest.json",
       "canonical": true
     },
     "article_package": {
@@ -246,12 +246,12 @@
       "semantic_change": "TARGETED_R_DELTA_UNLESS_SCOPE_OR_LINEAGE_ESCALATION"
     },
     "handoff_manifest": {
-      "path": "handoff/handoff-manifest.json",
+      "path": "articles/{article_id}/handoff/handoff-manifest.json",
       "canonical": true
     },
     "visual_payloads": {
-      "html": "handoff/visual-payload.html",
-      "markdown": "handoff/visual-payload.md",
+      "html": "articles/{article_id}/handoff/visual-payload.html",
+      "markdown": "articles/{article_id}/handoff/visual-payload.md",
       "both_required": true,
       "review_surface": "HTML_PRIMARY_MARKDOWN_COMPILER_VERIFIED_FALLBACK"
     },
@@ -259,7 +259,8 @@
     "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY",
     "model_owned_research_record": "ONE_EVIDENCE_PACK_WITH_DERIVED_VIEWS",
     "review_route": "STANDARD_INTEGRATED_REVIEW_UNLESS_ELEVATED",
-    "owner_confirmation_receipt": "HASH_BOUND_OWNER_ORIGINATED_ARTIFACT"
+    "owner_confirmation_receipt": "HASH_BOUND_OWNER_ORIGINATED_ARTIFACT",
+    "article_artifact_root_template": "articles/{article_id}"
   },
   "model_first_execution_policy": {
     "mode": "MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION",
@@ -287,18 +288,27 @@
     "delegation_default": "VISIBLE_SUBAGENTS",
     "visible_task_record_required": true,
     "invisible_cli_agent_sessions": "PROHIBITED",
-    "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE",
-    "cross_article_agent_reuse": "CAMPAIGN_GATEKEEPER_ONLY",
+    "writer_reviewer_pair_mode": "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION",
+    "cross_article_agent_reuse": "CAMPAIGN_W_R_G_REUSE_ALLOWED",
     "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD",
     "persistent_requirements_gatekeeper": true,
     "fresh_agent_roles": [],
     "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY",
-    "execution_isolation": "WORKTREE_FIRST_PER_ARTICLE",
-    "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED",
-    "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION",
+    "execution_session": "CONTINUOUS_CAMPAIGN_MAIN_SESSION",
+    "execution_isolation": "MAIN_SESSION_PATH_ISOLATED",
+    "article_artifact_root_template": "articles/{article_id}",
+    "article_artifact_roots": "REQUIRED_DISJOINT",
+    "worktree_autospawn": "EXPLICIT_EXCEPTION_ONLY",
+    "worktree_dispatch_decision": "REQUIRED_FOR_GIT_WORKTREE_ONLY",
+    "worktree_allowed_reasons": [
+      "TRUE_CONCURRENT_WRITE",
+      "HIGH_RISK_REWRITE_OR_ROLLBACK",
+      "OWNER_REQUESTED_GIT_ISOLATION"
+    ],
+    "worktree_fallback": "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED",
     "silent_worktree_fallback": false,
-    "article_worktree_role_bundle": "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G",
-    "project_worktree_root_role": "ARTICLE_WRITER_REVIEWER_PAIR",
+    "article_worktree_role_bundle": "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G",
+    "project_worktree_root_role": "ARTICLE_ARTIFACT_ROOT",
     "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA",
     "batch_gate_policy": {
       "mode": "CAMPAIGN_G_BATCH_CONTRACT_ACCEPTANCE",
@@ -333,7 +343,7 @@
         "CANONICAL_CHANGE_REQUESTED"
       ]
     },
-    "queue_resume_policy": "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE",
+    "queue_resume_policy": "MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH",
     "article_agent_replacement_requires_full_rehydration": true,
     "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]
   },

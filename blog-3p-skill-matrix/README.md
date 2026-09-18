@@ -20,10 +20,10 @@ This project separates those concerns into explicit Skills while keeping one can
 
 ## Operating model
 
-- **G earns the right to dispatch.** Before any article worktree or W/R exists, the persistent visible controller gathers and reports a complete per-article pre-write research and writing plan. The current `HUMAN_RELEASE_ONLY_V1` profile binds `OWNER_PREWRITE_PLAN_CONFIRMED` only through a hash-bound owner receipt artifact and local confirmation command. Before W/R dispatch, it also requires every article's owner-confirmed one-to-one platform/account and locale-compatibility mapping. G then records only confirmed owner requirements in `requirements-contract.md`, maintains campaign state and priority, and accepts final contract fidelity. It never becomes an invisible CLI review session.
-- **Each article has one executable W and one persistent R.** `blog-3p-writer` is the only active Writer role; it and the language Reviewer remain with that article through research, drafting, repair, full review, and delta review. They are not shared with another article. R owns article quality, including SEO; W maintains `requirements-traceability.md`.
-- **Worktree isolation is explicit.** A visible child task is not automatically a Git worktree. Only after pre-write confirmation, where the host supports project worktrees, G creates one visible worktree task per ready independent article before W/R starts. Otherwise it records `WORKTREE_UNAVAILABLE` and may use a visibly labeled shared-workspace fallback only for disjoint article paths.
-- **Each worktree contains one durable W/R pair.** The pair, not an article-level G, is its root and owns that article's continuous editorial work through `W ↔ R`. One registered campaign G remains the global requirements, queue, and state controller; it batch-processes the compact ready rows instead of spending a G turn per article.
+- **G earns the right to dispatch.** Before any article path or W/R exists, the persistent visible controller gathers and reports a complete per-article pre-write research and writing plan. The current `HUMAN_RELEASE_ONLY_V1` profile binds `OWNER_PREWRITE_PLAN_CONFIRMED` only through a hash-bound owner receipt artifact and local confirmation command. Before W/R dispatch, it also requires every article's owner-confirmed one-to-one platform/account and locale-compatibility mapping. G then records only confirmed owner requirements in `requirements-contract.md`, maintains campaign state and priority, and accepts final contract fidelity. It never becomes an invisible CLI review session.
+- **Each article has independent W/R work, not a mandatory new conversation.** `blog-3p-writer` is the only active Writer role. In the normal continuous main session, visible W and language-R roles may be reused across ordinary articles, but every turn is bound to one `articles/<article_id>/` path and every article receives its own R `FULL_REVIEW`, review index, and finding lineage. R owns article quality, including SEO; W maintains `requirements-traceability.md`.
+- **Path isolation is the default.** `CONTINUOUS_CAMPAIGN_MAIN_SESSION` with `MAIN_SESSION_PATH_ISOLATED` keeps ordinary work in deterministic disjoint article roots. A visible child task is not automatically a Git worktree.
+- **Git worktrees are recorded exceptions.** G may create `GIT_WORKTREE` only for `TRUE_CONCURRENT_WRITE`, `HIGH_RISK_REWRITE_OR_ROLLBACK`, or `OWNER_REQUESTED_GIT_ISOLATION`; capacity, a busy main session, and token saving are not reasons. One registered campaign G remains the global requirements, queue, and state controller; it batch-processes compact ready rows instead of spending a G turn per article.
 - **Quality and owner intent are distinct checks.** R decides whether the article is good. Once R approves, G checks whether any confirmed owner requirement was lost, substituted, weakened, or expanded; G does not redo prose or SEO review.
 - **Ordinary turns use a compact evidence index.** At dispatch, campaign G/harness creates an immutable hash-bound article contract. R maintains a review index and W adds a delta capsule for a bounded repair. After context compression, roles first reread the [workflow core](docs/workflow-core.md), then the contract, index, and changed artifacts. A full historic reread is necessary only for hash drift, unresolved finding lineage, agent replacement, or escalation; scope conflict is an escalation condition.
 - **Reader value comes first; CTA is required but secondary.** Each article has a frozen reader-value promise and must remain useful without relying on its CTA. The owner-required CTA preserves its exact visible anchor text, identifiable product, current destination, claim basis, reader-task relevance, and any applicable relationship disclosure. R judges meaning and commercial balance; G checks declaration-to-delivery fidelity.
@@ -48,14 +48,14 @@ G pre-write dossier (one plan per article)
 OWNER_PREWRITE_PLAN_CONFIRMED + receipt/hash binding
         │
         ▼
-Visible article worktree / reusable W-R pair
+Campaign main session / isolated `articles/<article_id>/` path
         ├─ standard ───────────────────────────────────────────────┐
         └─ elevated risk ─► W research → same reusable R challenge ┤
                                                                      ▼
-                                      W: continuous research → draft → visuals → payload
+                         reusable W: continuous research → draft → visuals → payload
                                                                      │
                                                                      ▼
-                                    same reusable R: one FULL_REVIEW of the complete package
+                         independent R: one FULL_REVIEW of the complete package
                                                                      │
                                                                      ▼
                               one campaign G BATCH_GATE_ACCEPTANCE for current R-approved rows
@@ -99,7 +99,7 @@ Every reader-visible change to the canonical article or visual payload updates t
 
 ### Compact, hash-bound article context
 
-At dispatch, campaign G/harness writes `context/article-contract.json`: a projection of the confirmed article scope, applicable `REQ-*`, reader-value/CTA declaration, language/market, applicable release mapping, and source hashes. It deliberately excludes live findings. R maintains `reviews/review-index.json` with the current canonical/package hashes, report pointers, decision and mutable stable-finding lineage. Stable campaign evidence may be reused only through exact `campaign_shared_evidence` record IDs plus the article's `article_delta`; a cache miss creates neither an empty cache nor a fake reference. These records reduce repeated context loading; they cannot alter scope or override source evidence.
+At dispatch, campaign G/harness writes `articles/<article_id>/context/article-contract.json`: a projection of the confirmed article scope, applicable `REQ-*`, reader-value/CTA declaration, language/market, applicable release mapping, and source hashes. It deliberately excludes live findings. R maintains that article's `reviews/review-index.json` with the current canonical/package hashes, report pointers, decision and mutable stable-finding lineage. Stable campaign evidence may be reused only through exact `campaign_shared_evidence` record IDs plus the article's `article_delta`; a cache miss creates neither an empty cache nor a fake reference. These records reduce repeated context loading; they cannot alter scope or override source evidence.
 
 For a bounded repair, W adds `reviews/review-delta-N.json` with the approved baseline hashes, exact changed paths and affected claims/requirements/findings. R-Δ reads that capsule, changed artifacts and direct dependencies rather than mechanically re-reading unrelated sections. The current package declares its only permitted sources: `canonical/article.html`, metadata, the evidence pack, and the visual manifest. W compiles both final visual payloads from those hash-bound inputs before the single full R review. R semantically reads the HTML primary projection and the declared sources; Markdown is a mechanically verified readable fallback and becomes a second semantic read only when the checker emits `COMPANION_DUAL_READ_REQUIRED`. After R, derived hand-off finalization may only repeat byte-identical renders of both payloads and create its manifest; it fails before overwriting either changed payload. W must instead compile the changed candidate before the appropriate R-Δ or full R. A post-approval visual manifest, payload or package-visual-pointer change requires the narrower R visual delta. Full historical reread is necessary only for hash drift, unresolved or ambiguous lineage, agent replacement, scope conflict or explicit escalation.
 
@@ -107,13 +107,13 @@ For a bounded repair, W adds `reviews/review-delta-N.json` with the approved bas
 
 The primary outcome is a high-quality, evidence-bounded answer to the reader's task. Every new schema-`2.2+` article freezes a `reader_value_promise`; the article must still be coherent and useful if its CTA is removed. `cta.mode = NONE` is not valid in a new schema-2.2 campaign.
 
-Every schema-2.2+ article uses `cta.mode = SECONDARY_RECOMMENDATION`. In the current schema-2.12 workflow, `article-package.json` is schema `1.5`: it retains the exact visible anchor text, product identity, current destination URL, claim-evidence path, reader-task relevance, and relationship disclosure or `NOT_APPLICABLE`, then points one way to hash-bound `canonical/article.html`, metadata, evidence pack and visual manifest. Metadata is the only source for platform title and SEO fields; the package cannot duplicate title, SEO, links, images or a hand-off pointer. These fields trace a recommendation; they do not license unsupported claims that a product is independently reliable, best, tested, available or suitable for every reader. R—not a count, word-ratio, placement or density check—judges whether the article remains reader-led, balanced and truthful. G only confirms that the frozen declaration survived the final package. Historical `2.11 / 1.4` and earlier package contracts remain readable and checkable, but cannot replace the current single-source path. This reduces avoidable moderation/deletion risk; it never guarantees that a platform will retain a public page.
+Every schema-2.2+ article uses `cta.mode = SECONDARY_RECOMMENDATION`. In the current schema-2.13 workflow, `articles/<article_id>/article-package.json` is schema `1.5`: it retains the exact visible anchor text, product identity, current destination URL, claim-evidence path, reader-task relevance, and relationship disclosure or `NOT_APPLICABLE`, then points one way to hash-bound `canonical/article.html`, metadata, evidence pack and visual manifest. Metadata is the only source for platform title and SEO fields; the package cannot duplicate title, SEO, links, images or a hand-off pointer. These fields trace a recommendation; they do not license unsupported claims that a product is independently reliable, best, tested, available or suitable for every reader. R—not a count, word-ratio, placement or density check—judges whether the article remains reader-led, balanced and truthful. G only confirms that the frozen declaration survived the final package. Historical `2.12 / 1.4` and earlier package contracts remain readable and checkable, but cannot replace the current single-source path. This reduces avoidable moderation/deletion risk; it never guarantees that a platform will retain a public page.
 
 ### Owner-confirmed pre-write plan
 
-Before the matrix spends a worktree or starts a writing/review lane, G maintains one canonical schema-`1.7` `prewrite-plan.json` for every configured article. Each compact card states the task/audience, independent reader value and required secondary CTA, a model-led editorial brief, risks and owner decisions, a frozen delivery mapping, a frozen `topic_slot`, and an evidence posture. The topic slot fixes the reader task, core intent, market, differentiating angle and prohibited deviations, not the literal keyword or final title. The delivery mapping exposes article language, market, platform, account and audience-fit mode; the posture distinguishes a method template from a documented empirical record. The editorial brief brings together the proposed keyword/localization route, evidence boundary, likely title/outline, visual approach and any known hand-off risk without copying the same fact into many files. G runs `harnessctl.py sync-prewrite-plan` to render the human-readable `prewrite-plan.md`. That Markdown file is deterministic and read-only: never hand-edit both files or use it as a second source of scope truth.
+Before the matrix creates an article path or starts W/R work, G maintains one canonical schema-`1.7` `prewrite-plan.json` for every configured article. Each compact card states the task/audience, independent reader value and required secondary CTA, a model-led editorial brief, risks and owner decisions, a frozen delivery mapping, a frozen `topic_slot`, and an evidence posture. The topic slot fixes the reader task, core intent, market, differentiating angle and prohibited deviations, not the literal keyword or final title. The delivery mapping exposes article language, market, platform, account and audience-fit mode; the posture distinguishes a method template from a documented empirical record. The editorial brief brings together the proposed keyword/localization route, evidence boundary, likely title/outline, visual approach and any known hand-off risk without copying the same fact into many files. G runs `harnessctl.py sync-prewrite-plan` to render the human-readable `prewrite-plan.md`. That Markdown file is deterministic and read-only: never hand-edit both files or use it as a second source of scope truth.
 
-`OWNER_PREWRITE_PLAN_CONFIRMED` is a hard dispatch gate. In schema 2.12, `confirm-prewrite-plan` requires an owner-originated receipt file under `evidence/owner-confirmations/`, its hash, a source locator, and a timezone-aware timestamp; a self-typed status or ID cannot promote a plan. Its ID, article set, report hash, manifest hash, protected scope snapshot and receipt must agree in the state, owner confirmation, requirements contract, and scope lock. The protected snapshot includes language, market, platform, account, fit mode, cross-language exception, topic slot and evidence posture. A change to any of these requires explicit invalidation and renewed owner confirmation; synchronization cannot overwrite the old receipt. The current profile also requires an owner-confirmed distinct platform/account assignment and compatible audience/transport row for every article before W/R dispatch. Until the required bindings are valid, G cannot create an article worktree, W, R, article queue, or article agent. This gives the owner a correction point before parallel work consumes time or tokens without turning G's proposal into a substitute for W/R research.
+`OWNER_PREWRITE_PLAN_CONFIRMED` is a hard dispatch gate. In schema 2.13, `confirm-prewrite-plan` requires an owner-originated receipt file under `evidence/owner-confirmations/`, its hash, a source locator, and a timezone-aware timestamp; a self-typed status or ID cannot promote a plan. Its ID, article set, report hash, manifest hash, protected scope snapshot and receipt must agree in the state, owner confirmation, requirements contract, and scope lock. The protected snapshot includes language, market, platform, account, fit mode, cross-language exception, topic slot and evidence posture. A change to any of these requires explicit invalidation and renewed owner confirmation; synchronization cannot overwrite the old receipt. The current profile also requires an owner-confirmed distinct platform/account assignment and compatible audience/transport row for every article before W/R dispatch. Until the required bindings are valid, G cannot create an article path, W, R, article queue, or article agent. This gives the owner a correction point before parallel work consumes time or tokens without turning G's proposal into a substitute for W/R research.
 
 ### Visual narrative coverage
 
@@ -158,7 +158,7 @@ The publisher’s return is intentionally lightweight: one `public-return-receip
 
 ### Strict platform scope
 
-Before a platform map is frozen, the visible reusable `CAMPAIGN_PLATFORM_MATCHING_RESEARCHER` is the sole permitted pre-confirmation child-role exception. It performs only the read-only language/market/content-format comparison within owner-supplied XLSX/table/message candidates and contributes a hash-pinned recommendation to G's plan; it never starts article research, a worktree, W, R, an outline, or prose. G does not pre-screen, rank, or choose candidates; it validates only provenance and no-duplicate structure, then obtains the owner's confirmation.
+Before a platform map is frozen, the visible reusable `CAMPAIGN_PLATFORM_MATCHING_RESEARCHER` is the sole permitted pre-confirmation child-role exception. It performs only the read-only language/market/content-format comparison within owner-supplied XLSX/table/message candidates and contributes a hash-pinned recommendation to G's plan; it never starts article research, an article artifact path, W, R, an outline, or prose. G does not pre-screen, rank, or choose candidates; it validates only provenance and no-duplicate structure, then obtains the owner's confirmation.
 
 Platform/account pairs then come only from an owner-confirmed, hash-pinned `owner-platform-selection.json` that references that matching proposal; `platform_scope.allowed_pairs` is merely its mechanically checked projection, never its own authority. Each pair receipt identifies a user-originated XLSX/table/message artifact, its SHA-256, exact row/cell or message locator, platform literal, account-confirmation literal, and owner confirmation ID. The suite never discovers, recommends, adds, substitutes, or quietly queues another platform. If a source-bounded matching run has no defensible recommendation, or owner confirmation is absent, the state is `OWNER_DECISION_REQUIRED`, not a license for G to choose.
 
@@ -217,33 +217,33 @@ python3 skills/blog-3p-harness/scripts/harnessctl.py dispatch-readiness \
   --workspace /absolute/path/to/campaign
 
 # After G writes confirmed REQ-* entries and registers the visible campaign G, build
-# one context per article. The workspace below is the campaign root, or the root of a
-# complete Git worktree of that campaign: it must contain campaign.json, state.json,
-# prewrite-plan.json, and requirements-contract.md. Never point this at a new empty
-# article-A1 directory. W creates canonical/article.html before the review index.
+# one context per article from the campaign root. Schema 2.13 derives its only valid
+# destination below articles/<article_id>/; do not create a separate campaign or task
+# just to obtain a worktree. W creates the article-local canonical/article.html before
+# the review index.
 python3 skills/blog-3p-harness/scripts/harnessctl.py build-article-context \
   --workspace /absolute/path/to/campaign \
   --article-id A1 \
-  --output context/article-contract.json
+  --output articles/A1/context/article-contract.json
 python3 skills/blog-3p-harness/scripts/harnessctl.py build-review-index \
   --workspace /absolute/path/to/campaign \
-  --article-contract context/article-contract.json \
-  --output reviews/review-index.json
+  --article-contract articles/A1/context/article-contract.json \
+  --output articles/A1/reviews/review-index.json
 
-# For a current schema-2.12 article package (schema 1.5), verify its package-declared
+# For a current schema-2.13 article package (schema 1.5), verify its package-declared
 # single sources and frozen reader-value/required-CTA mapping.
 python3 skills/blog-3p-harness/scripts/harnessctl.py check-article-package \
   --workspace /absolute/path/to/campaign \
-  --package /absolute/path/to/campaign/article-package.json
+  --package /absolute/path/to/campaign/articles/A1/article-package.json
 
 # Immediately before the single full R review, eliminate only structural drift:
 # current source hashes, fixed visual payload shape, and the frozen CTA mapping.
 # Passing this is not an editorial, fact, or SEO approval.
 python3 skills/blog-3p-harness/scripts/harnessctl.py check-review-ready \
   --workspace /absolute/path/to/campaign \
-  --article-contract context/article-contract.json \
-  --review-index reviews/review-index.json \
-  --article-package article-package.json
+  --article-contract articles/A1/context/article-contract.json \
+  --review-index articles/A1/reviews/review-index.json \
+  --article-package articles/A1/article-package.json
 
 # Optional, non-blocking observation after a completed batch. It never estimates
 # missing token/cost data or creates another agent/review step.
@@ -253,23 +253,23 @@ python3 skills/blog-3p-harness/scripts/harnessctl.py summarize-efficiency \
 # After humans return URL/state receipts, validate each one before campaign G's batch check.
 python3 skills/blog-3p-harness/scripts/harnessctl.py check-public-return-receipt \
   --workspace /absolute/path/to/campaign \
-  --receipt /absolute/path/to/campaign/handoff/public-return-receipt.json \
-  --article-package /absolute/path/to/campaign/article-package.json
+  --receipt /absolute/path/to/campaign/articles/A1/handoff/public-return-receipt.json \
+  --article-package /absolute/path/to/campaign/articles/A1/article-package.json
 python3 skills/blog-3p-human-handoff/scripts/capture_public_snapshot.py \
-  --receipt /absolute/path/to/campaign/handoff/public-return-receipt.json \
-  --article-package /absolute/path/to/campaign/article-package.json \
-  --output /absolute/path/to/campaign/evidence/public-qa/public-snapshot.json
+  --receipt /absolute/path/to/campaign/articles/A1/handoff/public-return-receipt.json \
+  --article-package /absolute/path/to/campaign/articles/A1/article-package.json \
+  --output /absolute/path/to/campaign/evidence/public-qa/A1-public-snapshot.json
 ```
 
 Then invoke the Skills in this order:
 
 1. `blog-3p-harness` + `blog-3p-gate` — collect the campaign evidence and report G's per-article pre-write plan.
-2. The owner returns `OWNER_PREWRITE_PLAN_CONFIRMED`; save the source receipt, bind it with `confirm-prewrite-plan`, then run `dispatch-readiness`. Only now may G provision article worktrees.
-3. `blog-3p-writer` — the sole W continuously researches, drafts, creates visuals and compiles the final fixed visual payload before R, consulting `blog-writer-merged` only as an editorial-core reference. That article's reusable `blog-3p-review` performs one full independent review of the evidence and complete package; only an elevated risk route adds an early research challenge.
+2. The owner returns `OWNER_PREWRITE_PLAN_CONFIRMED`; save the source receipt, bind it with `confirm-prewrite-plan`, then run `dispatch-readiness`. Only now may G create each deterministic article path and dispatch W/R.
+3. `blog-3p-writer` — the sole W continuously researches, drafts, creates visuals and compiles the final fixed visual payload before R, consulting `blog-writer-merged` only as an editorial-core reference. Visible W/R roles may be reused across ordinary paths, while R performs one independent full review of every article's evidence and complete package; only an elevated risk route adds an early research challenge.
 4. `blog-3p-gate` — in one visible `BATCH_GATE_ACCEPTANCE`, verifies the frozen owner contract for all currently R-approved rows; `blog-3p-human-handoff` then creates/verifies the derived manifest and release card. It must not mutate the R-reviewed visual payload.
 5. After humans record public URL/state receipts, validate each and—for `HUMAN_ACCEPTED`—capture a read-only public snapshot. Resume the registered campaign G once for `PUBLIC_QA_BATCH_READONLY`, with one result row per ready article; do not start another W/R/G loop. A human transport fix returns to the same G's next batch; only an explicit canonical/payload request reopens that article's W/R.
 
-Schema 2.12 supports one execution profile only: `HUMAN_RELEASE_ONLY_V1` with `release_policy.mode = HUMAN_NATIVE_ONLY`. `machine_external_writes_allowed` remains `false`. Before W/R dispatch, every article must have one owner-confirmed distinct platform/account pair in `campaign.json.platform_scope.allowed_pairs`, an article assignment, and a compatible primary-audience/transport row. `human_release_requested` is obsolete and invalid in a current workspace. Schema 2.11 and earlier are retained only for historical reading/check compatibility; they cannot start the current dispatch flow.
+Schema 2.13 supports one execution profile only: `HUMAN_RELEASE_ONLY_V1` with `release_policy.mode = HUMAN_NATIVE_ONLY`. `machine_external_writes_allowed` remains `false`. Its normal execution is `CONTINUOUS_CAMPAIGN_MAIN_SESSION` with `MAIN_SESSION_PATH_ISOLATED`; Git worktrees require one of the three recorded exception reasons. Before W/R dispatch, every article must have one owner-confirmed distinct platform/account pair in `campaign.json.platform_scope.allowed_pairs`, an article assignment, and a compatible primary-audience/transport row. `human_release_requested` is obsolete and invalid in a current workspace. Schema 2.12 and earlier are retained only for historical reading/check compatibility; they cannot start the current dispatch flow.
 
 ## Workspace layout
 
@@ -282,17 +282,21 @@ campaign/
 ├── confirmation.md               # owner confirmation record
 ├── owner-platform-selection.json # hash-pinned owner-source pair receipts
 ├── requirements-contract.md      # G's stable IDs for confirmed owner requirements
-├── context/article-contract.json  # hash-bound article-relevant scope projection
 ├── pre-clearance-checklist.md    # one-shot prerequisites
-├── research/                     # one evidence pack plus optional derived read-only views
-├── canonical/                    # one source article and manifests
-├── reviews/                      # independent reports, review index, delta capsules
 ├── gate/                         # compact G batch decisions and batch public-QA reports
-├── handoff/                      # paired HTML/Markdown visual payload, release card, public-return receipt
 ├── evidence/                     # captured facts and public read-only snapshots
 │   ├── owner-confirmations/       # owner-originated confirmation artifacts
 │   ├── platform-style/            # in-scope format/editorial profiles, if available
 │   └── platform-matching/         # visible subagent report and proposal
+├── articles/
+│   └── A1/                        # one deterministic, non-overlapping article root
+│       ├── context/article-contract.json
+│       ├── research/evidence-pack.json
+│       ├── canonical/             # article.html, metadata.json, visual manifest and assets
+│       ├── reviews/               # review index, independent reports and deltas
+│       ├── handoff/               # paired payload, release card and return receipt
+│       ├── article-package.json
+│       └── requirements-traceability.md
 └── resolutions/                  # finding-by-finding repair records
 ```
 

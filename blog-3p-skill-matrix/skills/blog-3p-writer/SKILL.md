@@ -5,9 +5,9 @@ description: "在 W–R–G 工作流中，以一条连续证据链完成搜索�
 
 # 博客 3P：一体化研究与写作（W）
 
-先阅读[术语约定](../../docs/terminology.zh-CN.md)。你是单篇 `article_id` 唯一可执行的 W：调研与写作构成同一条证据链。`blog-writer-merged` 只是编辑核心参考，绝不能被启动为第二个 W、第二轮调研或第二份文章包。
+先阅读[术语约定](../../docs/terminology.zh-CN.md)。你是当前 `article_id` 的可执行 W：调研与写作构成同一条证据链。普通文章可复用同一可见 W 角色会话，但每次只处理当前文章的隔离路径和契约；`blog-writer-merged` 只是编辑核心参考，绝不能被启动为第二个 W、第二轮调研或第二份文章包。
 
-只在该文章已就绪的独立 Git 工作区和文章专属 W/R 协作组中工作。使用该文的 `context/article-contract.json` 和 `reviews/review-index.json`；不得自审、修改范围、决定发布、操作平台或以不可见 CLI 会话替代独立角色。公开页差异属于项目统筹 G 的批量只读检查，除非用户明确要求修改唯一基准稿或可视化富文本交付页，否则不启动 W 修复。
+默认在 `CONTINUOUS_CAMPAIGN_MAIN_SESSION` 内的 `articles/<article_id>/` 隔离路径工作，使用该文的 `context/article-contract.json` 和 `reviews/review-index.json`；不得跨路径混写、自审、修改范围、决定发布、操作平台或以不可见 CLI 会话替代独立角色。Git 工作树只在已记录的 `TRUE_CONCURRENT_WRITE`、`HIGH_RISK_REWRITE_OR_ROLLBACK` 或 `OWNER_REQUESTED_GIT_ISOLATION` 例外中使用。公开页差异属于项目统筹 G 的批量只读检查，除非用户明确要求修改唯一基准稿或可视化富文本交付页，否则不启动 W 修复。
 
 ## 开工前
 
@@ -33,9 +33,9 @@ description: "在 W–R–G 工作流中，以一条连续证据链完成搜索�
 
 ## 文章包与交接
 
-创建 `canonical/article.html`、`canonical/metadata.json`、`research/evidence-pack.json`、`canonical/visual-manifest.json` 和 `article-package.json`。当前 schema-2.12 项目使用 evidence pack schema `1.3` 与文章包 schema `1.5`：metadata 是标题/SEO 元数据的唯一来源，evidence pack 是本篇研究差异、topic-slot 对齐和（仅在实际复用时）共享记录引用的唯一来源，visual manifest 是图片的唯一最终来源；文章包只声明这些上游文件及其哈希，绝不反向指向 handoff，也不另写链接或图片清单。`2.11 / 1.4` 仅作历史读取/校验兼容。当前项目只进入人工原生发布交接，不提供本地-only 或自动发布分支。
+在 `articles/<article_id>/` 下创建 `canonical/article.html`、`canonical/metadata.json`、`research/evidence-pack.json`、`canonical/visual-manifest.json`、`reviews/`、`handoff/` 和 `article-package.json`。当前 schema-2.13 项目使用 evidence pack schema `1.3` 与文章包 schema `1.5`：metadata 是标题/SEO 元数据的唯一来源，evidence pack 是本篇研究差异、topic-slot 对齐和（仅在实际复用时）共享记录引用的唯一来源，visual manifest 是图片的唯一最终来源；文章包只声明这些上游文件及其哈希，绝不反向指向 handoff，也不另写链接或图片清单。`2.12 / 1.4` 及更早版本仅作历史读取/校验兼容。当前项目只进入人工原生发布交接，不提供本地-only 或自动发布分支。
 
-先完成正文、metadata、链接、来源、CTA 和最终图片，再让同一编译器仅从 package 声明且哈希相符的来源生成固定的 `BLOG_3P_VISUAL_PAYLOAD@3` HTML／Markdown 双交付页；不得手写、二次编辑或用另一份正文/metadata 生成其中任何一页。唯一基准稿 HTML 必须把每张图放在准确的独立位置标记中（`<!-- BLOG_3P_IMAGE:01 -->` 起按顺序），素材采用实际存在且哈希匹配的 `01-lead-<slug>.png`、`02-middle-<slug>.jpg`、`03-closing-<slug>.png` 命名；不使用 `{{IMAGE_CARDS}}`、WebP/GIF/SVG 或任意未编号文件。**编译完成后、交给 R 前**运行 `harnessctl.py check-review-ready --workspace <article-workspace> --article-contract context/article-contract.json --review-index reviews/review-index.json --article-package article-package.json`；它只校验当前文件、哈希、固定图卡、精确 CTA 与交付页伴随投影是否可审，失败直接修机械问题，不替代 R 的语义判断，也不产生通过结论。未输出 `COMPANION_DUAL_READ_REQUIRED` 时，同一 R 语义审最终稿、图片、上游源和 HTML 主交付页；只有该回退才再审 Markdown。未发生后续变更时不得额外创建视觉审稿。完整审稿后的有限修复先提交同一 R 的 `R_DELTA`：它必须绑定原完整审稿报告、当前全部交付哈希、准确变更路径和受影响问题项；纯视觉资产/载荷改动才使用更窄的 `R_VISUAL_DELTA`。范围、读者价值承诺、哈希漂移、问题项谱系不清或超出已声明风险面的改动必须回到完整 R。W 不能自行设计页面壳、CSS、JavaScript、按钮或图片注释样式。标题层级标记只是写作/复制辅助，不证明平台页面结构。
+先完成正文、metadata、链接、来源、CTA 和最终图片，再让同一编译器仅从 package 声明且哈希相符的来源生成固定的 `BLOG_3P_VISUAL_PAYLOAD@3` HTML／Markdown 双交付页；不得手写、二次编辑或用另一份正文/metadata 生成其中任何一页。唯一基准稿 HTML 必须把每张图放在准确的独立位置标记中（`<!-- BLOG_3P_IMAGE:01 -->` 起按顺序），素材采用实际存在且哈希匹配的 `01-lead-<slug>.png`、`02-middle-<slug>.jpg`、`03-closing-<slug>.png` 命名；不使用 `{{IMAGE_CARDS}}`、WebP/GIF/SVG 或任意未编号文件。**编译完成后、交给 R 前**从内容项目根运行 `harnessctl.py check-review-ready --workspace <campaign-root> --article-contract articles/<article_id>/context/article-contract.json --review-index articles/<article_id>/reviews/review-index.json --article-package articles/<article_id>/article-package.json`；不得把文章子目录当作项目根。它只校验当前文件、哈希、固定图卡、精确 CTA 与交付页伴随投影是否可审，失败直接修机械问题，不替代 R 的语义判断，也不产生通过结论。未输出 `COMPANION_DUAL_READ_REQUIRED` 时，同一 R 语义审最终稿、图片、上游源和 HTML 主交付页；只有该回退才再审 Markdown。未发生后续变更时不得额外创建视觉审稿。完整审稿后的有限修复先提交同一 R 的 `R_DELTA`：它必须绑定原完整审稿报告、当前全部交付哈希、准确变更路径和受影响问题项；纯视觉资产/载荷改动才使用更窄的 `R_VISUAL_DELTA`。范围、读者价值承诺、哈希漂移、问题项谱系不清或超出已声明风险面的改动必须回到完整 R。W 不能自行设计页面壳、CSS、JavaScript、按钮或图片注释样式。标题层级标记只是写作/复制辅助，不证明平台页面结构。
 
 ## 修复
 

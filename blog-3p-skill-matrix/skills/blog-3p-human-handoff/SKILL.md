@@ -15,7 +15,7 @@ description: "提供统一可视化富文本载荷的编译/校验器，以及�
 
 每张图在唯一基准稿 HTML 正文的精确位置使用一个独立注释标记：`<!-- BLOG_3P_IMAGE:01 -->`、`<!-- BLOG_3P_IMAGE:02 -->`……；不得使用聚合的 `{{IMAGE_CARDS}}` 槽位。编译器只在该标记原处渲染编号中文注释，HTML 与 Markdown 的图卡必须一一对应。视觉清单按顺序声明 `ordinal`、`coverage_zone`、`placement_anchor`、本地化 Alt／图注等；`placement_anchor` 必须在相应标记之前可见。素材必须真实存在、哈希匹配，并以 `01-lead-<slug>.png`、`02-middle-<slug>.jpg`、`03-closing-<slug>.png` 这类稳定文件名交付；只接受 PNG、JPG 或 JPEG，不能用 WebP、GIF、SVG 或未编号的替代品。Alt 或其他图卡字段为空、标记缺失／重复／乱序、文件格式／命名／哈希不符时编译失败，不能以占位文本替代。唯一基准稿只能含文章内容和结构标记；脚本、样式、布局标签、自定义控件和 `<img>` 会被拒绝，因为固定模板拥有布局与图片注释。保留真实链接和可读结构。适用 `LEAD`/`MIDDLE`/`CLOSING` 时，`validate_payload.py` 会从 package 声明的来源重新渲染并核对 HTML/Markdown 的正文、卡片字段、素材文件、放置锚点和 CTA，从而拦截编译后的手工替换。只有它明确输出 `COMPANION_DUAL_READ_REQUIRED`，R 才需要额外语义审读 Markdown。
 
-交接目录应包含 `RELEASE-CARD.md`、内容指纹、本地预检、两份交付页和 `handoff/handoff-manifest.json`。后者单向索引唯一基准稿、metadata、证据包、视觉清单、HTML／Markdown 交付页、审稿索引和需求追溯哈希；发布卡仅是人工提示，不是第二份文章、SEO 文档或证据源。
+每篇交接目录位于 `articles/<article_id>/handoff/`，应包含 `RELEASE-CARD.md`、内容指纹、本地预检、两份交付页和 `handoff/handoff-manifest.json`。该文章的其余交付物保持在同一 `articles/<article_id>/{context,research,canonical,reviews,handoff}` 根内；不得与另一篇混放。后者单向索引唯一基准稿、metadata、证据包、视觉清单、HTML／Markdown 交付页、审稿索引和需求追溯哈希；发布卡仅是人工提示，不是第二份文章、SEO 文档或证据源。
 
 ## 平台传输预检与已观察限制
 

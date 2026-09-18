@@ -53,6 +53,13 @@ def topic_slot(item: dict) -> dict:
     }
 
 
+def article_root(workspace: Path, article_id: str = "A1") -> Path:
+    """Return the schema-2.13 artifact root for one article fixture."""
+    root = workspace / "articles" / article_id
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 class LiveBaselineTests(unittest.TestCase):
     def run_harness(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -148,6 +155,7 @@ class LiveBaselineTests(unittest.TestCase):
     def test_current_schema_blocks_context_build_without_owner_release_mapping(self) -> None:
         temp_dir, workspace = self.initialize_prepared_plan()
         with temp_dir:
+            root = article_root(workspace)
             receipt = workspace / "evidence/owner-confirmations/owner-confirmation.md"
             receipt.write_text("OWNER_PREWRITE_PLAN_CONFIRMED\n", encoding="utf-8")
             confirmed = self.run_harness(
@@ -158,7 +166,7 @@ class LiveBaselineTests(unittest.TestCase):
             self.assertEqual(confirmed.returncode, 0, confirmed.stdout + confirmed.stderr)
             blocked = self.run_harness(
                 "build-article-context", "--workspace", str(workspace),
-                "--article-id", "A1", "--output", "context/article-contract.json",
+                "--article-id", "A1", "--output", str(root / "context/article-contract.json"),
             )
             self.assertNotEqual(blocked.returncode, 0)
             self.assertIn("missing owner-confirmed platform/account assignment", blocked.stdout)

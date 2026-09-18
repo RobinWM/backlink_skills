@@ -64,6 +64,13 @@ def topic_slot(item: dict) -> dict:
     }
 
 
+def article_root(workspace: Path, article_id: str = "A1") -> Path:
+    """Return the current-schema article root used by integration fixtures."""
+    root = workspace / "articles" / article_id
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 class ResearchIntegrityTests(unittest.TestCase):
     def run_harness(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -271,13 +278,14 @@ class ResearchIntegrityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir) / "campaign"
             self.prepare(workspace)
-            context = workspace / "context/article-contract.json"
+            root = article_root(workspace)
+            context = root / "context/article-contract.json"
             built_context = self.run_harness(
                 "build-article-context", "--workspace", str(workspace),
                 "--article-id", "A1", "--output", str(context),
             )
             self.assertEqual(built_context.returncode, 0, built_context.stdout + built_context.stderr)
-            index = workspace / "reviews/review-index.json"
+            index = root / "reviews/review-index.json"
             built_index = self.run_harness(
                 "build-review-index", "--workspace", str(workspace),
                 "--article-contract", str(context), "--output", str(index),

@@ -30,6 +30,13 @@ def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
+def article_root(workspace: Path, article_id: str = "A1") -> Path:
+    """Return the schema-2.13 root for one article's disjoint artifacts."""
+    root = workspace / "articles" / article_id
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 class BatchGateControlPlaneTests(unittest.TestCase):
     def run_harness(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -113,12 +120,13 @@ class BatchGateControlPlaneTests(unittest.TestCase):
         )
         self.assertEqual(confirmed.returncode, 0, confirmed.stdout + confirmed.stderr)
 
-        canonical = workspace / "canonical/article.html"
+        root = article_root(workspace)
+        canonical = root / "canonical/article.html"
         canonical.parent.mkdir(parents=True, exist_ok=True)
         canonical.write_text("# Batch gate workflow\n\nUseful answer.\n", encoding="utf-8")
-        evidence = workspace / "research/evidence-pack.json"
+        evidence = root / "research/evidence-pack.json"
         write_json(evidence, {"schema_version": "1.0", "claims": []})
-        metadata = workspace / "canonical/metadata.json"
+        metadata = root / "canonical/metadata.json"
         write_json(metadata, {
             "canonical_title": "Batch gate workflow",
             "platform_title": "Batch gate workflow",
@@ -126,32 +134,33 @@ class BatchGateControlPlaneTests(unittest.TestCase):
             "tags": ["example"],
             "description": "A useful batch gate workflow.",
         })
-        visual_manifest = workspace / "canonical/visual-manifest.json"
+        visual_manifest = root / "canonical/visual-manifest.json"
         write_json(visual_manifest, {"schema_version": "1.0", "assets": []})
-        handoff = workspace / "handoff/handoff-manifest.json"
+        handoff = root / "handoff/handoff-manifest.json"
         write_json(handoff, {"schema_version": "1.0", "article_id": "A1"})
-        trace = workspace / "requirements-traceability.md"
+        trace = root / "requirements-traceability.md"
         trace.write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
 
-        context = workspace / "context/article-contract.json"
+        context = root / "context/article-contract.json"
         built_context = self.run_harness(
             "build-article-context", "--workspace", str(workspace),
             "--article-id", "A1", "--output", str(context),
         )
         self.assertEqual(built_context.returncode, 0, built_context.stdout + built_context.stderr)
-        index = workspace / "reviews/review-index.json"
+        index = root / "reviews/review-index.json"
         built_index = self.run_harness(
             "build-review-index", "--workspace", str(workspace),
             "--article-contract", str(context), "--output", str(index),
         )
         self.assertEqual(built_index.returncode, 0, built_index.stdout + built_index.stderr)
 
-        review_report = workspace / "reviews/review-1.md"
+        review_report = root / "reviews/review-1.md"
+        review_report.parent.mkdir(parents=True, exist_ok=True)
         review_report.write_text("R: full review approved.\n", encoding="utf-8")
         index_data = json.loads(index.read_text(encoding="utf-8"))
         index_data["latest_full_review"].update({
             "status": "APPROVED",
-            "report_path": "reviews/review-1.md",
+            "report_path": "articles/A1/reviews/review-1.md",
             "report_sha256": HARNESS.sha256_file(review_report),
             "reviewer_agent_id": "R-A1",
             "canonical_sha256": HARNESS.sha256_file(canonical),
@@ -159,7 +168,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
         })
         write_json(index, index_data)
 
-        package = workspace / "article-package.json"
+        package = root / "article-package.json"
         write_json(package, {
             "schema_version": "1.4",
             "article_id": "A1",
@@ -199,6 +208,8 @@ class BatchGateControlPlaneTests(unittest.TestCase):
                     "writer_agent": "W-A1",
                     "reviewer_agent": "R-A1",
                 },
+                "isolation": "MAIN_SESSION_PATH_ISOLATED",
+                "artifact_root": "articles/A1",
             },
         }
         state["orchestration"]["tasks"] = [{
@@ -207,7 +218,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
             "agent_id": "R-A1",
             "workflow_stage": "FULL_REVIEW",
             "result": "APPROVED",
-            "result_path": "reviews/review-1.md",
+            "result_path": "articles/A1/reviews/review-1.md",
             "status": "COMPLETED",
         }, {
             "role": "CAMPAIGN_GATEKEEPER",
@@ -257,7 +268,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
             report_path, _ = self.build_ready_batch_workspace(workspace)
             checked = self.run_harness(
                 "check-batch-gate", "--workspace", str(workspace),
-                "--report", str(report_path), "--article-root", f"A1={workspace}",
+                "--report", str(report_path),
             )
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertIn("BATCH_GATE_CHECK_PASSED", checked.stdout)
@@ -270,7 +281,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
             write_json(report_path, report)
             rejected = self.run_harness(
                 "check-batch-gate", "--workspace", str(workspace),
-                "--report", str(report_path), "--article-root", f"A1={workspace}",
+                "--report", str(report_path),
             )
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn("must use the registered campaign gatekeeper", rejected.stdout)

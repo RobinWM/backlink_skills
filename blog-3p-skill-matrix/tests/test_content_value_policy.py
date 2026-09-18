@@ -44,26 +44,85 @@ def legacy_none_cta() -> dict[str, object]:
 
 
 def set_legacy_execution_policy(cfg: dict, schema_version: str) -> None:
-    """Model-first 2.6 defaults must not redefine explicitly historical fixtures."""
+    """Give a historical schema its own execution contract, not current defaults."""
     cfg["schema_version"] = schema_version
-    cfg.pop("model_first_execution_policy", None)
-    cfg["prewrite_plan_policy"].update({
-        "mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN",
-        "article_plan_sections": HARNESS.PREWRITE_PLAN_SECTIONS if schema_version >= "2.1" else HARNESS.LEGACY_PREWRITE_PLAN_SECTIONS,
-        "campaign_summary_sections": HARNESS.PREWRITE_SUMMARY_SECTIONS if schema_version >= "2.1" else HARNESS.LEGACY_PREWRITE_SUMMARY_SECTIONS,
+    orchestration = cfg["orchestration_policy"]
+    for field in (
+        "execution_session",
+        "article_artifact_root_template",
+        "article_artifact_roots",
+        "worktree_dispatch_decision",
+        "worktree_allowed_reasons",
+    ):
+        orchestration.pop(field, None)
+    orchestration.update({
+        "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE",
+        "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD",
+        "persistent_requirements_gatekeeper": True,
+        "fresh_agent_roles": [],
+        "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY",
+        "execution_isolation": "WORKTREE_FIRST_PER_ARTICLE",
+        "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED",
+        "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION",
+        "silent_worktree_fallback": False,
+        "queue_resume_policy": "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE",
+        "article_agent_replacement_requires_full_rehydration": True,
     })
-    cfg["keyword_research_policy"].pop("required_within_writer_continuous_turn_before_claims", None)
-    cfg["keyword_research_policy"].update({
-        "mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP",
-        "required_after_owner_prewrite_confirmation_before_drafting": True,
-    })
-    cfg["platform_style_research_policy"].pop("trigger", None)
-    cfg["platform_style_research_policy"].update({
-        "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",
-        "attempt_before_drafting": True,
-    })
-    if schema_version == "2.4":
+    if schema_version >= "2.7":
+        orchestration.update({
+            "cross_article_agent_reuse": "CAMPAIGN_GATEKEEPER_ONLY",
+            "article_worktree_role_bundle": "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G",
+            "project_worktree_root_role": "ARTICLE_WRITER_REVIEWER_PAIR",
+            "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA",
+            "batch_gate_policy": copy.deepcopy(HARNESS.GATE_BATCH_POLICY_2_7),
+            "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY",
+            "public_qa_policy": copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_7),
+        })
+    else:
+        orchestration.update({
+            "cross_article_agent_reuse": "PROHIBITED",
+            "article_worktree_role_bundle": "ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE",
+            "project_worktree_root_role": "ARTICLE_LANE_GATEKEEPER",
+            "campaign_gatekeeper_scope": "GLOBAL_REQUIREMENTS_QUEUE_AND_LEDGER_ONLY",
+            "article_public_gate_mode": "REUSE_ARTICLE_LANE_GATEKEEPER_ONLY",
+            "public_qa_policy": copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_3),
+        })
+        orchestration.pop("batch_gate_policy", None)
+
+    if schema_version >= "2.6":
+        cfg["model_first_execution_policy"] = copy.deepcopy(HARNESS.MODEL_FIRST_EXECUTION_POLICY_2_6)
+    else:
+        cfg.pop("model_first_execution_policy", None)
+        cfg["prewrite_plan_policy"].update({
+            "mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN",
+            "article_plan_sections": HARNESS.PREWRITE_PLAN_SECTIONS if schema_version >= "2.1" else HARNESS.LEGACY_PREWRITE_PLAN_SECTIONS,
+            "campaign_summary_sections": HARNESS.PREWRITE_SUMMARY_SECTIONS if schema_version >= "2.1" else HARNESS.LEGACY_PREWRITE_SUMMARY_SECTIONS,
+        })
+        cfg["keyword_research_policy"].pop("required_within_writer_continuous_turn_before_claims", None)
+        cfg["keyword_research_policy"].update({
+            "mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP",
+            "required_after_owner_prewrite_confirmation_before_drafting": True,
+        })
+        cfg["platform_style_research_policy"].pop("trigger", None)
+        cfg["platform_style_research_policy"].update({
+            "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",
+            "attempt_before_drafting": True,
+        })
+    if schema_version >= "2.8":
+        cfg["artifact_optimization_policy"] = copy.deepcopy(HARNESS.LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_8)
+    elif schema_version == "2.4":
         cfg["artifact_optimization_policy"] = copy.deepcopy(HARNESS.ARTIFACT_OPTIMIZATION_POLICY_2_4)
+
+
+def set_legacy_state_execution_policy(workspace: Path) -> None:
+    """State fixtures must match historical scheduling rather than schema labels alone."""
+    state_path = workspace / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    orchestration = state["orchestration"]
+    orchestration.pop("execution_session", None)
+    orchestration.pop("article_artifact_root_template", None)
+    orchestration["capacity"]["spawn_policy"] = "AUTHORIZED_MAXIMIZE_AVAILABLE_CAPACITY"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
 
 
 class ContentValuePolicyTests(unittest.TestCase):
@@ -87,7 +146,7 @@ class ContentValuePolicyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.12")
+        self.assertEqual(template["schema_version"], "2.13")
         self.assertEqual(template["live_execution_profile"], HARNESS.HUMAN_RELEASE_PROFILE_2_9)
         self.assertEqual(template["release_policy"]["mode"], "HUMAN_NATIVE_ONLY")
         self.assertNotIn("human_release_requested", template["release_policy"])
@@ -95,7 +154,7 @@ class ContentValuePolicyTests(unittest.TestCase):
         self.assertEqual(policy["cta_role"], "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION")
         self.assertTrue(policy["cta_must_be_present"])
 
-    def test_fresh_schema_2_12_workspace_checks(self) -> None:
+    def test_fresh_schema_2_13_workspace_checks(self) -> None:
         temp_dir, workspace = self.initialize()
         with temp_dir:
             manifest = json.loads((workspace / "prewrite-plan.json").read_text(encoding="utf-8"))
@@ -120,10 +179,11 @@ class ContentValuePolicyTests(unittest.TestCase):
         with temp_dir:
             campaign_path = workspace / "campaign.json"
             cfg = json.loads(campaign_path.read_text(encoding="utf-8"))
-            cfg["schema_version"] = "2.8"
+            set_legacy_execution_policy(cfg, "2.8")
             cfg["live_execution_profile"] = copy.deepcopy(HARNESS.LIVE_EXECUTION_PROFILE_2_8)
             cfg["release_policy"]["human_release_requested"] = False
             campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
+            set_legacy_state_execution_policy(workspace)
             checked = self.run_harness("check", "--workspace", str(workspace))
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             receipt = workspace / "evidence/owner-confirmations/owner-confirmation.md"
@@ -199,6 +259,7 @@ class ContentValuePolicyTests(unittest.TestCase):
             set_legacy_execution_policy(cfg, "2.0")
             cfg.pop("content_value_policy")
             campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
+            set_legacy_state_execution_policy(workspace)
             manifest_path = workspace / "prewrite-plan.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             manifest["schema_version"] = "1.0"
@@ -257,7 +318,9 @@ class ContentValuePolicyTests(unittest.TestCase):
             }
             cfg["articles"] = [article]
             campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
-            package_path = workspace / "article-package.json"
+            article_root = workspace / "articles" / "A1"
+            article_root.mkdir(parents=True)
+            package_path = article_root / "article-package.json"
             package = {
                 "schema_version": "1.3",
                 "article_id": "A1",

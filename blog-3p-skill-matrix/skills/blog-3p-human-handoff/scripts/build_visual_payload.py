@@ -181,6 +181,41 @@ def artifact_record(workspace: Path, path: Path) -> dict[str, str]:
     return {"path": workspace_relative(workspace, path), "sha256": sha256_file(path)}
 
 
+def indexed_review_report_path(article_workspace: Path, report_path: object, article_id: object) -> Path:
+    """Resolve a review receipt without weakening article-root isolation.
+
+    Schema-2.13 article packages are compiled from their own ``articles/<id>``
+    root, while the harness indexes review receipts relative to the campaign
+    root so a batch gate can read every article deterministically.  Accept
+    that exact, same-article campaign-relative form here; legacy packages keep
+    resolving receipts relative to their article workspace.  A receipt for a
+    different article never receives the campaign-root fallback.
+    """
+    if not isinstance(report_path, str) or not report_path.strip():
+        raise ValueError("review report_path must be a non-empty relative path")
+    relative = Path(report_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("review report_path must be a safe relative path")
+    workspace = article_workspace.resolve()
+    local = (workspace / relative).resolve()
+    if workspace in local.parents and local.is_file():
+        return local
+
+    normalized_article_id = str(article_id).strip()
+    expected_prefix = ("articles", normalized_article_id)
+    if (
+        normalized_article_id
+        and relative.parts[:2] == expected_prefix
+        and workspace.name == normalized_article_id
+        and workspace.parent.name == "articles"
+    ):
+        campaign_root = workspace.parent.parent.resolve()
+        candidate = (campaign_root / relative).resolve()
+        if campaign_root in candidate.parents and candidate.is_file():
+            return candidate
+    return local
+
+
 def separate_research_review_required(review_index: dict) -> bool:
     """Keep legacy packages conservative while honoring the frozen 2.6 route."""
     effort = review_index.get("review_effort")
@@ -207,10 +242,11 @@ def require_approved_final_visual_delta(workspace: Path, package: dict, visual_p
     if missing:
         raise ValueError("approved final visual payload delta is missing: " + ", ".join(missing))
     try:
-        report = (workspace / final_delta["report_path"]).resolve()
-        workspace_relative(workspace, report)
+        report = indexed_review_report_path(
+            workspace, final_delta["report_path"], package.get("article_id"),
+        )
     except (TypeError, ValueError) as exc:
-        raise ValueError("final visual payload delta report must stay inside --workspace") from exc
+        raise ValueError("final visual payload delta report must use a safe article-local or same-article campaign-indexed path") from exc
     if not report.is_file() or final_delta["report_sha256"] != sha256_file(report):
         raise ValueError("final visual payload delta report_sha256 must match its existing report")
     index = workspace / "reviews/review-index.json"
@@ -293,7 +329,7 @@ def require_approved_final_artifact_review(
     missing = [field for field in required if not isinstance(full.get(field), str) or not full[field].strip()]
     if missing:
         raise ValueError("final full review must bind all final artifacts: " + ", ".join(missing))
-    report = workspace / full["report_path"]
+    report = indexed_review_report_path(workspace, full["report_path"], package.get("article_id"))
     if not report.is_file() or full["report_sha256"] != sha256_file(report):
         raise ValueError("final full review report_sha256 must match its existing report")
     sources = package.get("artifact_sources")
@@ -344,7 +380,7 @@ def require_approved_final_artifact_review(
     missing_delta = [field for field in required_delta if not isinstance(delta.get(field), str) or not delta[field].strip()]
     if missing_delta:
         raise ValueError(f"approved {label} is missing: " + ", ".join(missing_delta))
-    delta_report = workspace / delta["report_path"]
+    delta_report = indexed_review_report_path(workspace, delta["report_path"], package.get("article_id"))
     if not delta_report.is_file() or delta["report_sha256"] != sha256_file(delta_report):
         raise ValueError(f"{label} report_sha256 must match its existing report")
     delta_expected = {
