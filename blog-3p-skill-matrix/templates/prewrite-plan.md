@@ -1,4 +1,4 @@
-# Pre-write research and writing plan — rendered owner view
+# Pre-write scope and editorial brief — rendered owner view
 
 Status: PENDING_OWNER_PREWRITE_PLAN_CONFIRMATION
 
@@ -6,20 +6,19 @@ Owner confirmation ID: PENDING
 
 Pre-write manifest SHA-256: PENDING
 
+Protected scope snapshot SHA-256: PENDING
+
 Article IDs: PENDING
 
 Canonical source: [prewrite-plan.json](prewrite-plan.json)
 
 View mode: `DETERMINISTIC_RENDERED_READ_ONLY`
 
-This file is the owner-facing rendering of the structured manifest. Do not manually re-enter, amend, or silently diverge from values here: change the JSON, regenerate this view, then bind both hashes for owner confirmation. It is a read-only planning record—not article prose—and does not replace W's integrated evidence research after confirmation.
+This file is the owner-facing rendering of the structured manifest. Do not manually re-enter, amend, or silently diverge from values here: change the JSON, regenerate this view, then bind both hashes for owner confirmation. It freezes scope and a model-led editorial direction; it is not article prose and does not replace W's integrated evidence research after confirmation.
 
-## Campaign research summary
+## Campaign strategy
 
-- Owner task, scope, exclusions, and affected article IDs:
-- Shared evidence-pack path, hash, dates, and unresolved evidence:
-- Shared content-value, CTA/disclosure, brand, SEO, and visual constraints:
-- Platform-matching proposal or N/A:
+- Shared scope, reader-value and CTA constraints, evidence boundary, parallel article strategy, and owner decisions:
 
 ## Per-article plans
 
@@ -27,19 +26,19 @@ Render one compact card for every `article_plans[]` item. Use its `evidence_refs
 
 ### {{ARTICLE_ID}}
 
-1. **Task and audience** — language, market, reader task, content type, and scope boundary.
-2. **Reader value and secondary CTA** — the useful result a reader receives without relying on the CTA; the required secondary recommendation's exact visible anchor text, product identity/current destination, evidence basis, reader-task relevance, relationship disclosure, and non-claims. Render the frozen declaration exactly.
-3. **Research evidence and uncertainty** — evidence IDs/paths, dates, supported conclusions, gaps, and non-claims.
-4. **Keyword and localization strategy** — long-tail reader problem, candidate/rejection rationale, source route (brand, regional SERP, or target-platform audience need), optional global Trends context or an explicit data-limit boundary, and CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK evidence.
-5. **Factual claims and sources** — planned claim classes, source plan, and mandatory caveats.
-6. **Title and outline** — provisional article title/platform title/SEO title, angle, visible section/subsection route, and reader promise.
-7. **Visual narrative** — LEAD/MIDDLE/CLOSING jobs, image count, adjacent claims, rights constraints, and the future single visual-manifest reference.
-8. **Platform transport assumptions** — confirmed or proposed in-scope facts about title/body transfer, publicly visible hierarchy and metadata limits; editor HTML/DOM is never an acceptance surface; otherwise N/A.
-9. **Risks and owner decisions** — unresolved choices, assumptions requiring confirmation, and non-negotiable exclusions.
+1. **Task and audience** — language, market, reader task, content type, and scope boundary. Show the frozen delivery mapping: article language, market, platform, safe account alias, audience-fit mode, and any exact owner-confirmed cross-language exception.
+2. **Frozen topic slot** — G freezes the reader task, core intent, market, differentiation angle, and concrete prohibited deviations. It is the boundary for W's evidence-led keyword, natural-variant, and title work; it is not a frozen keyword or headline.
+3. **Reader value and secondary CTA** — the useful result a reader receives without relying on the CTA; the required secondary recommendation's exact visible anchor text, product identity/current destination, evidence basis, reader-task relevance, relationship disclosure, and non-claims. Render the frozen declaration exactly.
+4. **Model-led editorial brief** — one coherent research-and-writing route: long-tail reader problem and localization hypothesis, source boundary, likely title/outline, visual approach, differentiation from sibling articles, and how the article will remain useful without the CTA. This is a reasoned plan, not nine independently gated form fields.
+5. **Research posture** — `METHOD_TEMPLATE_NO_EXECUTION` or `DOCUMENTED_EMPIRICAL_RECORD`, the reader-facing claim boundary, and any required evidence paths. A method template is not an observed test result.
+6. **Risks and owner decisions** — unresolved choices, assumptions requiring confirmation, and non-negotiable exclusions.
+7. **Review route** — `STANDARD_INTEGRATED_REVIEW` uses one independent final R review of evidence, article, visuals, metadata and payload. `ELEVATED_EARLY_CHALLENGE` adds an early R research challenge for recorded risk reasons.
 
 ## Owner decision
 
 - [ ] OWNER_PREWRITE_PLAN_CONFIRMED — permits G to lock requirements and dispatch article worktrees.
 - [ ] OWNER_PREWRITE_PLAN_CHANGES_REQUESTED — revise this dossier; do not dispatch article worktrees, W, or R.
 
-The confirmation binds the rendered view and its JSON source. It does not approve article research, canonical prose, images, or a hand-off package.
+After a confirmation, save its original message/file under `evidence/owner-confirmations/` and run `confirm-prewrite-plan`. Never set the confirmation status or ID by editing JSON; then use `dispatch-readiness` to distinguish a structurally valid workspace from one that may start W/R.
+
+The confirmation binds the rendered view, its JSON source, and the protected delivery/topic-slot/claim-posture snapshot. It does not approve article research, canonical prose, images, or a hand-off package.

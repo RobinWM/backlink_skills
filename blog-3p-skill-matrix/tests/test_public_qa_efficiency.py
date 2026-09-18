@@ -108,6 +108,49 @@ def public_report_for(article_id: str, record: dict) -> str:
     ])
 
 
+def batch_public_record(article_id: str = "A1", status: str = "PUBLIC_QA_PASSED") -> dict:
+    return {
+        "public_url": "https://example.com/posts/example-article",
+        "human_state": "HUMAN_ACCEPTED",
+        "returned_at": "2026-09-16T00:00:00Z",
+        "return_receipt_path": "handoff/public-return-receipt.json",
+        "public_snapshot_path": "evidence/public-qa/public-snapshot.json",
+        "campaign_gatekeeper_agent_id": "G-CAMPAIGN",
+        "batch_id": "PUBLIC-QA-BATCH-001",
+        "batch_entry_id": f"{article_id}-PUBLIC-001",
+        "batch_entry_sha256": "PENDING",
+        "attempt": 1,
+        "unverified_retry_count": 0,
+        "public_qa_status": status,
+        "last_report_path": "gate/public-qa-batch-001.json",
+        "owner_request_id": None,
+        "accepted_platform_limitations": [],
+    }
+
+
+def batch_public_entry(article_id: str, record: dict, workspace: Path, package_path: Path) -> dict:
+    return {
+        "entry_id": record["batch_entry_id"],
+        "article_id": article_id,
+        "article_contract": {"path": "context/article-contract.json", "sha256": HARNESS.sha256_file(workspace / "context/article-contract.json")},
+        "article_package": {"path": "article-package.json", "sha256": HARNESS.sha256_file(package_path)},
+        "handoff_manifest": {"path": "handoff/handoff-manifest.json", "sha256": HARNESS.sha256_file(workspace / "handoff/handoff-manifest.json")},
+        "return_receipt": {"path": record["return_receipt_path"], "sha256": HARNESS.sha256_file(workspace / record["return_receipt_path"])},
+        "public_snapshot": {"path": record["public_snapshot_path"], "sha256": HARNESS.sha256_file(workspace / record["public_snapshot_path"])},
+        "public_url": record["public_url"],
+        "human_state": record["human_state"],
+        "returned_at": record["returned_at"],
+        "visual_evidence_mode": "RENDERED_READER_PAGE",
+        "rendered_visual_evidence_paths": ["evidence/public-qa/rendered-page.png"],
+        "result": record["public_qa_status"],
+        "finding_ids": [],
+        "accepted_platform_limitations": record["accepted_platform_limitations"],
+        "attempt": record["attempt"],
+        "unverified_retry_count": record["unverified_retry_count"],
+        "owner_request_id": record["owner_request_id"],
+    }
+
+
 class PublicQaEfficiencyTests(unittest.TestCase):
     def run_script(self, script: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -141,8 +184,10 @@ class PublicQaEfficiencyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.5")
-        self.assertEqual(template["orchestration_policy"]["public_qa_policy"], HARNESS.PUBLIC_QA_POLICY_2_3)
+        self.assertEqual(template["schema_version"], "2.11")
+        self.assertEqual(template["live_execution_profile"], HARNESS.HUMAN_RELEASE_PROFILE_2_9)
+        self.assertEqual(template["orchestration_policy"]["public_qa_policy"], HARNESS.PUBLIC_QA_POLICY_2_7)
+        self.assertEqual(template["orchestration_policy"]["batch_gate_policy"], HARNESS.GATE_BATCH_POLICY_2_7)
         self.assertEqual(HARNESS.state("test")["publication"]["articles"], {})
         temp_dir, workspace = self.initialize()
         with temp_dir:
@@ -151,12 +196,12 @@ class PublicQaEfficiencyTests(unittest.TestCase):
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
 
     def test_policy_rejects_fresh_reviewer_or_automatic_wr_reopen(self) -> None:
-        policy = copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_3)
+        policy = copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_7)
         policy["fresh_public_reviewer"] = "ALLOWED"
-        self.assertTrue(HARNESS.public_qa_policy_errors(policy))
-        policy = copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_3)
+        self.assertTrue(HARNESS.public_qa_policy_errors(policy, expected=HARNESS.PUBLIC_QA_POLICY_2_7))
+        policy = copy.deepcopy(HARNESS.PUBLIC_QA_POLICY_2_7)
         policy["automatic_wr_reopen"] = True
-        self.assertTrue(HARNESS.public_qa_policy_errors(policy))
+        self.assertTrue(HARNESS.public_qa_policy_errors(policy, expected=HARNESS.PUBLIC_QA_POLICY_2_7))
 
     def test_receipt_checker_requires_article_mapping_and_scoped_limitation(self) -> None:
         temp_dir, workspace = self.initialize()
@@ -331,6 +376,97 @@ class PublicQaEfficiencyTests(unittest.TestCase):
             self.assertTrue(any("public snapshot" in error for error in HARNESS.publication_ledger_errors(
                 publication, article_ids={"A1"}, article_workspaces=workspaces, workspace=workspace,
             )))
+
+    def test_one_registered_campaign_g_can_batch_two_public_rows_without_restarting_wr(self) -> None:
+        first = batch_public_record("A1")
+        second = batch_public_record("A2")
+        second["public_url"] = "https://example.com/posts/example-article-two"
+        second["returned_at"] = "2026-09-16T00:01:00Z"
+        publication = {"status": "IN_PROGRESS", "articles": {"A1": first, "A2": second}}
+        workspaces = {
+            "A1": {"role_bundle": {"campaign_gatekeeper_agent": "G-CAMPAIGN", "writer_agent": "W-A1", "reviewer_agent": "R-A1"}},
+            "A2": {"role_bundle": {"campaign_gatekeeper_agent": "G-CAMPAIGN", "writer_agent": "W-A2", "reviewer_agent": "R-A2"}},
+        }
+        self.assertEqual(HARNESS.publication_ledger_errors(
+            publication, article_ids={"A1", "A2"}, article_workspaces=workspaces,
+            batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+        ), [])
+        batch_turn = {
+            "role": "CAMPAIGN_GATEKEEPER", "agent_id": "G-CAMPAIGN",
+            "workflow_stage": "PUBLIC_QA_BATCH_READONLY", "result_path": "gate/public-qa-batch-001.json",
+            "article_ids": ["A1", "A2"], "started_at": "2026-09-16T00:02:00Z", "status": "COMPLETED",
+        }
+        self.assertEqual(HARNESS.public_qa_task_errors(
+            publication, tasks=[batch_turn], article_workspaces=workspaces,
+            batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+        ), [])
+        wrong_agent = copy.deepcopy(publication)
+        wrong_agent["articles"]["A2"]["campaign_gatekeeper_agent_id"] = "G-OTHER"
+        self.assertTrue(any("registered campaign gatekeeper" in error for error in HARNESS.publication_ledger_errors(
+            wrong_agent, article_ids={"A1", "A2"}, article_workspaces=workspaces,
+            batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+        )))
+        stale_reviewer = {
+            "article_id": "A1", "role": "ARTICLE_LANGUAGE_REVIEWER", "agent_id": "R-A1",
+            "workflow_stage": "REVIEW", "started_at": "2026-09-16T00:02:01Z",
+        }
+        self.assertTrue(any("post-return W/R is forbidden" in error for error in HARNESS.public_qa_task_errors(
+            publication, tasks=[batch_turn, stale_reviewer], article_workspaces=workspaces,
+            batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+        )))
+        stale_article_g = {
+            "article_id": "A1", "role": "ARTICLE_LANE_GATEKEEPER", "agent_id": "G-A1",
+            "workflow_stage": "PUBLIC_QA_READONLY", "started_at": "2026-09-16T00:02:01Z",
+        }
+        self.assertTrue(any("must not create an article-lane G turn" in error for error in HARNESS.public_qa_task_errors(
+            publication, tasks=[batch_turn, stale_article_g], article_workspaces=workspaces,
+            batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+        )))
+
+    def test_batch_public_pass_requires_bound_entry_and_rendered_visual_evidence(self) -> None:
+        temp_dir, workspace = self.initialize()
+        with temp_dir:
+            _, package_path, receipt_path = self.prepare_workspace(workspace)
+            snapshot_path = workspace / "evidence/public-qa/public-snapshot.json"
+            captured = self.run_script(
+                SNAPSHOT_PATH, "--receipt", str(receipt_path), "--article-package", str(package_path),
+                "--html-file", str(PUBLIC_PAGE), "--output", str(snapshot_path),
+            )
+            self.assertEqual(captured.returncode, 0, captured.stdout + captured.stderr)
+            (workspace / "context/article-contract.json").write_text(json.dumps({"article_id": "A1"}), encoding="utf-8")
+            (workspace / "handoff/handoff-manifest.json").write_text("{}", encoding="utf-8")
+            rendered = workspace / "evidence/public-qa/rendered-page.png"
+            rendered.write_bytes(b"rendered-reader-page-evidence")
+            record = batch_public_record()
+            entry = batch_public_entry("A1", record, workspace, package_path)
+            record["batch_entry_sha256"] = HARNESS.sha256_json(entry)
+            report = {
+                "schema_version": "1.0", "campaign_id": "public-qa", "batch_id": record["batch_id"],
+                "gatekeeper_agent_id": "G-CAMPAIGN", "workflow_stage": "PUBLIC_QA_BATCH_READONLY",
+                "entries": [entry],
+            }
+            report_path = workspace / record["last_report_path"]
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(report), encoding="utf-8")
+            publication = {"status": "IN_PROGRESS", "articles": {"A1": record}}
+            workspaces = {"A1": {"role_bundle": {
+                "campaign_gatekeeper_agent": "G-CAMPAIGN", "writer_agent": "W-A1", "reviewer_agent": "R-A1",
+            }}}
+            self.assertEqual(HARNESS.publication_ledger_errors(
+                publication, article_ids={"A1"}, article_workspaces=workspaces, workspace=workspace,
+                batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+            ), [])
+            no_visual = copy.deepcopy(report)
+            no_visual["entries"][0]["rendered_visual_evidence_paths"] = []
+            record_without_visual = copy.deepcopy(record)
+            record_without_visual["batch_entry_sha256"] = HARNESS.sha256_json(no_visual["entries"][0])
+            report_path.write_text(json.dumps(no_visual), encoding="utf-8")
+            invalid = HARNESS.publication_ledger_errors(
+                {"status": "IN_PROGRESS", "articles": {"A1": record_without_visual}},
+                article_ids={"A1"}, article_workspaces=workspaces, workspace=workspace,
+                batch_mode=True, campaign_gatekeeper_agent_id="G-CAMPAIGN",
+            )
+            self.assertTrue(any("rendered_visual_evidence_paths" in error for error in invalid))
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-version: "0.9.22"
+version: "0.12.3"
 name: "blog-3p-skill-matrix"
 execution_boundary: "NO_EXTERNAL_PLATFORM_WRITES"
 editorial_purpose_policy:
@@ -24,28 +24,48 @@ minimum_runtime:
   python: "3.9"
   dependencies: "standard-library-only"
 environment_profiles:
-  - local_only
-  - connected_readonly
-  - human_handoff
+  - human_native_release_only
+read_only_evidence_capability: OPTIONAL_WITHIN_HUMAN_NATIVE_RELEASE_ONLY
 orchestration:
-  prewrite_plan: CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN
+  live_execution_profile: HUMAN_RELEASE_ONLY_V1
+  owner_confirmation: RECEIPT_BOUND_LOCAL_COMMAND_REQUIRED
+  prewrite_plan: CAMPAIGN_G_SCOPE_AND_EDITORIAL_BRIEF
   owner_prewrite_confirmation_required: true
   prewrite_manifest: prewrite-plan.json
+  topic_governance: G_FREEZES_TOPIC_SLOT_W_EVIDENCE_BOUNDARY
+  topic_conflict: SAME_CAMPAIGN_G_EXCEPTION_DECISION_ONLY
   no_article_roles_before_prewrite_confirmation: true
+  model_first_execution: MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION
+  default_review_route: STANDARD_INTEGRATED_REVIEW
+  separate_research_review: ELEVATED_EARLY_CHALLENGE_ONLY
+  final_independent_review: REQUIRED
+  gate_mode: CAMPAIGN_G_BATCH_CONTRACT_AND_EXCEPTION_ONLY
   execution_isolation: WORKTREE_FIRST_PER_ARTICLE
   worktree_autospawn: CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED
   fallback: VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION
   silent_fallback: false
-  article_role_bundle: ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE
-  project_worktree_root: ARTICLE_LANE_GATEKEEPER
-  public_qa: REUSE_ARTICLE_LANE_GATEKEEPER_READONLY
+  article_role_bundle: ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G
+  project_worktree_root: ARTICLE_WRITER_REVIEWER_PAIR
+  contract_acceptance: CAMPAIGN_G_BATCH_CONTRACT_ACCEPTANCE
+  public_qa: REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY
   public_qa_input: STRUCTURED_HUMAN_RETURN_RECEIPT_AND_READONLY_SNAPSHOT
-  public_qa_repair: SAME_LANE_G_RECHECK_ONLY
+  public_qa_repair: SAME_CAMPAIGN_G_BATCH_RECHECK_ONLY
   canonical_reopen: OWNER_EXPLICIT_CANONICAL_OR_PAYLOAD_CHANGE_ONLY
   heading_hierarchy_authority: PUBLIC_READER_PAGE_VISUAL_ONLY
   article_context: HASH_BOUND_ARTICLE_CONTRACT_AND_REVIEW_INDEX
   ordinary_turn_context: CONTRACT_INDEX_AND_CHANGED_ARTIFACTS_ONLY
-  full_history_rehydration: ON_COMPACTION_HASH_DRIFT_UNRESOLVED_LINEAGE_OR_ESCALATION
+  workflow_core: docs/workflow-core.md
+  after_context_compaction: REREAD_WORKFLOW_CORE_THEN_CONTRACT_INDEX_AND_CHANGED_ARTIFACTS
+  full_history_rehydration: ON_HASH_DRIFT_UNRESOLVED_LINEAGE_AGENT_REPLACEMENT_OR_ESCALATION
+  execution_economy:
+    role_context: FROZEN_CONTRACT_PLUS_ACTIVE_ARTIFACTS_PLUS_ON_DEMAND_COLD_HISTORY
+    review_preflight: DETERMINISTIC_CHECK_REVIEW_READY_BEFORE_R
+    full_review: INDEPENDENT_QUESTION_NARROW_EVIDENCE_VERDICT
+    material_claims: SELECTIVE_HIGH_IMPACT_OR_VOLATILE_SOURCE_CHECK
+    normal_approved_report: EXCEPTION_AND_HASH_BUNDLE_ONLY
+    extra_debate_or_pass_recitation: PROHIBITED
+    model_routing: SHADOW_EVALUATION_BEFORE_ANY_LOWER_COST_ROUTE
+    telemetry: OPTIONAL_OBSERVATION_ONLY_NOT_A_RELEASE_GATE
 skills:
   - id: blog-3p-harness
     role: campaign_harness

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.3",
+  "schema_version": "1.4",
   "article_id": "A1",
   "canonical_path": "canonical/article.md",
   "canonical_sha256": "REPLACE_AFTER_DRAFT",
@@ -14,24 +14,18 @@
       "sha256": "REPLACE_AFTER_VISUALS",
       "role": "SINGLE_SOURCE_FOR_IMAGE_ASSETS_ALT_CAPTIONS_AND_PLACEMENT"
     },
-    "handoff_manifest": {
-      "path": "handoff/handoff-manifest.json",
-      "sha256": "PENDING_AFTER_PAYLOAD",
-      "role": "DERIVED_HANDOFF_ARTIFACT_AND_HASH_INDEX"
+    "metadata": {
+      "path": "canonical/metadata.json",
+      "sha256": "REPLACE_AFTER_METADATA_LOCK",
+      "role": "SINGLE_SOURCE_FOR_TITLE_AND_SEO_METADATA"
     },
     "manual_retelling": "PROHIBITED"
   },
-  "title": "REPLACE_ME",
-  "seo_title": "REPLACE_ME",
-  "tags": ["REPLACE_ME"],
-  "description": "REPLACE_ME",
-  "meta_description": "REPLACE_ME",
-  "focus_keyword": "REPLACE_ME",
   "title_transfer_mode": "SEPARATE_TITLE_FIELD",
   "heading_hierarchy_authority": "PUBLIC_READER_PAGE_VISUAL_ONLY",
   "visual_payload_template": {
     "id": "BLOG_3P_VISUAL_PAYLOAD",
-    "version": "2",
+    "version": "3",
     "rendering": "COMPILER_ONLY",
     "model_authored_shell_css_js": "PROHIBITED"
   },
@@ -41,8 +35,6 @@
     "manifest_source": "artifact_sources.visual_manifest",
     "exception": null
   },
-  "assets": [],
-  "links": [],
   "reader_value_promise": "REPLACE_ME",
   "cta": {
     "mode": "SECONDARY_RECOMMENDATION",
@@ -54,16 +46,5 @@
     "relationship_disclosure": "NOT_APPLICABLE"
   },
   "review_status": "PENDING",
-  "final_visual_payload_delta": {
-    "precondition": "TEXT_AND_SEO_FIELDS_STABLE",
-    "scope": "VISUAL_MANIFEST_ASSETS_AND_COMPILED_PAYLOAD_ONLY",
-    "reviewer_result": "PENDING",
-    "report_path": "reviews/visual-payload-delta-N.md",
-    "report_sha256": null,
-    "reviewer_agent_id": null,
-    "review_index_sha256": null,
-    "reviewed_visual_manifest_sha256": null,
-    "reviewed_visual_payload_sha256": null
-  },
   "gate_status": "PENDING"
 }

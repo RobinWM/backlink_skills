@@ -19,12 +19,18 @@
   "pair_receipts": [
     {
       "article_id": "A1",
+      "article_language": "REPLACE_LANGUAGE_CODE",
+      "market": "REPLACE_TARGET_MARKET",
       "platform": "REPLACE_ME",
       "account": "SAFE_ACCOUNT_ALIAS",
       "source_id": "owner-xlsx-001",
       "source_locator": "Sheet: REPLACE_ME; row: REPLACE_ME; column: REPLACE_ME",
       "platform_source_literal": "exact platform text from the owner source",
       "account_confirmation_literal": "exact owner-confirmed account alias text",
+      "mapping_confirmation_literal": "exact owner-confirmed language, market, platform and account mapping text",
+      "fit_mode": "PRIMARY_AUDIENCE_MATCH",
+      "cross_language_exception_owner_confirmation_id": null,
+      "cross_language_exception_literal": null,
       "owner_confirmation_id": "OWNER-CONFIRM-REPLACE_ME",
       "status": "EXPLICITLY_CONFIRMED"
     }

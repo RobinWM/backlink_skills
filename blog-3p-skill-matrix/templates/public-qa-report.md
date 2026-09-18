@@ -1,4 +1,6 @@
-# Public QA report — {{ARTICLE_ID}}
+# Legacy per-article public QA report — {{ARTICLE_ID}}
+
+> Only use this template for schema-2.3 through schema-2.6 workspaces. Schema-2.7+ uses `public-qa-batch-report.json`, with one independently hash-bound entry per returned article.
 
 - Existing lane G agent ID: `{{ARTICLE_LANE_GATEKEEPER_ID}}`
 - Public URL: `{{PUBLIC_URL}}`

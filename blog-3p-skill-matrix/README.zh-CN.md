@@ -1,8 +1,8 @@
 # 博客 3P Skill 矩阵
 
-[English](README.md) · [术语约定](docs/terminology.zh-CN.md) · 版本 0.9.21 · [MIT 许可证](LICENSE)
+[English](README.md) · [术语约定](docs/terminology.zh-CN.md) · 版本 0.12.3 · [MIT 许可证](LICENSE)
 
-这是一个面向高质量、可审计博客生产的开源 Skill 套件。它将文章工作拆解为可恢复的本地流程：建立内容项目与范围、完成有证据支撑的研究型写作、经过独立审稿与需求验收，再编译为供人工发布的可视化富文本交付包。它自动化内容质量工作，而不自动化平台发布。
+这是一个面向高质量、可审计博客生产的开源 Skill 套件。它将文章工作拆解为可恢复的本地流程：建立内容项目与范围、完成有证据支撑的研究型写作、在独立审稿前编译可视化富文本交付包，再进行需求验收和人工交接。它自动化内容质量工作，而不自动化平台发布。
 
 ## 一览
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 保存用户范围、研究证据、规范文章、独立文章审稿、需求验收，以及可直接复制的富文本交付页。 | 登录、操作平台编辑器、上传媒体、调用发布 API、发布、删除、回滚、定时发布或修改浏览器指纹。 |
 
-它适用于本地优先的内容生产：人工而非自动化拥有最终的平台原生操作。只需 Python 3.9+ 与本地文件系统；网页、Trends、SERP 和公开页检查都是可选的只读证据适配器。
+它只适用于人工原生发布交接：人工而非自动化拥有全部平台操作。只需 Python 3.9+ 与本地文件系统；网页、Trends、SERP 和公开页检查是该单一工作流内可选的只读证据能力，而不是另一种执行模式。
 
 ## 项目解决的问题
 
@@ -20,19 +20,20 @@
 
 ## 运行模型
 
-- **G 先取得启动资格。** 在任何文章独立 Git 工作区或 W/R 出现前，常驻可见主控必须收集并汇报每篇文章完整的写前调研与写作方案；等待 `OWNER_PREWRITE_PLAN_CONFIRMED`，将报告与结构化清单哈希绑定到任务契约后，才把用户已确认的要求写入 `requirements-contract.md`、维护内容项目状态与优先级并验收最终交付。它不能变成不可见的 CLI 审稿会话。
+- **G 先取得启动资格。** 在任何文章独立 Git 工作区或 W/R 出现前，常驻可见主控必须收集并汇报每篇文章完整的写前调研与写作方案；当前 `HUMAN_RELEASE_ONLY_V1` 只允许通过“用户原始回执文件 + 哈希 + 本地确认命令”绑定 `OWNER_PREWRITE_PLAN_CONFIRMED`。在派发 W/R 前，还必须为每篇文章确认一对一的平台／账号映射和兼容的语言－平台记录；之后才把用户已确认的要求写入 `requirements-contract.md`、维护内容项目状态与优先级并验收最终交付。它不能变成不可见的 CLI 审稿会话。
 - **每篇文章只有一个可执行 W 与一个持续复用的 R。** `blog-3p-writer` 是唯一活跃写稿角色；它和语言审稿人贯穿该文的调研、写作、修复、完整审稿与增量审稿，绝不与其他文章共享。R 负责包括 SEO 在内的文章质量；W 维护 `requirements-traceability.md`。
 - **独立 Git 工作区隔离必须显式记录。** 可见子任务不等于 Git 工作区。只有写前方案获确认后，宿主支持独立 Git 工作区时，G 才能在 W/R 启动前为每篇就绪的独立文章创建一个可见独立 Git 工作区任务；否则记录 `WORKTREE_UNAVAILABLE`，并且只有文章路径互不重叠时才能使用明确标识的共享工作区降级方案。
-- **每个工作区包含完整文章专属协作组。** 工作区根角色是文章级 G，由它在同一工作区中创建并复用专属 W 与 R，按 `G → W ↔ R → G` 推进。项目统筹 G 仍是唯一的全局需求、队列和状态控制器，只汇总文章协作组报告，不重复其编辑判断。
+- **每个工作区只保留一个稳定的 W/R 对。** 根角色是该文 W/R 对，而不是文章级 G；它们通过 `W ↔ R` 负责本文编辑判断。全项目只登记一个可复用的项目统筹 G，按批次处理就绪文章的紧凑记录，而不是逐篇消耗 G 回合。
 - **质量与用户意图分开判断。** R 决定文章质量是否达标；R 通过后，G 只检查已确认的用户要求是否被遗漏、替换、弱化或扩展，不重复审稿文案或 SEO。
-- **常规轮次使用紧凑证据索引。** 启动文章任务时，文章协作组 G 创建不可变、哈希绑定的文章契约；R 维护审稿索引，W 在有限修复时写增量变更说明。常规轮次只读取这些记录与变更交付文件；只有压缩、哈希漂移、问题项谱系未解或升级时才必须完整重读历史。代理替换和范围冲突属于升级条件。
+- **常规轮次使用紧凑证据索引。** 启动文章任务时，项目统筹 G／机架创建不可变、哈希绑定的文章契约；R 维护审稿索引，W 在有限修复时写增量变更说明。上下文压缩后，先重读[流程核心](docs/workflow-core.md)，再读契约、索引和变更交付文件；只有哈希漂移、问题项谱系未解、代理替换或升级时才完整重读历史。范围冲突属于升级条件。
 - **读者价值优先，CTA 必须保留但从属。** 每篇文章都冻结读者价值承诺，并且不依赖 CTA 仍须有用；用户要求的 CTA 必须保留其精确可见锚文本、可识别产品、当前落地页、主张依据、读者任务相关性和适用关系披露。R 判断内容含义与商业平衡；G 只核对声明是否保真落地。
 - **配图承载叙事，而不是凑数量。** 对实质性指南、教程、对比、评测和长篇解释文，W 至少规划三张原创、有信息价值的图，分别覆盖 `LEAD`、`MIDDLE`、`CLOSING`。R 必须打开每张图，核对相邻主张、可读性、独立读者作用与非重复性；首图、文件名、尺寸或 alt 均不能单独通过。
-- **研究是成文前门槛，不是创意角度标签。** 用户先确认 G 的方向性方案；随后每篇文章须在大纲前记录真实的长尾读者意图及证据，每种目标语言须记录地区 SERP 自然变体。多篇英语稿必须有不同的意图 ID 与读者问题；同一可复用 R 先审批 W 的研究包，W 才能成文。
-- **平台样本是建议性画像，不是可照搬的模板。** 一名可复用的平台样本研究角色只能只读检查已授权平台的同语言、同内容类型公开样本；它为交付包生成确定性的格式画像，为读者适配生成非约束性的编辑画像。样本不足即为 `UNVERIFIED`，使用保守通用结构，绝不阻断研究或写作。
-- **公开页质检只复用文章协作组 G。** 人工在结构化回执中记录 URL、精确的 `HUMAN_ACCEPTED`／`HUMAN_NEEDS_FIX` 状态和已知限制后，仅由该文章工作区既有的 `ARTICLE_LANE_GATEKEEPER` 接收一份有边界的只读公开页快照，并对照已验收的唯一基准稿/可视化富文本交付页做一次窄范围比对。它不重启 W/R、不创建新的公开终审角色，也不重做文章 SEO/文案审稿；它只分类为通过、范围化限制下通过、人工传输修复、未核验或明确的唯一基准稿变更请求。
-- **标题层级只以公开视觉为准。** 唯一基准稿和可视化富文本交付页的标签仅服务于写作与复制选择，绝不证明平台传输结果。人工不得编辑平台编辑器的 HTML/DOM；`HUMAN_ACCEPTED` 后，文章协作组 G 只能依据公开读者页的渲染视觉验收标题、章节和子章节层级。快照可记录视觉证据路径，但绝不能推断层级结论。
-- **平台匹配交给子会话，选择交给用户确认。** 冻结人工发布映射前，唯一可见、可复用的 `CAMPAIGN_PLATFORM_MATCHING_RESEARCHER` 仅在用户提供候选范围内，按冻结语言、市场和格式需求进行匹配。G 不排序、不选址，只保存报告并取得用户对准确平台/账号的确认。
+- **研究在一条有能力的 W 连续工作中完成，而不是被重复设门。** 用户确认 G 的方向性方案后，W 连续完成长尾意图、地区 SERP 用语与主张证据，再写正文、制作图片并编译交付页。默认由 R 的一次 `FULL_REVIEW` 整体审查；只有明确升级的风险路线才增加提前研究挑战。
+- **模型判断质量；工具只证明完整性。** W 与 R 从整篇文章判断读者价值、证据强度、语言、SEO 和图文适配。默认只保留一份 evidence pack，只报告真实 finding 或例外，不生成全绿检查表或重复研究摘要。确定性工具在创作后检查身份、范围、哈希、必保留 CTA 与交付包结构漂移；它们不按字数、关键词次数或可选外部数据给文章打分。
+- **平台样本是按需的建议性画像，不是可照搬的模板。** 仅当缺少可复用画像且存在实质读者可见传递风险时，可复用运营协同角色才只读检查范围内公开样本。样本不足即为 `UNVERIFIED`，使用保守通用结构，绝不阻断研究或写作。
+- **公开页质检复用项目统筹 G 的批量回合。** 人工在结构化回执中记录 URL、精确的 `HUMAN_ACCEPTED`／`HUMAN_NEEDS_FIX` 状态和已知限制后，同一已登记的 `CAMPAIGN_GATEKEEPER` 一次处理当前可用的只读公开页快照。每篇保留独立的证据、结论与限制；它不重启 W/R、不创建新的公开终审角色，也不重做文章 SEO/文案审稿。
+- **标题层级只以公开视觉为准。** 唯一基准稿和可视化富文本交付页的标签仅服务于写作与复制选择，绝不证明平台传输结果。人工不得编辑平台编辑器的 HTML/DOM；`HUMAN_ACCEPTED` 后，项目统筹 G 只能依据各篇公开读者页的渲染视觉验收标题、章节和子章节层级。快照可记录视觉证据路径，但绝不能推断层级结论。
+- **平台匹配交给子会话，选择交给用户确认。** 每个当前内容项目都必须在派发 W/R 前冻结人工发布映射；在此之前，唯一可见、可复用的 `CAMPAIGN_PLATFORM_MATCHING_RESEARCHER` 仅在用户提供候选范围内，按冻结语言、市场和格式需求进行匹配。G 不排序、不选址，只保存报告并取得用户对准确平台/账号的确认。
 - **CLI 只做机械工作。** 它可运行确定性的本地校验与编译，但不能替代审稿人或伪造证据。
 
 ## 架构
@@ -44,29 +45,35 @@
 G 的逐篇写前调研与写作方案
         │
         ▼
-OWNER_PREWRITE_PLAN_CONFIRMED + 哈希绑定
+OWNER_PREWRITE_PLAN_CONFIRMED + 回执／哈希绑定
         │
         ▼
-可见文章独立 Git 工作区／文章协作组 G ──► W 一体化调研 ──► 同一 R：RESEARCH_APPROVED
-                                      │
-                                      ▼
-                            W 规范交付包 ↔ 可复用 R 审稿
-                                                   │
-                                                   ▼
-                                            G 终审决策
-                                                   │
-                            PASS = HUMAN_RELEASE_READY
-                                                   │
-                                                   ▼
-                               可视化富文本人工交付页
-                                                   │
-                                                   ▼
-       人工原生发布 → 回执 + 只读快照 → 同一文章协作组 G 的公开页检查
+可见文章独立 Git 工作区／稳定 W-R 对
+        ├─ 标准路线 ─────────────────────────────────────────┐
+        └─ 升级风险 ─► W 研究 → 同一可复用 R：成文前研究挑战 ┤
+                                                               ▼
+                             W：连续研究 → 成稿 → 图片 → 交付页
+                                                               │
+                                                               ▼
+                        同一可复用 R：一次完整审查整个交付包
+                                                               │
+                                                               ▼
+                      项目统筹 G：当前 R 已批准文章的一次批量契约验收
+                                                               │
+                       PASS = HUMAN_RELEASE_READY
+                                                               │
+                                                               ▼
+                          可视化富文本人工交付页
+                                                               │
+                                                               ▼
+    人工原生发布 → 回执 + 只读快照 → 项目统筹 G 的批量公开页检查
 ```
 
-`PASS` 从不表示机器已经发布文章；它只表示本地编辑产物已准备好供人工使用。真正完成是另一状态：人工保存 URL／状态回执后，对于 `HUMAN_ACCEPTED`，由该文章既有的文章协作组 G 利用规范化快照和公开渲染视觉进行有边界的只读读者页契约检查。公开页差异不会重启 W/R：纯传输修复回到人工并由同一 G 复检；只有用户明确要求修改唯一基准稿或可视化富文本交付页才重开 W/R。
+`PASS` 从不表示机器已经发布文章；它只表示本地编辑产物已准备好供人工使用。真正完成是另一状态：人工保存 URL／状态回执后，对于 `HUMAN_ACCEPTED`，由同一已登记项目统筹 G 利用各篇规范化快照和公开渲染视觉进行一次有边界的只读批量读者页契约检查。公开页差异不会重启 W/R：纯传输修复回到人工并由同一 G 的下一批复检；只有用户明确要求修改唯一基准稿或可视化富文本交付页才重开对应文章的 W/R。
 
-写前方案也不是绕过调研的捷径。它汇报 G 已收集的证据、已知限制与拟定写作路线，让用户能在昂贵的文章协作组启动前纠偏；确认后，W 仍须独立完成完整的来源、长尾词与本地化调研，只有 R 能给出 `RESEARCH_APPROVED`。
+对 `N` 篇普通文章，基线模型阶段是 `2N + 2 + B`：一次写前 G、每篇一次连续 W 和一次完整 R、一次成稿批量 G，以及 `B` 次按 URL 回传批次执行的公开页 G。`B` 是人工回传批次，不是文章数量；12 篇一次回传时为 27 个模型阶段。增强风险路线和真正需要的修复会明确列为例外，而不是默认成本。
+
+写前方案也不是绕过调研的捷径。它让用户在昂贵的文章协作组启动前看到每篇文章的方向、读者价值／CTA 边界与风险路线；确认后，W 仍在同一连续工作中独立完成来源、长尾词与本地化调研。R 始终在最终交付中独立审查这些证据；只有明确升级的路线才要求提前 `RESEARCH_APPROVED`。
 
 ## 技能矩阵
 
@@ -75,12 +82,12 @@ OWNER_PREWRITE_PLAN_CONFIRMED + 哈希绑定
 | `blog-3p-harness` | 初始化独立内容项目、记录用户确认的写前方案、冻结范围、安全恢复并执行结构校验。 | `campaign.json`、`state.json`、`prewrite-plan.md/json`、确认记录、清单 |
 | `blog-3p-platform-matching` | 可见、可复用的子会话：只在用户候选源内调研语言/市场/格式适配，为每篇推荐一个平台。 | 匹配报告与待用户确认的提案 |
 | `blog-writer-merged` | 关于证据、本地化、读者价值、图片和标题质量的编辑核心参考；绝不是第二个 W。 | 可复用编辑标准与参考资料 |
-| `blog-3p-writer` | 唯一文章级写稿角色 W：调研、成稿、修复并编译审阅包。 | 文章包、内容指纹、修复记录、增量变更说明 |
+| `blog-3p-writer` | 唯一文章级写稿角色 W：调研、成稿、修复，并编译供 R 审阅的最终交付页。 | 文章包、内容指纹、修复记录、增量变更说明 |
 | `blog-3p-review` | 文章级、可复用的语言审稿角色 R，跨该文章审稿轮检查内容、证据、标题/正文交接和稳定问题项。 | `reviews/review-N.md` |
-| `blog-3p-gate` | 常驻 G，收集并汇报写前方案、等待用户确认后管理范围、队列、最终契约保真及同一文章协作组的发布后检查。 | 方案绑定、`requirements-contract.md`、`gate/gate-report-N.md`、`gate/public-qa-report-N.md` |
-| `blog-3p-human-handoff` | 编译可在浏览器中打开、可直接复制的富文本交付页，并在人工发布后生成有边界的回传证据。 | `handoff/visual-payload.html`、回传回执、发布卡、公开页快照 |
+| `blog-3p-gate` | 常驻项目统筹 G，收集并汇报写前方案、等待用户确认后管理范围、队列、批量契约保真和批量发布后检查。 | 方案绑定、`requirements-contract.md`、批量验收行、批量公开页 QA 行 |
+| `blog-3p-human-handoff` | 使用 R 已审的双交付页生成／核对派生交接索引，并在人工发布后生成有边界的回传证据。 | 已审 `handoff/visual-payload.html` + `handoff/visual-payload.md`、回传回执、发布卡、公开页快照 |
 
-矩阵刻意保持模块化：团队可以只使用本地流程工具和写作引擎，而不生成面向人工发布的包；也可以针对已有唯一基准稿使用 W–R–G 内循环。所有组合仍遵守同一套契约。
+矩阵在同一个发布边界内保持模块化：本地创作、可选只读证据、W–R–G 审稿、可视化富文本交付页编译、人工原生发布和只读公开页质检都可分开处理；但每个新的当前 schema 内容项目仍必须进入人工发布交接，本地工作或联网取证不是另一种执行模式。
 
 ## 核心保证
 
@@ -88,25 +95,25 @@ OWNER_PREWRITE_PLAN_CONFIRMED + 哈希绑定
 
 W 只写作；R 只审不改，并对语言、事实、结构、SEO 与交付保真作完整质量判断；G 掌管状态，只验收冻结的用户任务是否完整留在最终交付中，不重做 R 的文章审稿。用户要求用 `REQ-*`，G 的契约缺口用 `REQUIREMENT-*`，文章质量继续用如 `SEO-LOCALIZATION-001` 的稳定 finding ID。
 
-对唯一基准稿或可视化富文本交付页的读者可见改动都会更新内容指纹，并重新进入相应的 R/G 路径。仅由公开读者页发现的不一致由既有文章协作组 G 处理，不会自动重启 W/R。
+对唯一基准稿或可视化富文本交付页的读者可见改动都会更新内容指纹，并重新进入相应的 R/G 路径。仅由公开读者页发现的不一致由项目统筹 G 的公开页批量检查处理，不会自动重启 W/R。
 
 ### 紧凑且哈希绑定的文章上下文
 
-启动文章任务时，文章协作组 G 写入 `context/article-contract.json`：它投影已确认的文章范围、适用 `REQ-*`、读者价值／CTA 声明、语言／市场、适用发布映射和来源哈希。R 维护 `reviews/review-index.json`，记录当前唯一基准稿／交付包哈希、报告指针、审稿结论和稳定问题项谱系。这些记录减少重复加载上下文，绝不能改写范围或覆盖源证据。
+启动文章任务时，项目统筹 G／机架写入 `context/article-contract.json`：它投影已确认的文章范围、适用 `REQ-*`、读者价值／CTA 声明、语言／市场、适用发布映射和来源哈希，且刻意不含动态开放问题项。R 维护 `reviews/review-index.json`，记录当前唯一基准稿／交付包哈希、报告指针、审稿结论和动态的稳定问题项谱系。这些记录减少重复加载上下文，绝不能改写范围或覆盖源证据。
 
-有限修复时，W 写入 `reviews/review-delta-N.json`，列明已批准的基线哈希、准确变更路径、受影响的主张／需求／问题项，以及来源、本地化、标题／元数据、CTA、图片和交付页的显式变更标记。R-Δ 只检查该变更摘要、变更交付文件和直接依赖；只有压缩、哈希漂移、问题项谱系未解或含混或升级时才必须完整重读历史，代理替换和范围冲突属于升级条件。完整 R 仍会读取完整的当前交付包并打开每张最终图片。
+有限修复时，W 写入 `reviews/review-delta-N.json`，列明已批准的基线哈希、准确变更路径与受影响的主张／需求／问题项。R-Δ 只检查该变更摘要、变更交付文件和直接依赖。W 必须在唯一一次完整 R 审稿前编译可视化富文本交付页；这次审稿绑定证据包、唯一基准稿、元数据、图片清单、交付页和文章包。R 审核后，派生交接包只能在载荷逐字节一致时重复渲染并生成清单；若载荷会变化，脚本会在覆盖前失败，W 必须先生成候选，再走对应的 R-Δ 或完整 R。只有完整审稿后又改动图片清单、交付页或文章包中的图片指针时，才需要 R-Δ。只有哈希漂移、问题项谱系未解或含混、代理替换、范围冲突或明确升级时才完整重读历史。
 
 ### 读者价值优先；透明推荐从属
 
 矩阵的首要产物是对读者任务有高质量、证据受限回答的文章。每篇新的 schema `2.2+` 文章都要冻结 `reader_value_promise`；即使移除 CTA，文章仍必须完整、有用。`cta.mode = NONE` 在新的 schema-2.2 内容项目中不合法。
 
-每篇 schema 2.2 文章均使用 `cta.mode = SECONDARY_RECOMMENDATION`。当前 schema-2.5 工作流中的 `article-package.json` 使用 schema `1.3`，引用规范证据、视觉与交接清单，同时记录精确可见锚文本、产品身份、当前落地页 URL、主张证据路径、与读者任务的关联，以及关系披露或 `NOT_APPLICABLE`。这些字段只用于追溯推荐，绝不允许声称产品经独立验证、最优、已测试、始终可用或适合所有读者。R 而非 CTA 数量、字数比例、位置或密度规则，判断文章是否仍以读者为中心、平衡且真实；G 只检查冻结声明是否留在最终交付中。schema-2.2/2.3 工作区保留其历史 schema-`1.2` 交付包契约，不能只为采用新流程而改标版本。这能降低可避免的审核／删除风险，不能保证平台一定保留公开页。
+每篇 schema 2.2+ 文章均使用 `cta.mode = SECONDARY_RECOMMENDATION`。当前 schema-2.11 工作流中的 `article-package.json` 使用 schema `1.4`：保留精确可见锚文本、产品身份、当前落地页 URL、主张证据路径、与读者任务的关联及关系披露或 `NOT_APPLICABLE`，再单向引用唯一基准稿、元数据、证据包与图片清单。元数据是平台标题和 SEO 字段的唯一来源；文章包不得重复标题、SEO、链接、图片或反向交接指针。这些字段只用于追溯推荐，绝不允许声称产品经独立验证、最优、已测试、始终可用或适合所有读者。R 而非 CTA 数量、字数比例、位置或密度规则，判断文章是否仍以读者为中心、平衡且真实；G 只检查冻结声明是否留在最终交付中。schema-2.2/2.3 工作区保留其历史 schema-`1.2` 交付包契约；schema-`1.3` 仅为历史文章包兼容保留。这能降低可避免的审核／删除风险，不能保证平台一定保留公开页。
 
 ### 用户确认的写前方案
 
-在矩阵消耗独立 Git 工作区或启动写作／审稿协作组之前，G 必须维护覆盖每个已配置文章的唯一 schema-`1.3` `prewrite-plan.json`。每张卡明确读者与任务、独立读者价值承诺、必保留的次要 CTA 及其精确可见锚文本、目标链接、主张／来源边界和披露、证据与不确定性、关键词／本地化路线、暂定标题与大纲、图文叙事、传递假设，以及仍需用户决定的事项。G 运行 `harnessctl.py sync-prewrite-plan` 后生成供用户阅读的 `prewrite-plan.md`。该 Markdown 是确定性、只读视图：绝不能双份手填，也不能作为第二个范围事实源。
+在矩阵消耗独立 Git 工作区或启动写作／审稿协作组之前，G 必须维护覆盖每个已配置文章的唯一 schema-`1.7` `prewrite-plan.json`。每张紧凑卡明确任务／受众、独立读者价值与必保留的次要 CTA、模型主导的编辑简报、风险与待用户决定事项，以及冻结交付映射、`topic_slot` 与研究姿态。`topic_slot` 冻结读者任务、核心意图、市场、差异化角度与禁止偏离项，不冻结字面关键词或最终标题。交付映射公开文章语言、市场、平台、账号与受众适配模式；研究姿态区分方法模板和有记录的实测。编辑简报集中说明拟定关键词／本地化路径、证据边界、可能的标题／大纲、图文方案及已知人工传递风险，而不把同一事实拆成多份文件反复维护。G 运行 `harnessctl.py sync-prewrite-plan` 后生成供用户阅读的 `prewrite-plan.md`。该 Markdown 是确定性、只读视图：绝不能双份手填，也不能作为第二个范围事实源。
 
-`OWNER_PREWRITE_PLAN_CONFIRMED` 是硬启动门。其确认 ID、文章集合、报告哈希和清单哈希必须在状态、用户确认记录、需求契约和范围锁中完全一致。方案发生实质改动即失效；在重新确认前，G 不能创建文章独立 Git 工作区、文章协作组 G、W、R、文章队列或文章代理。这使用户能在并发工作消耗时间和 token 前纠偏，同时不把 G 的方案伪装成 W/R 的正式调研。
+`OWNER_PREWRITE_PLAN_CONFIRMED` 是硬启动门。schema 2.11 中，必须使用 `confirm-prewrite-plan` 绑定 `evidence/owner-confirmations/` 下的用户原始回执文件、哈希、来源定位与带时区时间；只手填状态或确认 ID 不能提升方案。其确认 ID、文章集合、报告哈希、清单哈希、受保护范围快照和回执必须在状态、用户确认记录、需求契约和范围锁中完全一致。快照包含语言、市场、平台、账号、适配模式、跨语言例外、`topic_slot` 和研究姿态；其中任一项变化必须先显式失效、再重新确认，不能由同步覆盖旧回执。当前模式还要求每篇文章在派发 W/R 前都有用户确认的不同平台／账号映射和兼容的受众／传递记录。在所需绑定重新确认前，G 不能创建文章独立 Git 工作区、W、R、文章队列或文章代理。这使用户能在并发工作消耗时间和 token 前纠偏，同时不把 G 的方案伪装成 W/R 的正式调研。
 
 ### 图文叙事覆盖
 
@@ -128,24 +135,24 @@ CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK
 
 品牌站现有表达也不能无条件照搬：过时、误导、不自然或与本文意图不符时，必须留证拒绝。地区 SERP 只用于理解本地意图和表达，绝不用于复制竞品文本。
 
-### 成文前长尾研究
+### 一体化长尾研究
 
-矩阵不接受空关键词变体、泛化主词、标题文案或编辑创意角度作为研究证据。用户确认 G 的写前方案前，G 只汇报拟定的关键词／本地化路线与不确定性；确认之后、生成大纲或正文之前，W 必须记录候选与淘汰的长尾词、读者问题、查询/日期/证据和选用表达。多篇英语稿还须维护意图登记表：主长尾词和读者问题必须在语义上实质不同。
+矩阵不接受空关键词变体、泛化主词、标题文案或编辑创意角度作为研究证据。用户确认 G 的写前方案前，G 只汇报拟定的关键词／本地化路线与不确定性；确认之后，W 在连续创作中、形成有依据的主张前，完成候选与淘汰的长尾词、读者问题、查询／日期／证据和选用表达。多篇英语稿还须保持主意图和读者问题在语义上实质不同。
 
-每个目标语言的记录须包含目标地区 SERP 查询、自然变体、选词来源和拒绝的机械直译。仅英文的 Google Trends 比较是可选的全球相对关注度背景，不能证明目标语言用词。数据不可用或结论不明确时，W 不得强造趋势信号或反复重试；应根据冻结平台可说明的读者需求、品牌站和目标地区 SERP 意图选择长尾读者问题，并记录支持依据和明确证据边界。该路径不得被表述为搜索量、热门度、势头或商业需求结论。两次独立地区核验均没有可用共识时，才可用 `MODEL_TRANSLATION_FALLBACK`，并须保存两次核验与语言理由。同一 R 先给出 `RESEARCH_APPROVED`，W 才可写正文；终审时还会复核文章没有偏离研究结论。
+每个目标语言的证据包须包含目标地区 SERP 查询、自然变体、选词来源和拒绝的机械直译。仅英文的 Google Trends 比较是可选的全球相对关注度背景，不能证明目标语言用词。数据不可用或结论不明确时，W 不得强造趋势信号或反复重试；应根据当前品牌站和目标地区 SERP 意图选择长尾读者问题，并记录支持依据和明确证据边界。该路径不得被表述为搜索量、热门度、势头或商业需求结论。平台画像单独记录，最多可改善技术深度、示例、语气或传递方式，绝不能证明关键词、自然变体、搜索意图、当地需求、热门度或选题成立。两次独立地区核验均没有可用共识时，W 才可用 `MODEL_TRANSLATION_FALLBACK`，并须保存两次核验与语言理由。默认完整 R 审稿会将研究与文章一起审查；只有升级路线才要求成文前 `RESEARCH_APPROVED`。
 
 ### 已授权平台的风格画像
 
-G 冻结准确的平台/账号组合后，可复用的平台样本研究角色才能针对同一平台、语言与内容类型的公开样本做尽力而为的只读检查。它必须记录来源、日期、可见信号和不确定性，并产出两份彼此独立的文件：
+G 冻结准确的平台/账号组合后，仅当缺少可复用画像且存在实质读者可见传递风险时，可复用的平台样本研究角色才能针对同一平台、语言与内容类型的公开样本做尽力而为的只读检查。它记录来源、日期、可见信号和不确定性，并产出两份彼此独立的文件：
 
 - `format-profile.md` 是确定性的交付输入：可用标题/元数据字段、标题/正文传递建议、公开视觉层级观察，以及可观察到的列表、链接、图片、商业披露或版式限制。它绝不指示修改编辑器 HTML/DOM；存在时由人工交付包读取。
 - `editorial-style-profile.md` 是建议性的写作输入：只记录能够成立的标题语气、开头方式、段落节奏与结构观察；W 仅可用它优化读者适配。
 
-两份画像均不能证明关键词需求、事实主张、平台政策或“热门度”。当全球 Trends 数据不足时，具有日期且确实可比的写作画像可以支持有边界的“读者需求”选题理由，但仍不得被称为需求量、热门度、搜索量或势头证据。画像不能改变范围、规范事实、本地化选词优先级、必保留次要 CTA 的精确锚文本／链接／披露，或图文叙事要求。不得复制样本标题、措辞、论证路径、互动数据或促销模式。样本不可得、不完整或无法证明可比时，标为 `UNVERIFIED` 并使用保守通用结构；仅因缺少画像，R 不得提出 finding。只有通过 `PUBLIC_QA_PASSED` 读者页核验的行为，才能沉淀为长期平台技能；`PUBLIC_QA_PASSED_WITH_LIMITATION` 只能沉淀具备完整范围、日期且不可泛化的限制记录。参见[画像模板](docs/platform-style-profiles.md)。
+两份画像均不能证明关键词、自然变体、搜索意图、当地需求、事实主张、平台政策、“热门度”或选题成立。画像不能改变范围、规范事实、本地化选词优先级、必保留次要 CTA 的精确锚文本／链接／披露，或图文叙事要求。不得复制样本标题、措辞、论证路径、互动数据或促销模式。样本不可得、不完整或无法证明可比时，标为 `UNVERIFIED` 并使用保守通用结构；仅因缺少画像，R 不得提出 finding。只有通过 `PUBLIC_QA_PASSED` 读者页核验的行为，才能沉淀为长期平台技能；`PUBLIC_QA_PASSED_WITH_LIMITATION` 只能沉淀具备完整范围、日期且不可泛化的限制记录。参见[画像模板](docs/platform-style-profiles.md)。
 
 ### 人工原生发布边界
 
-常规发布路径不会登录平台、向编辑器输入、上传媒体、点击发布、删除或回滚内容、调用写 API，或修改浏览器指纹。机器只生成唯一由编译器拥有的 `BLOG_3P_VISUAL_PAYLOAD@2`：所有文章共享同一份刻意简洁的页面壳与自上而下顺序——博客标题、带中文图片注释的正文、SEO 标题、标签、描述。W 只能提供唯一基准稿标题、来源大纲/正文、图片清单和元数据，不能为单篇文章设计页面壳、CSS、JavaScript 或操作按钮。页面不含按钮、剪贴板代码或复制成功承诺；发布者在浏览器中手动选中可见标题与正文，再粘贴至原生编辑器。编译器会拒绝缺失或改写必保留 CTA 精确可见锚文本、href 或适用披露的包/正文，且绝不自行添加促销文案。发布者不得查看或修改平台编辑器 HTML/DOM 来强制标题标签。每则注释会完整显示本地化 Alt 和图注；Alt 缺失会使编译失败。人工通过平台原生界面发布并验收读者页；若回传 URL 且标注 `HUMAN_ACCEPTED`，只有该文章既有的文章协作组 G 会依据公开读者页的渲染视觉验收标题层级，而不是依据本地交付页、编辑器、源码或 Feed 标记；它绝不会自行执行平台操作或重开 W/R。
+常规发布路径不会登录平台、向编辑器输入、上传媒体、点击发布、删除或回滚内容、调用写 API，或修改浏览器指纹。机器只生成由编译器拥有的 `BLOG_3P_VISUAL_PAYLOAD@3` 双交付页：用于直接复制富文本的 `visual-payload.html`，以及与其内容一致、哈希绑定、用于可读追溯的 `visual-payload.md`。所有文章共享同一份刻意简洁的自上而下顺序——博客标题、带精确位置中文图片卡的正文、SEO 标题、标签、描述。W 只能提供唯一基准稿标题、来源大纲/正文、图片清单和元数据，不能为单篇文章设计页面壳、CSS、JavaScript 或操作按钮。唯一基准稿中的每个图片标记（从 `<!-- BLOG_3P_IMAGE:01 -->` 起）都会在原处生成一张图卡；图卡明确写出对应的 `01-lead-*`、`02-middle-*` 或 `03-closing-*` PNG/JPG/JPEG 素材、放置锚点、本地化 Alt 和图注。聚合图片槽位、WebP/GIF/SVG 替代品、缺哈希或未编号素材都会使编译失败。页面不含按钮、剪贴板代码或复制成功承诺；发布者在浏览器中手动选中可见标题与正文，再粘贴至原生编辑器。编译器会拒绝缺失或改写必保留 CTA 精确可见锚文本、href 或适用披露的包/正文，且绝不自行添加促销文案。发布者不得查看或修改平台编辑器 HTML/DOM 来强制标题标签。人工通过平台原生界面发布并验收读者页；若回传 URL 且标注 `HUMAN_ACCEPTED`，同一已登记项目统筹 G 会在批量公开页检查中依据每篇公开读者页的渲染视觉验收标题层级，而不是依据本地交付页、编辑器、源码或 Feed 标记；它绝不会自行执行平台操作或重开 W/R。
 
 人工回传刻意保持轻量：一份 `public-return-receipt.json`，然后仅在 `HUMAN_ACCEPTED` 时生成一份规范化、有边界的公开页快照。快照记录标题／正文指纹、链接／图片／CTA 观察和获取限制，而不是新稿或语义结论。G 用它写紧凑的公开页 QA 报告：纯平台传输问题生成一份合并人工修复清单并回到同一 G；已记录的平台限制只有在读者可见契约仍满足时才可通过；证据不可得时保持未核验；唯一基准稿／交付页变更必须有用户明确的请求 ID。
 
@@ -157,9 +164,9 @@ G 冻结准确的平台/账号组合后，可复用的平台样本研究角色�
 
 官方登录/注册页、平台公告、公开样本、预检/激活记录、会话恢复证据、内部配置和历史内容项目映射都只能作为适配性或运营证据。它们可以在用户选定**之后**支持单独记录的 `locale_platform_validation`，但绝不能创建允许 pair、成为冻结映射，或反向验证从自身复制出的映射。若授权列表用尽，状态为 `CAPACITY_BLOCKED`，直到用户明确提供并重新确认新的组合。
 
-人工发布批次还必须在确认时冻结一张一对一的 `article_id → platform → account` 表。每篇文章只绑定一个不同的平台，且其平台/账号对不得被另一篇复用；缺失或重复映射只阻塞受影响文章。G 绝不会默认把多种语言分配到一个已验证平台，也不会从另一篇文章借用平台。
+每个当前内容项目都必须在派发 W/R 前冻结一张一对一的 `article_id → platform → account` 表。每篇文章只绑定一个不同的平台，且其平台/账号对不得被另一篇复用；缺失或重复映射会阻塞受影响文章。G 绝不会默认把多种语言分配到一个已验证平台，也不会从另一篇文章借用平台。
 
-确认表还应为每篇文章记录用户确认的文章语言与市场、映射的平台/账号、该平台支持的内容语言及证据。平台语言只决定能否承接，绝不改变文章语言；不兼容时以 `LOCALE_PLATFORM_MISMATCH_RECONFIRM_OWNER` 停住该文章。
+确认表还应为每篇文章记录用户确认的文章语言与市场、映射的平台/账号、主读者语言／市场及受众证据，以及可承载内容语言及传递证据。编辑器能承载某语言只说明传递资格，绝不能说明该语言是平台主受众。普通路线必须是 `PRIMARY_AUDIENCE_MATCH`；语言或市场不匹配时，只有逐篇绑定用户原文的 `CROSS_LANGUAGE_EXCEPTION_OWNER_CONFIRMED` 可继续，否则以 `PLATFORM_AUDIENCE_MISMATCH_RECONFIRM_OWNER` 停住该文章。
 
 标题采用三层契约：字段映射是确定性规则，交付包保真可机械核验，语义质量交给 W/R 判断。它们依据读者任务、清晰度、价值、自然语言和市场适配审题；G 只核对冻结字段是否保真。字面关键词和长度只是不阻断的风险提示。平台标题默认等于规范文章标题，不能暗中采用更短版本。标题/章节层级则在人工发布后单独以公开视觉验收。
 
@@ -186,23 +193,60 @@ python3 skills/blog-3p-harness/scripts/harnessctl.py init \
   --workspace /absolute/path/to/campaign \
   --campaign-id my-campaign
 
-# 填写 campaign.json 和唯一可编辑的 schema-1.3 prewrite-plan.json，
-# 再确定性生成面向用户的 Markdown 视图；绝不能双份手填。
+# 将 templates/campaign-article.json 按文章复制进 campaign.json，再填写唯一可编辑的
+# schema-1.7 prewrite-plan.json 并确定性生成用户视图；绝不能双份手填。派发 W/R 前，必须为每篇
+# 文章填写用户确认、彼此不同的平台／账号映射和兼容的语言－平台记录。
 python3 skills/blog-3p-harness/scripts/harnessctl.py sync-prewrite-plan \
   --workspace /absolute/path/to/campaign
 
-# 汇报生成的 prewrite-plan.md，记录 OWNER_PREWRITE_PLAN_CONFIRMED，
-# 再校验结构契约。
+# 向用户汇报生成的 prewrite-plan.md。用户确认后，将原始确认文本保存到
+# evidence/owner-confirmations/，并用命令绑定该文件。
+python3 skills/blog-3p-harness/scripts/harnessctl.py confirm-prewrite-plan \
+  --workspace /absolute/path/to/campaign \
+  --confirmation-id owner-confirmation-001 \
+  --receipt-file /absolute/path/to/campaign/evidence/owner-confirmations/owner-confirmation.md \
+  --receipt-type OWNER_MESSAGE \
+  --source-locator "用户消息或文件的定位信息"
+
+# CHECK_PASSED 仅表示本地结构可读；dispatch-readiness 才会明确列出 REQ、已登记 G
+# 或平台映射是否仍缺失。
 python3 skills/blog-3p-harness/scripts/harnessctl.py check \
   --workspace /absolute/path/to/campaign
+python3 skills/blog-3p-harness/scripts/harnessctl.py dispatch-readiness \
+  --workspace /absolute/path/to/campaign
 
-# 对当前 schema-2.5 的文章包（schema 1.3），核对唯一基准稿相关文件的来源声明
+# G 写入已确认的 REQ-* 并登记可见项目 G 后，为每篇生成上下文。这里的工作区必须是
+# 内容项目根目录，或该内容项目的完整 Git 工作树根目录，其中已有 campaign.json、state.json、
+# prewrite-plan.json 与 requirements-contract.md；绝不能指向新建的空 article-A1 文件夹。W 写出
+# canonical/article.md 后再建立审稿索引。
+python3 skills/blog-3p-harness/scripts/harnessctl.py build-article-context \
+  --workspace /absolute/path/to/campaign \
+  --article-id A1 \
+  --output context/article-contract.json
+python3 skills/blog-3p-harness/scripts/harnessctl.py build-review-index \
+  --workspace /absolute/path/to/campaign \
+  --article-contract context/article-contract.json \
+  --output reviews/review-index.json
+
+# 对当前 schema-2.11 的文章包（schema 1.4），核对唯一基准稿相关文件的来源声明
 # 与冻结的读者价值／必保留 CTA 映射。
 python3 skills/blog-3p-harness/scripts/harnessctl.py check-article-package \
   --workspace /absolute/path/to/campaign \
   --package /absolute/path/to/campaign/article-package.json
 
-# 人工回传 URL／状态回执后，先校验，再交给同一文章协作组 G 做只读快照检查。
+# 唯一完整 R 审稿前，只排除结构漂移：当前来源哈希、固定载荷结构与冻结 CTA 映射。
+# 通过不等于文章、事实或 SEO 已批准。
+python3 skills/blog-3p-harness/scripts/harnessctl.py check-review-ready \
+  --workspace /absolute/path/to/campaign \
+  --article-contract context/article-contract.json \
+  --review-index reviews/review-index.json \
+  --article-package article-package.json
+
+# 批次完成后的可选、非阻断观察；它不估算缺失 token／成本，也不新增代理或审稿步骤。
+python3 skills/blog-3p-harness/scripts/harnessctl.py summarize-efficiency \
+  --workspace /absolute/path/to/campaign
+
+# 人工回传 URL／状态回执后，逐份先校验，再交给项目统筹 G 做批量只读快照检查。
 python3 skills/blog-3p-harness/scripts/harnessctl.py check-public-return-receipt \
   --workspace /absolute/path/to/campaign \
   --receipt /absolute/path/to/campaign/handoff/public-return-receipt.json \
@@ -216,12 +260,12 @@ python3 skills/blog-3p-human-handoff/scripts/capture_public_snapshot.py \
 随后按以下顺序调用 Skill：
 
 1. `blog-3p-harness` + `blog-3p-gate`：收集本次内容项目的证据并汇报 G 的逐篇写前方案。
-2. 用户返回 `OWNER_PREWRITE_PLAN_CONFIRMED`；绑定确认 ID、每篇文章 ID 与两份方案哈希。至此 G 才可创建文章独立 Git 工作区。
-3. `blog-3p-writer`：唯一 W 独立调研并写作，仅把 `blog-writer-merged` 当作编辑核心参考；同文章复用的 `blog-3p-review` 先给出 `RESEARCH_APPROVED`，再贯穿修复后的质量审稿。
-4. `blog-3p-gate`：验收冻结的用户任务契约；`blog-3p-human-handoff` 仅在 G 授权后编译可视化富文本交付页。
-5. 人工保存公开 URL／状态回执后，先校验回执；对 `HUMAN_ACCEPTED` 再生成只读公开页快照。只恢复该文章既有的文章协作组 G，输出 `gate/public-qa-report-N.md`；不得重新启动 W/R/G 循环。人工传输修复回到同一 G；只有明确的唯一基准稿／交付页变更请求才重开 W/R。
+2. 用户返回 `OWNER_PREWRITE_PLAN_CONFIRMED`；保存原始回执，用 `confirm-prewrite-plan` 绑定后运行 `dispatch-readiness`。至此 G 才可创建文章独立 Git 工作区。
+3. `blog-3p-writer`：唯一 W 连续完成调研、成稿、图片，并在 R 前编译最终固定可视化富文本交付页，仅把 `blog-writer-merged` 当作编辑核心参考；同文章复用的 `blog-3p-review` 对证据与完整交付包做一次独立完整审查，只有升级风险路线才增加提前研究挑战。
+4. `blog-3p-gate`：在一个可见 `BATCH_GATE_ACCEPTANCE` 中验收当前所有 R 已批准文章的冻结用户任务契约；`blog-3p-human-handoff` 随后只生成／核对派生清单和发布卡，不得改写 R 已审的可视化富文本交付页。
+5. 人工保存公开 URL／状态回执后，逐份校验回执；对 `HUMAN_ACCEPTED` 再生成只读公开页快照。只恢复已登记项目统筹 G 的一次 `PUBLIC_QA_BATCH_READONLY`，每篇输出一个独立结果行；不得重新启动 W/R/G 循环。人工传输修复回到同一 G 的下一批；只有明确的唯一基准稿／交付页变更请求才重开对应文章 W/R。
 
-人工发布包若要注明平台，该平台/账号组合必须已经存在于 `campaign.json.platform_scope.allowed_pairs`。空列表仍可用于调研、写作和审稿。
+schema 2.11 只支持一个执行配置：`HUMAN_RELEASE_ONLY_V1` 与 `release_policy.mode = HUMAN_NATIVE_ONLY`。`machine_external_writes_allowed` 始终为 `false`。派发 W/R 前，每篇文章都必须在 `campaign.json.platform_scope.allowed_pairs` 中有一个用户确认、彼此不同的平台／账号组合，以及文章映射和兼容的主读者／传递记录。`human_release_requested` 已废弃，在当前工作区中无效。schema 2.8 仅保留历史读取／校验兼容，不能启动当前派发流程。
 
 ## 工作区结构
 
@@ -229,19 +273,20 @@ python3 skills/blog-3p-human-handoff/scripts/capture_public_snapshot.py \
 campaign/
 ├── campaign.json                 # 冻结的意图、范围与跨语言设置
 ├── state.json                    # 可持续恢复的工作流状态与 findings
-├── prewrite-plan.json            # 唯一可编辑的 schema-1.3 规范方案
+├── prewrite-plan.json            # 唯一可编辑的 schema-1.7 规范方案
 ├── prewrite-plan.md              # 由 JSON 确定性生成的只读用户视图
 ├── confirmation.md               # 用户确认记录
 ├── owner-platform-selection.json # 哈希锁定的用户来源 pair 收据
 ├── requirements-contract.md      # G 对用户确认要求的稳定 ID 契约
 ├── context/article-contract.json  # 哈希绑定的文章相关范围投影
 ├── pre-clearance-checklist.md    # 一次性预清清单
-├── research/                     # 简报、来源台账、本地化映射
+├── research/                     # 一个证据包及可选的派生只读视图
 ├── canonical/                    # 唯一规范文章与清单
 ├── reviews/                      # 独立 R 报告、审稿索引与增量变更说明
-├── gate/                         # G 决策与同一文章协作组的公开页质检报告
-├── handoff/                      # visual-payload、发布卡与公开回传回执
+├── gate/                         # 紧凑 G 批量决策与批量公开页质检报告
+├── handoff/                      # 配对 HTML/Markdown 可视化富文本交付页、发布卡与公开回传回执
 ├── evidence/                     # 事实证据与公开页只读快照
+│   ├── owner-confirmations/       # 用户原始确认回执
 │   ├── platform-style/            # 已授权平台的格式/编辑画像（如可得）
 │   └── platform-matching/         # 可见子会话的匹配报告与提案
 └── resolutions/                  # 逐 finding 修复记录
@@ -249,9 +294,8 @@ campaign/
 
 ## 兼容性
 
-- **`local_only`**：必需的基线模式。使用本地文件、Markdown、JSON 和 Python 3.9+ 即可运行。
-- **`connected_readonly`**：可选使用网页搜索、Trends、SERP、浏览器检视或 SEO 工具采集证据；没有任何组件可以向外部平台写入。
-- **`human_handoff`**：用现代浏览器打开 `visual-payload.html`；分别复制标题和正文，并在原生编辑器中替换图片提示卡。
+- **`human_native_release_only`**：唯一的当前执行配置。它使用本地文件、Markdown、JSON、Python 3.9+，并由人工通过平台原生界面完成最终发布。
+- **可选只读证据**：网页搜索、Trends、SERP、浏览器检视、SEO 工具和公开页快照可在该配置内采集证据；没有任何组件可以向外部平台写入。
 
 正式契约请见[用户平台选择锁](docs/owner-platform-selection.md)、[docs/compatibility.md](docs/compatibility.md)、[docs/contracts.md](docs/contracts.md) 与 [docs/no-publish-boundary.md](docs/no-publish-boundary.md)。
 

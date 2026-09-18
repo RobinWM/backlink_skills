@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture a bounded, read-only public-page snapshot for an existing article lane G."""
+"""Capture a bounded, read-only public-page snapshot for the registered campaign G batch."""
 from __future__ import annotations
 
 import argparse
@@ -59,9 +59,31 @@ def read_json(path: Path, label: str) -> dict:
     return value
 
 
-def required_contract(article_package: dict) -> dict:
-    if article_package.get("schema_version") not in {"1.2", "1.3"}:
-        raise ValueError("article-package must use schema_version 1.2 or 1.3")
+def current_metadata_title(article_package: dict, package_path: Path) -> str:
+    """Read the current package title from canonical metadata, not a copied field."""
+    sources = article_package.get("artifact_sources")
+    source = sources.get("metadata") if isinstance(sources, dict) else None
+    if not isinstance(source, dict) or not non_empty_string(source.get("path")):
+        raise ValueError("article-package schema 1.4 requires metadata source")
+    root = package_path.resolve().parent
+    metadata_path = (root / source["path"].strip()).resolve()
+    if metadata_path == root or root not in metadata_path.parents:
+        raise ValueError("article-package metadata source must stay inside the package workspace")
+    if not metadata_path.is_file():
+        raise ValueError("article-package metadata source is missing")
+    digest = hashlib.sha256(metadata_path.read_bytes()).hexdigest()
+    if source.get("sha256") != digest:
+        raise ValueError("article-package metadata source sha256 does not match")
+    metadata = read_json(metadata_path, "canonical metadata")
+    title = str(metadata.get("platform_title", metadata.get("canonical_title", metadata.get("title", "")))).strip()
+    if not title:
+        raise ValueError("canonical metadata requires platform_title or canonical_title")
+    return title
+
+
+def required_contract(article_package: dict, package_path: Path) -> dict:
+    if article_package.get("schema_version") not in {"1.2", "1.3", "1.4"}:
+        raise ValueError("article-package must use schema_version 1.2, 1.3 or 1.4")
     article_id = article_package.get("article_id")
     if not non_empty_string(article_id):
         raise ValueError("article-package requires article_id")
@@ -75,7 +97,9 @@ def required_contract(article_package: dict) -> dict:
         "article_id": article_id.strip(),
         "canonical_path": article_package.get("canonical_path"),
         "canonical_sha256": article_package.get("canonical_sha256"),
-        "title": str(article_package.get("title", "")).strip(),
+        "title": current_metadata_title(article_package, package_path)
+        if article_package.get("schema_version") == "1.4"
+        else str(article_package.get("title", "")).strip(),
         "required_cta": {
             "anchor_text": cta["anchor_text"].strip(),
             "href": cta["product_destination_url"].strip(),
@@ -321,7 +345,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         receipt = read_json(args.receipt, "public return receipt")
-        contract = required_contract(read_json(args.article_package, "article-package"))
+        contract = required_contract(read_json(args.article_package, "article-package"), args.article_package)
         validate_receipt(receipt, contract["article_id"])
     except ValueError as exc:
         print("PUBLIC_SNAPSHOT_INVALID\n" + str(exc))

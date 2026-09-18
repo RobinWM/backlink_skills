@@ -1,6 +1,6 @@
 # In-Scope Platform Style Profiles
 
-This optional, read-only step improves reader fit and hand-off reliability without turning platform samples into SEO evidence or a publication automation. It runs only after the owner has confirmed G's hash-bound pre-write plan **and** G has frozen the exact `{platform, account}` mapping, and only for that article's language and comparable content type.
+This optional, read-only step improves reader fit and hand-off reliability without turning platform samples into SEO evidence or a publication automation. In current schema-2.11 it is `ON_DEMAND_IN_SCOPE_PROFILE`: run it only after the owner has receipt-confirmed G's pre-write plan, the exact `{platform, account}` mapping is owner-confirmed for the required human-release item, **and** there is both no reusable matching profile and a material reader-facing transport risk. It is never a default pre-draft task or a second execution mode.
 
 Read the [shared-evidence cache contract](../skills/blog-3p-harness/references/shared-evidence-cache.md) before reusing an observation. A profile cache reduces repeated public inspection; it does not select a platform, create an account alias, prove account eligibility, replace owner confirmation, or alter the article's locale, reader intent, CTA, or scope.
 
@@ -9,8 +9,9 @@ Read the [shared-evidence cache contract](../skills/blog-3p-harness/references/s
 - Use `READY` only when the record contains dated public samples and observable evidence.
 - Use `UNVERIFIED` when samples are unavailable, incomplete, private, not comparable, or their signal is uncertain. Continue with a conservative generic structure.
 - Do not search for or add platforms, accounts, topics, or alternatives. Do not log in, operate editors, upload, publish, or infer private/editor behavior from public samples.
-- A visible featured label or public interaction count may be recorded as a signal; otherwise never describe a sample as popular or successful.
+- A visible featured label or public interaction count may be recorded as a scoped signal; otherwise never describe a sample as popular or successful, and never use any platform sample to establish a keyword, natural variant, search intent, local demand or topic demand.
 - Never copy sample titles, prose, structure, argument flow, imagery, interaction statistics, or claims.
+- A cache miss without a material title/body, link, image, list, metadata, or reader-visual risk is not a reason to collect samples. Continue with the conservative generic delivery structure.
 
 ## Cache classes and refresh boundary
 
@@ -80,13 +81,13 @@ This profile is a non-binding W reference. It cannot modify frozen search intent
 - why it does not override the frozen brief:
 
 ## Prohibited inference
-- popularity, ranking, policy, keyword-demand, or factual-performance claim:
+- popularity, ranking, policy, keyword, natural-variant, reader-intent, local-demand, or factual-performance claim:
 ```
 
 ## Role hand-off
 
-1. The campaign operations steward creates or refreshes profiles only for frozen scope. It can reuse a matching durable format fact, but refreshes all `CAMPAIGN_FRESH` facts for the current campaign.
-2. W may use an available matching format or advisory profile as non-binding input. A cache miss or `UNVERIFIED` profile does not block independent research or drafting; heading observations describe only public visual behavior, never editor HTML/DOM.
+1. The campaign operations steward creates or refreshes profiles only for frozen scope and only when the on-demand trigger is met. It can reuse a matching durable format fact, but refreshes all `CAMPAIGN_FRESH` facts for the current campaign.
+2. W may use an available matching format or advisory profile as non-binding input. A cache miss or `UNVERIFIED` profile does not block its continuous research or drafting; heading observations describe only public visual behavior, never editor HTML/DOM.
 3. R checks that cited format constraints appear in the payload when applicable and that W did not copy samples or substitute profile evidence for keyword, factual or localization research.
 4. G checks cache scope/provenance and non-blocking status, not prose quality. Neither G nor the steward may use a profile to select, substitute or validate a platform/account pair.
 5. The human hand-off loads an available matching format profile. A missing or `UNVERIFIED` editorial profile never blocks compilation.

@@ -20,6 +20,28 @@ HARNESS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HARNESS)
 
 
+def set_schema_2_4_legacy_policy(cfg: dict) -> None:
+    """A historical fixture must carry its matching pre-2.6 policy, not only an old number."""
+    cfg["schema_version"] = "2.4"
+    cfg.pop("model_first_execution_policy", None)
+    cfg["prewrite_plan_policy"].update({
+        "mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN",
+        "article_plan_sections": HARNESS.PREWRITE_PLAN_SECTIONS,
+        "campaign_summary_sections": HARNESS.PREWRITE_SUMMARY_SECTIONS,
+    })
+    cfg["keyword_research_policy"].pop("required_within_writer_continuous_turn_before_claims", None)
+    cfg["keyword_research_policy"].update({
+        "mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP",
+        "required_after_owner_prewrite_confirmation_before_drafting": True,
+    })
+    cfg["platform_style_research_policy"].pop("trigger", None)
+    cfg["platform_style_research_policy"].update({
+        "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",
+        "attempt_before_drafting": True,
+    })
+    cfg["artifact_optimization_policy"] = copy.deepcopy(HARNESS.ARTIFACT_OPTIMIZATION_POLICY_2_4)
+
+
 class TrendEvidencePolicyTests(unittest.TestCase):
     def run_harness(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -78,9 +100,18 @@ class TrendEvidencePolicyTests(unittest.TestCase):
         with temp_dir:
             campaign_path = workspace / "campaign.json"
             cfg = json.loads(campaign_path.read_text(encoding="utf-8"))
-            cfg["schema_version"] = "2.4"
+            set_schema_2_4_legacy_policy(cfg)
             cfg["keyword_research_policy"].pop("trend_evidence_policy")
             campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
+            manifest_path = workspace / "prewrite-plan.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["schema_version"] = "1.3"
+            manifest["campaign_summary"] = {
+                section: "" for section in HARNESS.PREWRITE_SUMMARY_SECTIONS
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            synced = self.run_harness("sync-prewrite-plan", "--workspace", str(workspace))
+            self.assertEqual(synced.returncode, 0, synced.stdout + synced.stderr)
             checked = self.run_harness("check", "--workspace", str(workspace))
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
 

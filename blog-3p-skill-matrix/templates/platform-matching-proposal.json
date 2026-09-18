@@ -13,6 +13,15 @@
       "candidate_locator": "Sheet: REPLACE_ME; row: REPLACE_ME; column: REPLACE_ME",
       "rationale": "Evidence-bounded language, market, content-format and policy-fit rationale.",
       "eligibility_evidence_path": "evidence/platform-matching/A1-eligibility.md",
+      "audience_compatibility": {
+        "primary_reader_languages": ["REPLACE_PRIMARY_READER_LANGUAGE"],
+        "primary_reader_markets": ["REPLACE_PRIMARY_READER_MARKET"],
+        "primary_audience_evidence_path": "evidence/platform-matching/A1-primary-audience.md",
+        "transport_supported_content_languages": ["REPLACE_TRANSPORT_LANGUAGE"],
+        "transport_evidence_path": "evidence/platform-matching/A1-transport.md",
+        "fit_mode": "PRIMARY_AUDIENCE_MATCH",
+        "cross_language_exception_required": false
+      },
       "account_status": "OWNER_CONFIRMATION_REQUIRED"
     }
   ]

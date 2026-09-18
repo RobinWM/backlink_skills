@@ -43,6 +43,29 @@ def legacy_none_cta() -> dict[str, object]:
     }
 
 
+def set_legacy_execution_policy(cfg: dict, schema_version: str) -> None:
+    """Model-first 2.6 defaults must not redefine explicitly historical fixtures."""
+    cfg["schema_version"] = schema_version
+    cfg.pop("model_first_execution_policy", None)
+    cfg["prewrite_plan_policy"].update({
+        "mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN",
+        "article_plan_sections": HARNESS.PREWRITE_PLAN_SECTIONS if schema_version >= "2.1" else HARNESS.LEGACY_PREWRITE_PLAN_SECTIONS,
+        "campaign_summary_sections": HARNESS.PREWRITE_SUMMARY_SECTIONS if schema_version >= "2.1" else HARNESS.LEGACY_PREWRITE_SUMMARY_SECTIONS,
+    })
+    cfg["keyword_research_policy"].pop("required_within_writer_continuous_turn_before_claims", None)
+    cfg["keyword_research_policy"].update({
+        "mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP",
+        "required_after_owner_prewrite_confirmation_before_drafting": True,
+    })
+    cfg["platform_style_research_policy"].pop("trigger", None)
+    cfg["platform_style_research_policy"].update({
+        "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",
+        "attempt_before_drafting": True,
+    })
+    if schema_version == "2.4":
+        cfg["artifact_optimization_policy"] = copy.deepcopy(HARNESS.ARTIFACT_OPTIMIZATION_POLICY_2_4)
+
+
 class ContentValuePolicyTests(unittest.TestCase):
     def run_harness(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -64,19 +87,54 @@ class ContentValuePolicyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.5")
+        self.assertEqual(template["schema_version"], "2.11")
+        self.assertEqual(template["live_execution_profile"], HARNESS.HUMAN_RELEASE_PROFILE_2_9)
+        self.assertEqual(template["release_policy"]["mode"], "HUMAN_NATIVE_ONLY")
+        self.assertNotIn("human_release_requested", template["release_policy"])
         policy = template["content_value_policy"]
         self.assertEqual(policy["cta_role"], "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION")
         self.assertTrue(policy["cta_must_be_present"])
 
-    def test_fresh_schema_2_5_workspace_checks(self) -> None:
+    def test_fresh_schema_2_11_workspace_checks(self) -> None:
         temp_dir, workspace = self.initialize()
         with temp_dir:
             manifest = json.loads((workspace / "prewrite-plan.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["schema_version"], "1.3")
+            self.assertEqual(manifest["schema_version"], "1.7")
             checked = self.run_harness("check", "--workspace", str(workspace))
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertIn("CHECK_PASSED", checked.stdout)
+
+    def test_current_schema_rejects_obsolete_optional_human_release_toggle(self) -> None:
+        temp_dir, workspace = self.initialize()
+        with temp_dir:
+            campaign_path = workspace / "campaign.json"
+            cfg = json.loads(campaign_path.read_text(encoding="utf-8"))
+            cfg["release_policy"]["human_release_requested"] = False
+            campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
+            checked = self.run_harness("check", "--workspace", str(workspace))
+            self.assertNotEqual(checked.returncode, 0)
+            self.assertIn("must not contain release_policy.human_release_requested", checked.stdout)
+
+    def test_schema_2_8_remains_checkable_but_cannot_enter_current_human_release_flow(self) -> None:
+        temp_dir, workspace = self.initialize()
+        with temp_dir:
+            campaign_path = workspace / "campaign.json"
+            cfg = json.loads(campaign_path.read_text(encoding="utf-8"))
+            cfg["schema_version"] = "2.8"
+            cfg["live_execution_profile"] = copy.deepcopy(HARNESS.LIVE_EXECUTION_PROFILE_2_8)
+            cfg["release_policy"]["human_release_requested"] = False
+            campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
+            checked = self.run_harness("check", "--workspace", str(workspace))
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            receipt = workspace / "evidence/owner-confirmations/owner-confirmation.md"
+            receipt.write_text("OWNER_PREWRITE_PLAN_CONFIRMED\n", encoding="utf-8")
+            blocked = self.run_harness(
+                "confirm-prewrite-plan", "--workspace", str(workspace),
+                "--confirmation-id", "LEGACY-001", "--receipt-file", str(receipt),
+                "--receipt-type", "OWNER_MESSAGE", "--source-locator", "legacy-check-only",
+            )
+            self.assertNotEqual(blocked.returncode, 0)
+            self.assertIn("schema-2.9+ human-native-release workspace", blocked.stdout)
 
     def test_schema_2_2_rejects_none_or_missing_required_cta_fields(self) -> None:
         policy = HARNESS.campaign("example")["content_value_policy"]
@@ -138,9 +196,7 @@ class ContentValuePolicyTests(unittest.TestCase):
         with temp_dir:
             campaign_path = workspace / "campaign.json"
             cfg = json.loads(campaign_path.read_text(encoding="utf-8"))
-            cfg["schema_version"] = "2.0"
-            cfg["prewrite_plan_policy"]["article_plan_sections"] = HARNESS.LEGACY_PREWRITE_PLAN_SECTIONS
-            cfg["prewrite_plan_policy"]["campaign_summary_sections"] = HARNESS.LEGACY_PREWRITE_SUMMARY_SECTIONS
+            set_legacy_execution_policy(cfg, "2.0")
             cfg.pop("content_value_policy")
             campaign_path.write_text(json.dumps(cfg), encoding="utf-8")
             manifest_path = workspace / "prewrite-plan.json"
@@ -156,7 +212,7 @@ class ContentValuePolicyTests(unittest.TestCase):
             self.assertEqual(package_checked.returncode, 0, package_checked.stdout + package_checked.stderr)
             self.assertIn("ARTICLE_PACKAGE_CHECK_SKIPPED_LEGACY_SCHEMA", package_checked.stdout)
 
-            cfg["schema_version"] = "2.1"
+            set_legacy_execution_policy(cfg, "2.1")
             cfg["content_value_policy"] = {
                 "mode": "READER_VALUE_FIRST",
                 "primary_purpose": "STANDALONE_ANSWER_TO_READER_TASK",

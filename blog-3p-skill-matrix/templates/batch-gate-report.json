@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "REPLACE_ME",
+  "batch_id": "GATE-BATCH-001",
+  "gatekeeper_agent_id": "REGISTERED_CAMPAIGN_GATEKEEPER_ID",
+  "workflow_stage": "BATCH_GATE_ACCEPTANCE",
+  "batch_scope": {
+    "article_ids": ["A1"],
+    "prewrite_confirmation_id": "OWNER_PREWRITE_CONFIRMATION_ID",
+    "requirements_contract_sha256": "REPLACE_AFTER_SCOPE_LOCK"
+  },
+  "rows": [
+    {
+      "article_id": "A1",
+      "status": "HUMAN_RELEASE_READY",
+      "article_contract": {"path": "context/article-contract.json", "sha256": "REPLACE_AFTER_CONTEXT_LOCK"},
+      "review_index": {"path": "reviews/review-index.json", "sha256": "REPLACE_AFTER_R_APPROVAL"},
+      "full_review": {
+        "status": "APPROVED",
+        "reviewer_agent_id": "REGISTERED_ARTICLE_REVIEWER_ID",
+        "report_path": "reviews/review-N.md",
+        "report_sha256": "REPLACE_AFTER_R_APPROVAL"
+      },
+      "article_package": {"path": "article-package.json", "sha256": "REPLACE_AFTER_PACKAGE_LOCK"},
+      "handoff_manifest": {"path": "handoff/handoff-manifest.json", "sha256": "REPLACE_AFTER_HANDOFF_CHECK"},
+      "requirements_traceability": {"path": "requirements-traceability.md", "sha256": "REPLACE_AFTER_R_APPROVAL"},
+      "requirement_finding_ids": []
+    }
+  ],
+  "aggregate_status": "READY"
+}

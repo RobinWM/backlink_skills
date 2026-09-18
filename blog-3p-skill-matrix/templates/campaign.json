@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.5",
+  "schema_version": "2.11",
   "campaign_id": "REPLACE_ME",
   "scope_lock": {
     "status": "DRAFT",
@@ -8,11 +8,14 @@
       "owner_confirmation_id": null,
       "report_sha256": null,
       "manifest_sha256": null,
-      "article_ids": []
+      "article_ids": [],
+      "owner_confirmation_receipt": null,
+      "scope_snapshot": null,
+      "scope_snapshot_sha256": null
     }
   },
   "prewrite_plan_policy": {
-    "mode": "CAMPAIGN_G_PREWRITE_EVIDENCE_AND_PLAN",
+    "mode": "CAMPAIGN_G_SCOPE_AND_EDITORIAL_BRIEF",
     "required_before_article_dispatch": true,
     "owner_confirmation_required": true,
     "report_path": "prewrite-plan.md",
@@ -23,20 +26,11 @@
     "article_plan_sections": [
       "task_and_audience",
       "reader_value_and_secondary_cta",
-      "research_evidence_and_uncertainty",
-      "keyword_and_localization_strategy",
-      "factual_claims_and_sources",
-      "title_and_outline",
-      "visual_narrative",
-      "platform_transport_assumptions",
+      "editorial_brief",
       "risks_and_owner_decisions"
     ],
     "campaign_summary_sections": [
-      "owner_task_and_scope",
-      "content_value_and_cta_policy",
-      "sources_checked_and_uncertainty",
-      "shared_constraints",
-      "platform_matching_status"
+      "campaign_strategy"
     ],
     "allow_article_roles_before_confirmation": false,
     "standalone_article_research_role": "PROHIBITED",
@@ -44,7 +38,9 @@
     "canonical_source": "prewrite-plan.json",
     "owner_view_mode": "DETERMINISTIC_RENDERED_READ_ONLY",
     "manual_duplicate_entry": "PROHIBITED",
-    "sync_command": "sync-prewrite-plan"
+    "sync_command": "sync-prewrite-plan",
+    "confirmation_command": "confirm-prewrite-plan",
+    "owner_confirmation_receipt_required": true
   },
   "platform_scope": {
     "source": "OWNER_SELECTION_LOCK_ONLY",
@@ -80,12 +76,15 @@
     "on_missing_or_duplicate": "ARTICLE_PLATFORM_ASSIGNMENT_BLOCKED_RECONFIRM_OWNER"
   },
   "locale_platform_validation": {
-    "mode": "ARTICLE_LANGUAGE_MARKET_PLATFORM_EVIDENCE",
+    "mode": "ARTICLE_LANGUAGE_MARKET_PRIMARY_AUDIENCE_EVIDENCE",
     "required_before_editorial_dispatch": true,
     "rows": [],
-    "on_mismatch": "LOCALE_PLATFORM_MISMATCH_RECONFIRM_OWNER",
+    "on_mismatch": "PLATFORM_AUDIENCE_MISMATCH_RECONFIRM_OWNER",
     "article_language_source": "USER_CONFIRMED_ARTICLE_LANGUAGE_ONLY",
-    "platform_language_role": "ELIGIBILITY_ONLY_NEVER_REWRITE_LANGUAGE"
+    "platform_language_role": "TRANSPORT_ELIGIBILITY_ONLY_NEVER_REWRITE_LANGUAGE",
+    "transport_evidence_is_not_audience_fit": true,
+    "primary_audience_evidence_required": true,
+    "cross_language_exception_requires_explicit_owner_confirmation": true
   },
   "title_quality_policy": {
     "mode": "MODEL_LED_SEMANTIC_REVIEW",
@@ -103,8 +102,8 @@
     "cta_must_not_replace_or_dominate_reader_value": true
   },
   "keyword_research_policy": {
-    "mode": "PRE_DRAFT_LONG_TAIL_AND_REGIONAL_SERP",
-    "required_after_owner_prewrite_confirmation_before_drafting": true,
+    "mode": "WRITER_CONTINUOUS_LONG_TAIL_AND_REGIONAL_SERP",
+    "required_within_writer_continuous_turn_before_claims": true,
     "creative_angle_is_not_keyword_evidence": true,
     "variant_priority_order": ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"],
     "english_multi_article_intents_must_be_distinct": true,
@@ -123,13 +122,61 @@
       ]
     }
   },
+  "research_integrity_policy": {
+    "mode": "EVIDENCE_LAYER_SEPARATION_AND_CLAIM_POSTURE",
+    "required_before_full_review": true,
+    "evidence_pack_schema_version": "1.3",
+    "platform_profile_use": "TOPIC_FRAMING_OR_FORMAT_ONLY",
+    "platform_profile_must_not_prove": [
+      "KEYWORD",
+      "NATURAL_VARIANT",
+      "SEARCH_INTENT",
+      "LOCAL_DEMAND",
+      "POPULARITY"
+    ],
+    "evidence_postures": [
+      "METHOD_TEMPLATE_NO_EXECUTION",
+      "DOCUMENTED_EMPIRICAL_RECORD"
+    ],
+    "template_mode_empirical_claims_allowed": false,
+    "documented_record_requires": [
+      "protocol_path",
+      "inputs_or_settings_path",
+      "run_log_path",
+      "evaluation_criteria",
+      "limitations"
+    ]
+  },
+  "topic_governance_policy": {
+    "mode": "G_FREEZES_TOPIC_SLOT_W_EVIDENCE_BOUNDARY",
+    "required_before_article_dispatch": true,
+    "frozen_slot_fields": [
+      "slot_id",
+      "reader_task",
+      "core_intent",
+      "market",
+      "differentiation_angle",
+      "forbidden_deviations"
+    ],
+    "writer_may_record_within_slot_keyword_title_and_natural_variant_adjustments": true,
+    "writer_may_not_change_frozen_topic_slot": true,
+    "unresolved_conflict_status": "TOPIC_EVIDENCE_CONFLICT",
+    "gatekeeper_resolution_options": [
+      "KEEP_SLOT",
+      "NARROW_WITHIN_SLOT",
+      "PAUSE",
+      "OWNER_RECONFIRM_REQUIRED"
+    ],
+    "material_topic_change_requires_owner_reconfirmation": true
+  },
   "platform_style_research_policy": {
-    "mode": "IN_SCOPE_READONLY_DUAL_PROFILE",
-    "attempt_before_drafting": true,
+    "mode": "ON_DEMAND_IN_SCOPE_PROFILE",
+    "attempt_before_drafting": false,
     "in_scope_platforms_only": true,
     "sample_shortage": "UNVERIFIED_USE_CONSERVATIVE_GENERIC",
     "editorial_profile_is_non_binding": true,
-    "durable_harvest_requires_public_qa_passed": true
+    "durable_harvest_requires_public_qa_passed": true,
+    "trigger": "CACHE_MISS_AND_MATERIAL_READER_TRANSPORT_RISK"
   },
   "visual_narrative_policy": {
     "mode": "LEAD_MIDDLE_CLOSING_REQUIRED",
@@ -149,11 +196,11 @@
   "quality_policy": {
     "aitdk_local_reference": "required",
     "plugin_scan": "best_effort_non_blocking",
-    "final_prepublication_target": "visual-payload.html"
+    "final_prepublication_target": "visual-payload.html+visual-payload.md"
   },
   "artifact_optimization_policy": {
     "mode": "CANONICAL_MANIFESTS_AND_DELTA_CONTEXT",
-    "prewrite_manifest_schema": "1.3",
+    "prewrite_manifest_schema": "1.7",
     "prewrite_manifest_canonical_source": true,
     "prewrite_owner_view": "HARNESS_DETERMINISTIC_RENDER_ONLY",
     "manual_duplicate_entry": "PROHIBITED",
@@ -171,7 +218,8 @@
     },
     "research_evidence_pack": {
       "path": "research/evidence-pack.json",
-      "canonical": true
+      "canonical": true,
+      "schema_version": "1.3"
     },
     "shared_evidence_pack": {
       "path": "evidence/shared/campaign-evidence-pack.json",
@@ -181,19 +229,60 @@
       "path": "canonical/visual-manifest.json",
       "canonical": true
     },
+    "article_package": {
+      "current_schema_version": "1.4",
+      "legacy_schema_versions": ["1.2", "1.3"],
+      "one_way_sources": ["canonical_article", "metadata", "research_evidence_pack", "visual_manifest"],
+      "duplicate_metadata_links_images": "PROHIBITED"
+    },
+    "final_artifact_review": {
+      "default": "FULL_REVIEW_COVERS_FINAL_PAYLOAD",
+      "post_full_visual_delta": "ONLY_AFTER_VISUAL_OR_PAYLOAD_CHANGE",
+      "semantic_change": "TARGETED_R_DELTA_UNLESS_SCOPE_OR_LINEAGE_ESCALATION"
+    },
     "handoff_manifest": {
       "path": "handoff/handoff-manifest.json",
       "canonical": true
     },
+    "visual_payloads": {
+      "html": "handoff/visual-payload.html",
+      "markdown": "handoff/visual-payload.md",
+      "both_required": true
+    },
     "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER",
-    "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY"
+    "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY",
+    "model_owned_research_record": "ONE_EVIDENCE_PACK_WITH_DERIVED_VIEWS",
+    "review_route": "STANDARD_INTEGRATED_REVIEW_UNLESS_ELEVATED",
+    "owner_confirmation_receipt": "HASH_BOUND_OWNER_ORIGINATED_ARTIFACT"
+  },
+  "model_first_execution_policy": {
+    "mode": "MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION",
+    "default_review_tier": "STANDARD_INTEGRATED_REVIEW",
+    "writer_continuous_sequence": ["RESEARCH", "DRAFT", "VISUALS", "PAYLOAD"],
+    "separate_research_review": "RISK_TRIGGERED_ONLY",
+    "independent_final_review": "REQUIRED",
+    "reviewer_may_elevate_not_downgrade": true,
+    "gatekeeper_binds_tier_and_reason": true,
+    "mechanical_checks": "POSTHOC_INTEGRITY_AND_SCOPE_ONLY"
+  },
+  "live_execution_profile": {
+    "mode": "HUMAN_RELEASE_ONLY_V1",
+    "purpose": "HUMAN_NATIVE_RELEASE_REQUIRED_WITH_READONLY_EVIDENCE",
+    "owner_confirmation": "RECEIPT_BOUND_LOCAL_COMMAND_REQUIRED",
+    "article_flow": "ONE_CONTINUOUS_W_THEN_ONE_INDEPENDENT_FULL_R",
+    "gate_flow": "ONE_SHARED_CAMPAIGN_G_BATCH",
+    "public_flow": "HUMAN_NATIVE_RELEASE_THEN_SAME_G_BATCH_READONLY",
+    "automatic_model_routing": "PROHIBITED",
+    "extra_debate_agents": "PROHIBITED",
+    "global_content_cache": "PROHIBITED",
+    "telemetry": "OPTIONAL_OBSERVE_ONLY"
   },
   "orchestration_policy": {
     "delegation_default": "VISIBLE_SUBAGENTS",
     "visible_task_record_required": true,
     "invisible_cli_agent_sessions": "PROHIBITED",
     "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE",
-    "cross_article_agent_reuse": "PROHIBITED",
+    "cross_article_agent_reuse": "CAMPAIGN_GATEKEEPER_ONLY",
     "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD",
     "persistent_requirements_gatekeeper": true,
     "fresh_agent_roles": [],
@@ -202,18 +291,30 @@
     "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED",
     "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION",
     "silent_worktree_fallback": false,
-    "article_worktree_role_bundle": "ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE",
-    "project_worktree_root_role": "ARTICLE_LANE_GATEKEEPER",
-    "campaign_gatekeeper_scope": "GLOBAL_REQUIREMENTS_QUEUE_AND_LEDGER_ONLY",
-    "article_public_gate_mode": "REUSE_ARTICLE_LANE_GATEKEEPER_ONLY",
+    "article_worktree_role_bundle": "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G",
+    "project_worktree_root_role": "ARTICLE_WRITER_REVIEWER_PAIR",
+    "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA",
+    "batch_gate_policy": {
+      "mode": "CAMPAIGN_G_BATCH_CONTRACT_ACCEPTANCE",
+      "input": "CURRENT_R_APPROVED_ARTICLE_ROWS_ONLY",
+      "scheduling": "ALL_CURRENTLY_READY_ROWS_PER_G_TURN",
+      "decision_scope": "REQUIREMENTS_HASH_AND_EXCEPTION_ONLY",
+      "article_quality_rereview": "PROHIBITED",
+      "per_article_traceability": "BATCH_REPORT_ROW_REQUIRED",
+      "machine_external_writes_allowed": false
+    },
+    "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY",
     "public_qa_policy": {
-      "mode": "REUSE_ARTICLE_LANE_GATEKEEPER_READONLY",
+      "mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY",
       "requires_human_acceptance": true,
       "human_return_receipt": "STRUCTURED_REQUIRED",
       "public_snapshot": "NORMALIZED_READONLY_REQUIRED",
       "fresh_public_reviewer": "PROHIBITED",
       "automatic_wr_reopen": false,
-      "human_transport_fix_recheck": "SAME_LANE_G_ONLY",
+      "batch_input": "CURRENT_HUMAN_ACCEPTED_ROWS_ONLY",
+      "batch_agent": "REGISTERED_CAMPAIGN_GATEKEEPER",
+      "per_article_traceability": "BATCH_REPORT_ENTRY_REQUIRED",
+      "human_transport_fix_recheck": "SAME_CAMPAIGN_G_BATCH_ONLY",
       "canonical_change_reopen": "OWNER_EXPLICIT_REQUEST_ID_REQUIRED",
       "accepted_platform_limitation": "EVIDENCE_SCOPED_NOT_GENERALIZABLE",
       "unverified_retry_budget": 1,
@@ -242,7 +343,7 @@
     },
     "visual_payload_template": {
       "id": "BLOG_3P_VISUAL_PAYLOAD",
-      "version": "2",
+      "version": "3",
       "rendering": "COMPILER_ONLY",
       "model_authored_shell_css_js": "PROHIBITED"
     }
