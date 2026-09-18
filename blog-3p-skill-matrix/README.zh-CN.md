@@ -99,21 +99,21 @@ W 只写作；R 只审不改，并对语言、事实、结构、SEO 与交付保
 
 ### 紧凑且哈希绑定的文章上下文
 
-启动文章任务时，项目统筹 G／机架写入 `context/article-contract.json`：它投影已确认的文章范围、适用 `REQ-*`、读者价值／CTA 声明、语言／市场、适用发布映射和来源哈希，且刻意不含动态开放问题项。R 维护 `reviews/review-index.json`，记录当前唯一基准稿／交付包哈希、报告指针、审稿结论和动态的稳定问题项谱系。这些记录减少重复加载上下文，绝不能改写范围或覆盖源证据。
+启动文章任务时，项目统筹 G／机架写入 `context/article-contract.json`：它投影已确认的文章范围、适用 `REQ-*`、读者价值／CTA 声明、语言／市场、适用发布映射和来源哈希，且刻意不含动态开放问题项。R 维护 `reviews/review-index.json`，记录当前唯一基准稿／交付包哈希、报告指针、审稿结论和动态的稳定问题项谱系。稳定的项目级证据只能通过精确的 `campaign_shared_evidence` 记录 ID 和本文的 `article_delta` 复用；缓存未命中时既不创建空缓存，也不制造假引用。这些记录减少重复加载上下文，绝不能改写范围或覆盖源证据。
 
-有限修复时，W 写入 `reviews/review-delta-N.json`，列明已批准的基线哈希、准确变更路径与受影响的主张／需求／问题项。R-Δ 只检查该变更摘要、变更交付文件和直接依赖。W 必须在唯一一次完整 R 审稿前编译可视化富文本交付页；这次审稿绑定证据包、唯一基准稿、元数据、图片清单、交付页和文章包。R 审核后，派生交接包只能在载荷逐字节一致时重复渲染并生成清单；若载荷会变化，脚本会在覆盖前失败，W 必须先生成候选，再走对应的 R-Δ 或完整 R。只有完整审稿后又改动图片清单、交付页或文章包中的图片指针时，才需要 R-Δ。只有哈希漂移、问题项谱系未解或含混、代理替换、范围冲突或明确升级时才完整重读历史。
+有限修复时，W 写入 `reviews/review-delta-N.json`，列明已批准的基线哈希、准确变更路径与受影响的主张／需求／问题项。R-Δ 只检查该变更摘要、变更交付文件和直接依赖。当前文章包只声明允许使用的唯一上游来源：`canonical/article.html`、元数据、证据包和图片清单。W 必须在唯一一次完整 R 审稿前从这些哈希绑定的输入编译两份可视化富文本交付页。R 以 HTML 主投影和声明的上游来源做语义审稿；Markdown 是经机械验证的可读备用投影，只有校验器输出 `COMPANION_DUAL_READ_REQUIRED` 时才需要第二次语义阅读。R 审核后，派生交接包只能在两份交付页逐字节一致时重复渲染并生成清单；若交付页会变化，脚本会在覆盖前失败，W 必须先生成候选，再走对应的 R-Δ 或完整 R。只有完整审稿后又改动图片清单、交付页或文章包中的图片指针时，才需要 R-Δ。只有哈希漂移、问题项谱系未解或含混、代理替换、范围冲突或明确升级时才完整重读历史。
 
 ### 读者价值优先；透明推荐从属
 
 矩阵的首要产物是对读者任务有高质量、证据受限回答的文章。每篇新的 schema `2.2+` 文章都要冻结 `reader_value_promise`；即使移除 CTA，文章仍必须完整、有用。`cta.mode = NONE` 在新的 schema-2.2 内容项目中不合法。
 
-每篇 schema 2.2+ 文章均使用 `cta.mode = SECONDARY_RECOMMENDATION`。当前 schema-2.11 工作流中的 `article-package.json` 使用 schema `1.4`：保留精确可见锚文本、产品身份、当前落地页 URL、主张证据路径、与读者任务的关联及关系披露或 `NOT_APPLICABLE`，再单向引用唯一基准稿、元数据、证据包与图片清单。元数据是平台标题和 SEO 字段的唯一来源；文章包不得重复标题、SEO、链接、图片或反向交接指针。这些字段只用于追溯推荐，绝不允许声称产品经独立验证、最优、已测试、始终可用或适合所有读者。R 而非 CTA 数量、字数比例、位置或密度规则，判断文章是否仍以读者为中心、平衡且真实；G 只检查冻结声明是否留在最终交付中。schema-2.2/2.3 工作区保留其历史 schema-`1.2` 交付包契约；schema-`1.3` 仅为历史文章包兼容保留。这能降低可避免的审核／删除风险，不能保证平台一定保留公开页。
+每篇 schema 2.2+ 文章均使用 `cta.mode = SECONDARY_RECOMMENDATION`。当前 schema-2.12 工作流中的 `article-package.json` 使用 schema `1.5`：保留精确可见锚文本、产品身份、当前落地页 URL、主张证据路径、与读者任务的关联及关系披露或 `NOT_APPLICABLE`，再单向引用哈希绑定的 `canonical/article.html`、元数据、证据包与图片清单。元数据是平台标题和 SEO 字段的唯一来源；文章包不得重复标题、SEO、链接、图片或反向交接指针。这些字段只用于追溯推荐，绝不允许声称产品经独立验证、最优、已测试、始终可用或适合所有读者。R 而非 CTA 数量、字数比例、位置或密度规则，判断文章是否仍以读者为中心、平衡且真实；G 只检查冻结声明是否留在最终交付中。历史 `2.11 / 1.4` 及更早文章包仍可读取和校验，但不能替代当前单源路径。这能降低可避免的审核／删除风险，不能保证平台一定保留公开页。
 
 ### 用户确认的写前方案
 
 在矩阵消耗独立 Git 工作区或启动写作／审稿协作组之前，G 必须维护覆盖每个已配置文章的唯一 schema-`1.7` `prewrite-plan.json`。每张紧凑卡明确任务／受众、独立读者价值与必保留的次要 CTA、模型主导的编辑简报、风险与待用户决定事项，以及冻结交付映射、`topic_slot` 与研究姿态。`topic_slot` 冻结读者任务、核心意图、市场、差异化角度与禁止偏离项，不冻结字面关键词或最终标题。交付映射公开文章语言、市场、平台、账号与受众适配模式；研究姿态区分方法模板和有记录的实测。编辑简报集中说明拟定关键词／本地化路径、证据边界、可能的标题／大纲、图文方案及已知人工传递风险，而不把同一事实拆成多份文件反复维护。G 运行 `harnessctl.py sync-prewrite-plan` 后生成供用户阅读的 `prewrite-plan.md`。该 Markdown 是确定性、只读视图：绝不能双份手填，也不能作为第二个范围事实源。
 
-`OWNER_PREWRITE_PLAN_CONFIRMED` 是硬启动门。schema 2.11 中，必须使用 `confirm-prewrite-plan` 绑定 `evidence/owner-confirmations/` 下的用户原始回执文件、哈希、来源定位与带时区时间；只手填状态或确认 ID 不能提升方案。其确认 ID、文章集合、报告哈希、清单哈希、受保护范围快照和回执必须在状态、用户确认记录、需求契约和范围锁中完全一致。快照包含语言、市场、平台、账号、适配模式、跨语言例外、`topic_slot` 和研究姿态；其中任一项变化必须先显式失效、再重新确认，不能由同步覆盖旧回执。当前模式还要求每篇文章在派发 W/R 前都有用户确认的不同平台／账号映射和兼容的受众／传递记录。在所需绑定重新确认前，G 不能创建文章独立 Git 工作区、W、R、文章队列或文章代理。这使用户能在并发工作消耗时间和 token 前纠偏，同时不把 G 的方案伪装成 W/R 的正式调研。
+`OWNER_PREWRITE_PLAN_CONFIRMED` 是硬启动门。schema 2.12 中，必须使用 `confirm-prewrite-plan` 绑定 `evidence/owner-confirmations/` 下的用户原始回执文件、哈希、来源定位与带时区时间；只手填状态或确认 ID 不能提升方案。其确认 ID、文章集合、报告哈希、清单哈希、受保护范围快照和回执必须在状态、用户确认记录、需求契约和范围锁中完全一致。快照包含语言、市场、平台、账号、适配模式、跨语言例外、`topic_slot` 和研究姿态；其中任一项变化必须先显式失效、再重新确认，不能由同步覆盖旧回执。当前模式还要求每篇文章在派发 W/R 前都有用户确认的不同平台／账号映射和兼容的受众／传递记录。在所需绑定重新确认前，G 不能创建文章独立 Git 工作区、W、R、文章队列或文章代理。这使用户能在并发工作消耗时间和 token 前纠偏，同时不把 G 的方案伪装成 W/R 的正式调研。
 
 ### 图文叙事覆盖
 
@@ -218,7 +218,7 @@ python3 skills/blog-3p-harness/scripts/harnessctl.py dispatch-readiness \
 # G 写入已确认的 REQ-* 并登记可见项目 G 后，为每篇生成上下文。这里的工作区必须是
 # 内容项目根目录，或该内容项目的完整 Git 工作树根目录，其中已有 campaign.json、state.json、
 # prewrite-plan.json 与 requirements-contract.md；绝不能指向新建的空 article-A1 文件夹。W 写出
-# canonical/article.md 后再建立审稿索引。
+# canonical/article.html 后再建立审稿索引。
 python3 skills/blog-3p-harness/scripts/harnessctl.py build-article-context \
   --workspace /absolute/path/to/campaign \
   --article-id A1 \
@@ -228,7 +228,7 @@ python3 skills/blog-3p-harness/scripts/harnessctl.py build-review-index \
   --article-contract context/article-contract.json \
   --output reviews/review-index.json
 
-# 对当前 schema-2.11 的文章包（schema 1.4），核对唯一基准稿相关文件的来源声明
+# 对当前 schema-2.12 的文章包（schema 1.5），核对文章包声明的唯一上游来源
 # 与冻结的读者价值／必保留 CTA 映射。
 python3 skills/blog-3p-harness/scripts/harnessctl.py check-article-package \
   --workspace /absolute/path/to/campaign \
@@ -265,7 +265,7 @@ python3 skills/blog-3p-human-handoff/scripts/capture_public_snapshot.py \
 4. `blog-3p-gate`：在一个可见 `BATCH_GATE_ACCEPTANCE` 中验收当前所有 R 已批准文章的冻结用户任务契约；`blog-3p-human-handoff` 随后只生成／核对派生清单和发布卡，不得改写 R 已审的可视化富文本交付页。
 5. 人工保存公开 URL／状态回执后，逐份校验回执；对 `HUMAN_ACCEPTED` 再生成只读公开页快照。只恢复已登记项目统筹 G 的一次 `PUBLIC_QA_BATCH_READONLY`，每篇输出一个独立结果行；不得重新启动 W/R/G 循环。人工传输修复回到同一 G 的下一批；只有明确的唯一基准稿／交付页变更请求才重开对应文章 W/R。
 
-schema 2.11 只支持一个执行配置：`HUMAN_RELEASE_ONLY_V1` 与 `release_policy.mode = HUMAN_NATIVE_ONLY`。`machine_external_writes_allowed` 始终为 `false`。派发 W/R 前，每篇文章都必须在 `campaign.json.platform_scope.allowed_pairs` 中有一个用户确认、彼此不同的平台／账号组合，以及文章映射和兼容的主读者／传递记录。`human_release_requested` 已废弃，在当前工作区中无效。schema 2.8 仅保留历史读取／校验兼容，不能启动当前派发流程。
+schema 2.12 只支持一个执行配置：`HUMAN_RELEASE_ONLY_V1` 与 `release_policy.mode = HUMAN_NATIVE_ONLY`。`machine_external_writes_allowed` 始终为 `false`。派发 W/R 前，每篇文章都必须在 `campaign.json.platform_scope.allowed_pairs` 中有一个用户确认、彼此不同的平台／账号组合，以及文章映射和兼容的主读者／传递记录。`human_release_requested` 已废弃，在当前工作区中无效。schema 2.11 及更早版本仅保留历史读取／校验兼容，不能启动当前派发流程。
 
 ## 工作区结构
 

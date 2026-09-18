@@ -7,7 +7,7 @@ source_report: reviews/review-1.md
 
 ## Evidence
 
-- File and line: `canonical/article.md:12`
+- File and line: `canonical/article.html:12`
 - Observed: …
 
 ## Required repair

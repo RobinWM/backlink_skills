@@ -87,7 +87,7 @@ class ContentValuePolicyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.11")
+        self.assertEqual(template["schema_version"], "2.12")
         self.assertEqual(template["live_execution_profile"], HARNESS.HUMAN_RELEASE_PROFILE_2_9)
         self.assertEqual(template["release_policy"]["mode"], "HUMAN_NATIVE_ONLY")
         self.assertNotIn("human_release_requested", template["release_policy"])
@@ -95,7 +95,7 @@ class ContentValuePolicyTests(unittest.TestCase):
         self.assertEqual(policy["cta_role"], "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION")
         self.assertTrue(policy["cta_must_be_present"])
 
-    def test_fresh_schema_2_11_workspace_checks(self) -> None:
+    def test_fresh_schema_2_12_workspace_checks(self) -> None:
         temp_dir, workspace = self.initialize()
         with temp_dir:
             manifest = json.loads((workspace / "prewrite-plan.json").read_text(encoding="utf-8"))

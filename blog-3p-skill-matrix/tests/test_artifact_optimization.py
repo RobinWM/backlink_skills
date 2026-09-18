@@ -54,7 +54,7 @@ def package_for(item: dict, visual_sha: str) -> dict:
     return {
         "schema_version": "1.3",
         "article_id": item["article_id"],
-        "canonical_path": "canonical/article.md",
+        "canonical_path": "canonical/article.html",
         "canonical_sha256": "a" * 64,
         "title": "Example workflow",
         "seo_title": "Example workflow guide",
@@ -85,12 +85,13 @@ def package_for(item: dict, visual_sha: str) -> dict:
 
 
 def current_package_for(item: dict, *, canonical_sha: str, metadata_sha: str, evidence_sha: str, visual_sha: str) -> dict:
-    """Schema-1.4: one-way inputs and one final full-R receipt in review-index."""
+    """Schema-1.5: package-bound rich-text source and one final full-R receipt."""
     return {
-        "schema_version": "1.4",
+        "schema_version": "1.5",
         "article_id": item["article_id"],
-        "canonical_path": "canonical/article.md",
+        "canonical_path": "canonical/article.html",
         "canonical_sha256": canonical_sha,
+        "canonical_format": "RICH_TEXT_HTML_FRAGMENT",
         "reader_value_promise": item["reader_value_promise"],
         "cta": copy.deepcopy(item["cta"]),
         "title_transfer_mode": "SEPARATE_TITLE_FIELD",
@@ -255,7 +256,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_context_review_index_and_delta_validate_only_changed_artifacts(self) -> None:
         temp_dir, workspace, _ = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.md"
+            canonical = workspace / "canonical/article.html"
             canonical.write_text("# Example\n\nBody.\n", encoding="utf-8")
             evidence_pack = workspace / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
@@ -293,7 +294,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "r_delta_attempt": 1,
                 "full_review_required": False,
                 "changed_artifacts": [{
-                    "path": "canonical/article.md",
+                    "path": "canonical/article.html",
                     "sha256": HARNESS.sha256_file(canonical),
                     "change_kind": "CANONICAL_TEXT",
                     "affected_requirement_ids": ["REQ-SEO-001"],
@@ -323,7 +324,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_new_finding_stays_in_review_index_not_frozen_article_contract(self) -> None:
         temp_dir, workspace, _ = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.md"
+            canonical = workspace / "canonical/article.html"
             canonical.write_text("# Example\n\nBody.\n", encoding="utf-8")
             context = workspace / "context/article-contract.json"
             self.assertEqual(self.run_harness(
@@ -354,13 +355,12 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_review_ready_checks_current_artifacts_without_issuing_editorial_verdict(self) -> None:
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.md"
-            canonical.write_text("# Example workflow\n\nUseful answer.\n", encoding="utf-8")
-            body = workspace / "canonical/body.html"
-            body.write_text(
+            canonical = workspace / "canonical/article.html"
+            canonical.write_text(
                 '<p>Useful answer.</p><!-- BLOG_3P_IMAGE:01 --><p><a href="https://example.com/product">Try Example Product</a></p>',
                 encoding="utf-8",
             )
+            body = canonical
             metadata = workspace / "canonical/metadata.json"
             metadata.write_text(json.dumps({
                 "canonical_title": "Example workflow",
@@ -435,7 +435,22 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "--article-package", str(package),
             )
             self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
-            self.assertEqual(ready.stdout.strip(), "REVIEW_READY_CHECK_PASSED")
+            self.assertIn("REVIEW_READY_CHECK_PASSED", ready.stdout)
+            self.assertIn("companion_projection=COMPILER_VERIFIED_MATCH", ready.stdout)
+            markdown_payload = payload.with_suffix(".md")
+            original_markdown = markdown_payload.read_text(encoding="utf-8")
+            markdown_payload.write_text(
+                original_markdown.replace("Useful answer.", "Manually altered ordinary paragraph."),
+                encoding="utf-8",
+            )
+            companion_drift = self.run_harness(
+                "check-review-ready", "--workspace", str(workspace),
+                "--article-contract", str(context), "--review-index", str(index),
+                "--article-package", str(package),
+            )
+            self.assertNotEqual(companion_drift.returncode, 0)
+            self.assertIn("Markdown payload does not match current compiler output", companion_drift.stdout)
+            markdown_payload.write_text(original_markdown, encoding="utf-8")
             evidence_data = json.loads(evidence_pack.read_text(encoding="utf-8"))
             evidence_data["topic_slot_alignment"].update({
                 "status": "TOPIC_EVIDENCE_CONFLICT",
@@ -545,7 +560,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
                 "--receipt-type", "OWNER_MESSAGE", "--source-locator", "test-owner-message-002",
             )
             self.assertEqual(confirmed.returncode, 0, confirmed.stdout + confirmed.stderr)
-            canonical = workspace / "canonical/article.md"
+            canonical = workspace / "canonical/article.html"
             canonical.write_text("# Example\n\nBody.\n", encoding="utf-8")
             evidence_pack = workspace / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
@@ -579,7 +594,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_compiler_builds_and_harness_checks_compact_handoff_manifest(self) -> None:
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.md"
+            canonical = workspace / "canonical/article.html"
             canonical.write_text("# Example\n", encoding="utf-8")
             (workspace / "canonical/body.html").write_text(
                 '<p>Useful answer.</p><p><a href="https://example.com/product">Try Example Product</a></p>',
@@ -593,7 +608,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             visual_manifest.write_text(json.dumps({"schema_version": "1.0", "assets": []}), encoding="utf-8")
             evidence_pack = workspace / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            (workspace / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.md\n", encoding="utf-8")
+            (workspace / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
             context = workspace / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context),
@@ -693,13 +708,12 @@ class ArtifactOptimizationTests(unittest.TestCase):
     def test_current_package_uses_one_final_full_review_without_a_default_visual_delta(self) -> None:
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.md"
-            canonical.write_text("# Example workflow\n", encoding="utf-8")
-            body = workspace / "canonical/body.html"
-            body.write_text(
+            canonical = workspace / "canonical/article.html"
+            canonical.write_text(
                 '<p>Useful answer.</p><p><a href="https://example.com/product">Try Example Product</a></p><!-- BLOG_3P_IMAGE:01 -->',
                 encoding="utf-8",
             )
+            body = canonical
             metadata = workspace / "canonical/metadata.json"
             metadata.write_text(json.dumps({
                 "canonical_title": "Example workflow",
@@ -714,7 +728,7 @@ class ArtifactOptimizationTests(unittest.TestCase):
             }), encoding="utf-8")
             evidence_pack = workspace / "research/evidence-pack.json"
             evidence_pack.write_text(json.dumps({"schema_version": "1.0", "claims": []}), encoding="utf-8")
-            (workspace / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.md\n", encoding="utf-8")
+            (workspace / "requirements-traceability.md").write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
             context = workspace / "context/article-contract.json"
             self.assertEqual(self.run_harness(
                 "build-article-context", "--workspace", str(workspace), "--article-id", "A1", "--output", str(context),
@@ -901,13 +915,12 @@ class ArtifactOptimizationTests(unittest.TestCase):
         """
         temp_dir, workspace, item = self.initialize_confirmed_workspace()
         with temp_dir:
-            canonical = workspace / "canonical/article.md"
-            canonical.write_text("# Example workflow\n\nUseful answer.\n", encoding="utf-8")
-            body = workspace / "canonical/body.html"
-            body.write_text(
+            canonical = workspace / "canonical/article.html"
+            canonical.write_text(
                 '<p>Useful answer.</p><p><a href="https://example.com/product">Try Example Product</a></p>',
                 encoding="utf-8",
             )
+            body = canonical
             metadata = workspace / "canonical/metadata.json"
             metadata.write_text(json.dumps({
                 "canonical_title": "Example workflow",

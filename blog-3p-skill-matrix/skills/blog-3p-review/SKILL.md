@@ -25,17 +25,17 @@ R 只可把路线升级为更严格的 `ELEVATED_EARLY_CHALLENGE`，不可把已
 
 ### 完整质量审稿
 
-完整审稿在 HTML／Markdown 最终交付页均已编译后读取冻结文章契约、单一 evidence pack、完整唯一基准稿与文章包、最终 metadata/链接/图片、两份交付页和每张最终图片，独立判断：
+完整审稿在 HTML／Markdown 最终交付页均已由同一编译器生成后，读取冻结文章契约、本篇 evidence pack、实际引用的共享记录、`canonical/article.html` 与文章包、最终 metadata/链接/图片、HTML 主交付页和每张最终图片，独立判断。Markdown 是机械备用投影，正常不作第二次语义审读；只有 `check-review-ready` 或验证器明确输出 `COMPANION_DUAL_READ_REQUIRED` 时才加入：
 
 1. 平台/账号回执是否来自用户原始来源，且冻结的主读者语言/市场、适配模式和传递能力记录一致；编辑器或页面能承载某语言不能代替主读者受众证据。跨语言例外必须有逐篇用户确认原文，平台不能反向决定文章语言。
 2. 语言、事实、来源强度、结构、读者任务、搜索意图、标题策略、关键词与语义覆盖、元数据、真实链接、本地化和交付保真。检查 evidence pack 的 `topic_slot_alignment` 与冻结槽位一致：同槽位的自然变体/标题调整可以存在；正文、标题或元数据偏离读者任务、核心意图、市场、承诺或禁止偏离项时，使用 `SEO-TOPIC-SLOT-DRIFT-NNN`。R 不把 `ALIGNED` 的小调整升级为额外研究审，也不以自己的偏好改题。检查 `reader_intent_basis` 没有混入平台画像；检查写作姿态与正文、标题、CTA 一致：方法模板不得伪装成实测，实测记录不得缺协议、输入/设置、日志、评价标准或局限。纯关键词、泛化、误导、偏题或错误映射的标题使用 `SEO-TITLE-INTENT-NNN` / `TITLE-FIELD-MAP-NNN`；证据层混用或伪实测使用 `SEO-PLATFORM-PROFILE-SUBSTITUTION-NNN` / `CONTENT-EMPIRICAL-CLAIM-NNN`。
 3. 读者即使移除 CTA 仍能获得完整答案；必保留 CTA 的可见锚文本、产品/目标链接、主张依据和适用披露完整且真实。缺失或改写使用 `CTA-PRESERVATION-NNN`；促销重复、无依据可靠性/排名/测试主张或文章实质变成广告页，按相应质量问题项处理。
 4. 每张图的相邻文本适配、清晰度、独立读者作用、非重复性及冻结的 `LEAD`/`MIDDLE`/`CLOSING` 覆盖和最低数量。首图、文件名、尺寸或 Alt 都不能代替视觉审查；问题使用稳定 `VISUAL-NARRATIVE-NNN`。
-5. 配对的 `BLOG_3P_VISUAL_PAYLOAD@3` 固定顺序、标题/正文分离、可读来源结构和中文图片注释/可见本地化 Alt。每张图必须在唯一基准稿对应的 `<!-- BLOG_3P_IMAGE:NN -->` 原位出现，并在 HTML/Markdown 两份交付页中一一对应；核对编号 `lead/middle/closing` PNG/JPG/JPEG 文件、位置锚点、图注和哈希。标签仅是写作和复制辅助，绝不能证明或裁定平台编辑器、公开页的 H1/H2/H3 结构；手写页面壳、CSS、JavaScript、按钮、聚合图槽或不一致注释使用 `PAYLOAD-TEMPLATE-NNN`。
+5. `BLOG_3P_VISUAL_PAYLOAD@3` HTML 主交付页的固定顺序、标题/正文分离、可读来源结构和中文图片注释/可见本地化 Alt。每张图必须在唯一基准稿对应的 `<!-- BLOG_3P_IMAGE:NN -->` 原位出现；验证器负责证明 HTML/Markdown 图卡、普通正文与上游输入的编译一致性。你核对编号 `lead/middle/closing` PNG/JPG/JPEG 文件、位置锚点、图注和哈希；只有 `COMPANION_DUAL_READ_REQUIRED` 才人工比对 Markdown。标签仅是写作和复制辅助，绝不能证明或裁定平台编辑器、公开页的 H1/H2/H3 结构；手写页面壳、CSS、JavaScript、按钮、聚合图槽或不一致注释使用 `PAYLOAD-TEMPLATE-NNN`。
 
-W 交付后先确认 `harnessctl.py check-review-ready` 已通过；它只能证明文件、哈希、固定载荷和精确 CTA 可审，不能替代你的判断。完整审稿按“问题 → 收窄 → 取证 → 判定”进行：先从读者任务、冻结 CTA、当前稿和证据包提出有限问题，再读取直接相关的正文/来源，最后写可复现 finding 或结论。首次 `FULL_REVIEW` 仍独立覆盖整包；不能把它缩成脚本检查或 W 的自评。对价格/日期、比较/排名、能力/性能、易变平台政策和高后果主张优先核对来源原文；模型置信度只能触发更深核验，不能算证据。
+W 交付后先确认 `harnessctl.py check-review-ready` 已通过；它只能证明文件、哈希、固定载荷、精确 CTA 与伴随投影状态可审，不能替代你的判断。未输出 `COMPANION_DUAL_READ_REQUIRED` 时 HTML 是默认语义审面；该回退才要求同时读 Markdown。完整审稿按“问题 → 收窄 → 取证 → 判定”进行：先从读者任务、冻结 CTA、当前稿、本篇 evidence delta 与实际引用共享记录提出有限问题，再读取直接相关的正文/来源，最后写可复现 finding 或结论。首次 `FULL_REVIEW` 仍独立覆盖整包；不能把它缩成脚本检查或 W 的自评。对价格/日期、比较/排名、能力/性能、易变平台政策和高后果主张优先核对来源原文；模型置信度只能触发更深核验，不能算证据。
 
-输出 `reviews/review-N.md`，结论为 `APPROVED` 或 `CHANGES_REQUIRED`。`APPROVED` 只保留审稿路线、所审产物哈希、必要证据路径和真实风险/例外，不复述全文或生成 PASS 清单；`CHANGES_REQUIRED` 必须保留稳定问题项、证据与可执行修复方向。当前 schema-2.11 的 `APPROVED` 要在 `latest_full_review` 绑定 canonical、metadata、visual manifest、HTML payload、Markdown payload 与 article package 的当前哈希；标准路线还必须绑定 evidence-pack 哈希，以证明研究已被同一完整审稿覆盖。图卡位置、PNG/JPG 文件名／哈希／格式和两份载荷是否对应是完整审稿对象。`APPROVED` 不得包含开放质量问题项。
+输出 `reviews/review-N.md`，结论为 `APPROVED` 或 `CHANGES_REQUIRED`。`APPROVED` 只保留审稿路线、所审产物哈希、必要证据路径和真实风险/例外，不复述全文或生成 PASS 清单；`CHANGES_REQUIRED` 必须保留稳定问题项、证据与可执行修复方向。当前 schema-2.12 的 `APPROVED` 要在 `latest_full_review` 绑定 `canonical/article.html`、metadata、visual manifest、HTML payload、Markdown payload 与 article package 的当前哈希；标准路线还必须绑定 evidence-pack 哈希，以证明研究已被同一完整审稿覆盖。Markdown 哈希是已验证的机械投影绑定；只有 `COMPANION_DUAL_READ_REQUIRED` 才记录其人工语义覆盖。图卡位置、PNG/JPG 文件名／哈希／格式和 HTML 主载荷是否对应是完整审稿对象。`APPROVED` 不得包含开放质量问题项。
 
 ## 问题项与增量复审
 

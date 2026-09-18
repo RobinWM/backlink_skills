@@ -64,7 +64,7 @@ def current_metadata_title(article_package: dict, package_path: Path) -> str:
     sources = article_package.get("artifact_sources")
     source = sources.get("metadata") if isinstance(sources, dict) else None
     if not isinstance(source, dict) or not non_empty_string(source.get("path")):
-        raise ValueError("article-package schema 1.4 requires metadata source")
+        raise ValueError("article-package schema 1.4+ requires metadata source")
     root = package_path.resolve().parent
     metadata_path = (root / source["path"].strip()).resolve()
     if metadata_path == root or root not in metadata_path.parents:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 from html.parser import HTMLParser
@@ -16,6 +17,12 @@ EXPECTED_ORDER = ["blog-title", "article-body", "seo-metadata", "seo-title", "se
 CTA_FIELDS = ("anchor_text", "product_name", "product_destination_url", "product_evidence_path", "reader_task_relevance", "relationship_disclosure")
 IMAGE_FORMATS = {".png", ".jpg", ".jpeg"}
 IMAGE_ZONES = {"LEAD", "MIDDLE", "CLOSING"}
+CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA = "1.5"
+COMPILER_PATH = Path(__file__).with_name("build_visual_payload.py")
+COMPILER_SPEC = importlib.util.spec_from_file_location("blog_3p_visual_payload_compiler", COMPILER_PATH)
+assert COMPILER_SPEC is not None and COMPILER_SPEC.loader is not None
+COMPILER = importlib.util.module_from_spec(COMPILER_SPEC)
+COMPILER_SPEC.loader.exec_module(COMPILER)
 
 
 def normalize_text(value: str) -> str:
@@ -27,8 +34,8 @@ def read_article_package(path: Path) -> dict:
         package = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"article-package must be valid JSON: {exc}") from exc
-    if not isinstance(package, dict) or package.get("schema_version") not in {"1.2", "1.3", "1.4"}:
-        raise ValueError("article-package must use schema_version 1.2, 1.3 or 1.4")
+    if not isinstance(package, dict) or package.get("schema_version") not in {"1.2", "1.3", "1.4", "1.5"}:
+        raise ValueError("article-package must use schema_version 1.2, 1.3, 1.4 or 1.5")
     return package
 
 
@@ -74,13 +81,13 @@ def image_bytes_match_extension(path: Path, suffix: str) -> bool:
 
 
 def current_visual_assets(package: dict, package_path: Path) -> list[dict] | None:
-    """Load and verify the source-of-truth image manifest for schema 1.4.
+    """Load and verify the source-of-truth image manifest for current packages.
 
     The compiler is the only writer of the fixed cards, but review-ready
     validation also needs to detect any post-compile hand edit of a card.
     Historical packages keep their narrow compatibility path.
     """
-    if package.get("schema_version") != "1.4":
+    if package.get("schema_version") not in {"1.4", CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA}:
         return None
     sources = package.get("artifact_sources")
     source = sources.get("visual_manifest") if isinstance(sources, dict) else None
@@ -144,6 +151,50 @@ def current_visual_assets(package: dict, package_path: Path) -> list[dict] | Non
             "file": str(relative_file), **values,
         })
     return normalized
+
+
+def compiler_projection_errors(
+    *, package: dict, package_path: Path, payload: str, markdown_payload: str,
+    title_transfer_mode: str,
+) -> tuple[list[str], str]:
+    """Rebuild the current paired payload from package-declared source files.
+
+    A byte-identical rebuild establishes that Markdown is a compiler-derived
+    fallback rather than a second independently authored document.  Legacy
+    packages remain explicitly conservative: the reviewer must read both
+    projections because their body input is not package-bound.
+    """
+    if package.get("schema_version") != CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA:
+        return [], "COMPANION_DUAL_READ_REQUIRED"
+    try:
+        declared_mode = package.get("title_transfer_mode")
+        normalized_mode = "TITLE_IN_BODY" if title_transfer_mode == "BODY_H1_REQUIRED" else title_transfer_mode
+        if declared_mode not in {"SEPARATE_TITLE_FIELD", "TITLE_IN_BODY"}:
+            raise ValueError("article-package schema 1.5 title_transfer_mode is invalid")
+        if normalized_mode != declared_mode:
+            raise ValueError("title_transfer_mode must match article-package title_transfer_mode")
+        inputs = COMPILER.current_single_source_inputs(package, package_path)
+        body = COMPILER.read_body_fragment(inputs["canonical"])
+        cta = COMPILER.required_cta_from_package(package_path)
+        COMPILER.ensure_body_preserves_cta(body, cta)
+        image_items = COMPILER.read_visual_manifest(
+            inputs["visual_manifest"], asset_root=package_path.resolve().parent,
+        )
+        metadata_title, _seo_title, _tags, _description = COMPILER.read_metadata(inputs["metadata"])
+        if metadata_title is None:
+            raise ValueError("metadata-json requires platform_title or canonical_title for the current article-package")
+        expected_html, expected_markdown = COMPILER.render_payload_pair(
+            title=metadata_title, body=body, image_items=image_items,
+            metadata_path=inputs["metadata"], title_transfer_mode=normalized_mode,
+        )
+    except ValueError as exc:
+        return [str(exc)], "COMPANION_DUAL_READ_REQUIRED"
+    errors: list[str] = []
+    if payload != expected_html:
+        errors.append("HTML payload does not match current compiler output")
+    if markdown_payload != expected_markdown:
+        errors.append("Markdown payload does not match current compiler output")
+    return errors, "COMPILER_VERIFIED_MATCH" if not errors else "COMPANION_DUAL_READ_REQUIRED"
 
 
 class PayloadParser(HTMLParser):
@@ -340,6 +391,11 @@ def main() -> int:
                     errors.append(f"Markdown image card {ordinal} {label} does not match the visual manifest")
             if normalize_text(asset["placement_anchor"]).casefold() not in normalize_text(markdown_source[:markdown_start]).casefold():
                 errors.append(f"Markdown image card {ordinal} is not after its visual-manifest placement anchor")
+    projection_errors, companion_status = compiler_projection_errors(
+        package=package, package_path=args.article_package, payload=source,
+        markdown_payload=markdown_source, title_transfer_mode=args.title_transfer_mode,
+    )
+    errors.extend(projection_errors)
     if errors:
         print("PAYLOAD_INVALID\n" + "\n".join(errors))
         return 1
@@ -347,6 +403,7 @@ def main() -> int:
         "PAYLOAD_VALID"
         + "\ntitle_transfer_mode=" + ("TITLE_IN_BODY" if args.title_transfer_mode == "BODY_H1_REQUIRED" else args.title_transfer_mode)
         + f"\nimage_placeholders={parsed.cards}\ncoverage_zones=" + ",".join(parsed.coverage_zones)
+        + "\ncompanion_projection=" + companion_status
     )
     return 0
 

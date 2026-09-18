@@ -1,8 +1,9 @@
 {
-  "schema_version": "1.4",
+  "schema_version": "1.5",
   "article_id": "A1",
-  "canonical_path": "canonical/article.md",
+  "canonical_path": "canonical/article.html",
   "canonical_sha256": "REPLACE_AFTER_DRAFT",
+  "canonical_format": "RICH_TEXT_HTML_FRAGMENT",
   "artifact_sources": {
     "evidence_pack": {
       "path": "research/evidence-pack.json",

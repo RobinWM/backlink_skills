@@ -13,7 +13,8 @@ from pathlib import Path
 TEMPLATE_ID = "BLOG_3P_VISUAL_PAYLOAD"
 TEMPLATE_VERSION = "3"
 CTA_FIELDS = ("anchor_text", "product_name", "product_destination_url", "product_evidence_path", "reader_task_relevance", "relationship_disclosure")
-PACKAGE_SCHEMAS = {"1.2", "1.3", "1.4"}
+PACKAGE_SCHEMAS = {"1.2", "1.3", "1.4", "1.5"}
+CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA = "1.5"
 IMAGE_FORMATS = {".png", ".jpg", ".jpeg"}
 IMAGE_ZONES = {"LEAD", "MIDDLE", "CLOSING"}
 IMAGE_MARKER_RE = re.compile(r"<!--\s*BLOG_3P_IMAGE:(\d{2})\s*-->")
@@ -82,7 +83,7 @@ def read_article_package(path: Path) -> dict:
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"article-package must be valid JSON: {exc}") from exc
     if not isinstance(package, dict) or package.get("schema_version") not in PACKAGE_SCHEMAS:
-        raise ValueError("article-package must use schema_version 1.2, 1.3, or 1.4")
+        raise ValueError("article-package must use schema_version 1.2, 1.3, 1.4, or 1.5")
     return package
 
 
@@ -103,6 +104,67 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _package_source_path(
+    package_root: Path, source: object, *, key: str, expected_path: str,
+) -> Path:
+    """Return one package-declared, hash-bound source inside its workspace."""
+    if not isinstance(source, dict):
+        raise ValueError(f"article-package schema 1.5 requires {key} source")
+    if source.get("path") != expected_path:
+        raise ValueError(f"article-package {key} path is invalid")
+    expected_hash = source.get("sha256")
+    if not isinstance(expected_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected_hash):
+        raise ValueError(f"article-package {key} sha256 must be final")
+    relative = Path(expected_path)
+    path = (package_root / relative).resolve()
+    if package_root not in path.parents or not path.is_file():
+        raise ValueError(f"article-package {key} source must exist inside the article workspace")
+    if sha256_file(path) != expected_hash.casefold():
+        raise ValueError(f"article-package {key} sha256 must match its source")
+    return path
+
+
+def current_single_source_inputs(package: dict, package_path: Path) -> dict[str, Path]:
+    """Resolve the four immutable sources of a schema-1.5 payload.
+
+    The current package deliberately has no independent body/title/metadata
+    input chain.  The command-line paths remain compatibility aliases, but
+    must resolve to these declarations exactly.
+    """
+    if package.get("schema_version") != CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA:
+        raise ValueError("current single-source inputs require article-package schema_version 1.5")
+    package_root = package_path.resolve().parent
+    if package.get("canonical_path") != "canonical/article.html":
+        raise ValueError("article-package schema 1.5 canonical_path must be canonical/article.html")
+    if package.get("canonical_format") != "RICH_TEXT_HTML_FRAGMENT":
+        raise ValueError("article-package schema 1.5 canonical_format must be RICH_TEXT_HTML_FRAGMENT")
+    canonical_hash = package.get("canonical_sha256")
+    if not isinstance(canonical_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", canonical_hash):
+        raise ValueError("article-package canonical article sha256 must be final")
+    canonical = (package_root / "canonical/article.html").resolve()
+    if package_root not in canonical.parents or not canonical.is_file():
+        raise ValueError("article-package canonical article source must exist inside the article workspace")
+    if sha256_file(canonical) != canonical_hash.casefold():
+        raise ValueError("article-package canonical article sha256 must match its source")
+    sources = package.get("artifact_sources")
+    if not isinstance(sources, dict):
+        raise ValueError("article-package schema 1.5 requires artifact_sources")
+    if sources.get("manual_retelling") != "PROHIBITED":
+        raise ValueError("article-package schema 1.5 must prohibit manual retelling")
+    return {
+        "canonical": canonical,
+        "metadata": _package_source_path(
+            package_root, sources.get("metadata"), key="metadata", expected_path="canonical/metadata.json",
+        ),
+        "visual_manifest": _package_source_path(
+            package_root, sources.get("visual_manifest"), key="visual_manifest", expected_path="canonical/visual-manifest.json",
+        ),
+        "evidence_pack": _package_source_path(
+            package_root, sources.get("evidence_pack"), key="evidence_pack", expected_path="research/evidence-pack.json",
+        ),
+    }
 
 
 def workspace_relative(workspace: Path, path: Path) -> str:
@@ -249,7 +311,7 @@ def require_approved_final_artifact_review(
         raise ValueError("article-package evidence_pack sha256 must match before handoff compilation")
     metadata_source = sources.get("metadata") if isinstance(sources, dict) else None
     if not isinstance(metadata_source, dict) or metadata_source.get("path") != "canonical/metadata.json":
-        raise ValueError("article-package schema 1.4 requires canonical metadata source")
+        raise ValueError("current article-package requires canonical metadata source")
     if metadata_source.get("sha256") != sha256_file(metadata_path):
         raise ValueError("article-package metadata sha256 must match before handoff compilation")
     canonical_path = workspace / str(package.get("canonical_path", ""))
@@ -319,11 +381,11 @@ def require_approved_handoff_review(
     """Use the compact current proof chain while retaining schema-1.3 handoffs."""
     if package.get("schema_version") == "1.3":
         return "LEGACY_VISUAL_DELTA", require_approved_final_visual_delta(workspace, package, visual_payload)
-    if package.get("schema_version") == "1.4":
+    if package.get("schema_version") in {"1.4", CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA}:
         return require_approved_final_artifact_review(
             workspace, package, package_path, metadata_path, visual_payload, visual_payload_markdown,
         )
-    raise ValueError("handoff manifest requires article-package schema_version 1.3 or 1.4")
+    raise ValueError("handoff manifest requires article-package schema_version 1.3, 1.4 or 1.5")
 
 
 def build_handoff_manifest(
@@ -671,20 +733,69 @@ def read_metadata(path: Path) -> tuple[str | None, str, str, str]:
     return title, seo_title, tags, description
 
 
-def require_current_package_sources(package: dict, package_path: Path, metadata_path: Path, visual_manifest_path: Path | None) -> None:
-    """Keep schema-1.4 compilation on its one-way canonical input chain."""
-    if package.get("schema_version") != "1.4":
+def render_payload_pair(
+    *, title: str, body: str, image_items: list[dict], metadata_path: Path,
+    title_transfer_mode: str,
+) -> tuple[str, str]:
+    """Render the HTML primary and Markdown companion from the same inputs.
+
+    Kept as a public pure function so the validator can rebuild both outputs
+    rather than asking a language reviewer to compare duplicate projections.
+    """
+    body_with_cards = replace_image_markers(body, image_items, html_image_card)
+    markdown_with_cards = body_markdown(body, image_items)
+    _metadata_title, seo_title, tags, description = read_metadata(metadata_path)
+    rendered = """<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{title}</title><style>{css}</style><main data-template-id=\"{template_id}\" data-template-version=\"{template_version}\" data-template-assets-sha256=\"{template_assets_sha256}\"><!-- {template_id}@{template_version}: compiler-generated minimal template --><h1 id=\"blog-title\">{title}</h1><article id=\"article-body\" data-title-transfer-mode=\"{mode}\">{body}</article><section id=\"seo-metadata\"><h2>SEO Metadata</h2><p id=\"seo-title\"><strong>SEO title：</strong>{seo_title}</p><p id=\"seo-tags\"><strong>Tags：</strong>{tags}</p><p id=\"seo-description\"><strong>Description：</strong>{description}</p></section></main></html>""".format(
+        title=html.escape(title), css=CSS, template_id=TEMPLATE_ID,
+        template_version=TEMPLATE_VERSION, template_assets_sha256=TEMPLATE_ASSET_SHA256,
+        mode=title_transfer_mode, body=body_with_cards, seo_title=html.escape(seo_title),
+        tags=html.escape(tags), description=html.escape(description),
+    )
+    rendered_markdown = """<!-- {template_id}@{template_version}: compiler-generated Markdown companion -->
+
+# {title}
+
+{body}
+
+## SEO Metadata
+
+- SEO title：{seo_title}
+- Tags：{tags}
+- Description：{description}
+""".format(
+        template_id=TEMPLATE_ID, template_version=TEMPLATE_VERSION,
+        title=title.strip(), body=markdown_with_cards.strip(), seo_title=seo_title,
+        tags=tags, description=description,
+    )
+    return rendered, rendered_markdown
+
+
+def require_current_package_sources(
+    package: dict, package_path: Path, body_path: Path, metadata_path: Path,
+    visual_manifest_path: Path | None,
+) -> None:
+    """Keep current compilation on its declared one-way input chain."""
+    if package.get("schema_version") not in {"1.4", CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA}:
         return
     if visual_manifest_path is None:
-        raise ValueError("article-package schema 1.4 requires --visual-manifest")
+        raise ValueError("current article-package requires --visual-manifest")
+    if package.get("schema_version") == CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA:
+        inputs = current_single_source_inputs(package, package_path)
+        if body_path.resolve() != inputs["canonical"]:
+            raise ValueError("--body-html must match the article-package canonical article source")
+        if metadata_path.resolve() != inputs["metadata"]:
+            raise ValueError("--metadata-json must match the article-package metadata source")
+        if visual_manifest_path.resolve() != inputs["visual_manifest"]:
+            raise ValueError("--visual-manifest must match the article-package visual_manifest source")
+        return
     sources = package.get("artifact_sources")
     if not isinstance(sources, dict):
-        raise ValueError("article-package schema 1.4 requires artifact_sources")
+        raise ValueError("article-package schema 1.4+ requires artifact_sources")
     root = package_path.resolve().parent
     for key, path in (("metadata", metadata_path), ("visual_manifest", visual_manifest_path)):
         source = sources.get(key)
         if not isinstance(source, dict) or not isinstance(source.get("path"), str):
-            raise ValueError(f"article-package schema 1.4 requires {key} source")
+            raise ValueError(f"article-package schema 1.4+ requires {key} source")
         expected = (root / source["path"]).resolve()
         if expected != path.resolve():
             raise ValueError(f"--{key.replace('_', '-')} must match the article-package source")
@@ -733,7 +844,7 @@ def main() -> int:
     parser.add_argument("--body-html", type=Path, required=True)
     parser.add_argument("--article-package", type=Path, required=True)
     parser.add_argument("--metadata-json", type=Path, required=True)
-    parser.add_argument("--visual-manifest", type=Path, help="Required for current schema-1.4 packages; the only image-card source.")
+    parser.add_argument("--visual-manifest", type=Path, help="Required for current schema-1.5 packages; the only image-card source.")
     parser.add_argument("--images-json", type=Path, help="Legacy schema-1.2/1.3 compatibility input.")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
@@ -753,53 +864,41 @@ def main() -> int:
     args = parser.parse_args()
 
     title_transfer_mode = "TITLE_IN_BODY" if args.title_transfer_mode == "BODY_H1_REQUIRED" else args.title_transfer_mode
-    body = read_body_fragment(args.body_html)
     markdown_output = args.markdown_output or args.output.with_suffix(".md")
     package = read_article_package(args.article_package)
     cta = required_cta_from_package(args.article_package)
+    require_current_package_sources(
+        package, args.article_package, args.body_html, args.metadata_json, args.visual_manifest,
+    )
+    body = read_body_fragment(args.body_html)
     ensure_body_preserves_cta(body, cta)
-    require_current_package_sources(package, args.article_package, args.metadata_json, args.visual_manifest)
-    if package.get("schema_version") == "1.4":
+    if package.get("schema_version") in {"1.4", CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA}:
         if args.images_json is not None:
-            raise ValueError("article-package schema 1.4 must not use --images-json; use --visual-manifest")
+            raise ValueError("current article-package must not use --images-json; use --visual-manifest")
         image_items = read_visual_manifest(args.visual_manifest, asset_root=args.article_package.resolve().parent)
     else:
         image_items = read_images_json(args.images_json)
-    body_with_cards = replace_image_markers(body, image_items, html_image_card)
-    markdown_with_cards = body_markdown(body, image_items)
     metadata_title, seo_title, tags, description = read_metadata(args.metadata_json)
-    if package.get("schema_version") == "1.4":
+    if package.get("schema_version") in {"1.4", CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA}:
         if metadata_title is None:
-            raise ValueError("metadata-json requires platform_title or canonical_title for article-package schema 1.4")
+            raise ValueError("metadata-json requires platform_title or canonical_title for the current article-package")
         if normalize_text(args.title) != normalize_text(metadata_title):
-            raise ValueError("--title must match canonical metadata platform_title for article-package schema 1.4")
-    rendered = """<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{title}</title><style>{css}</style><main data-template-id=\"{template_id}\" data-template-version=\"{template_version}\" data-template-assets-sha256=\"{template_assets_sha256}\"><!-- {template_id}@{template_version}: compiler-generated minimal template --><h1 id=\"blog-title\">{title}</h1><article id=\"article-body\" data-title-transfer-mode=\"{mode}\">{body}</article><section id=\"seo-metadata\"><h2>SEO Metadata</h2><p id=\"seo-title\"><strong>SEO title：</strong>{seo_title}</p><p id=\"seo-tags\"><strong>Tags：</strong>{tags}</p><p id=\"seo-description\"><strong>Description：</strong>{description}</p></section></main></html>""".format(
-        title=html.escape(args.title), css=CSS, template_id=TEMPLATE_ID,
-        template_version=TEMPLATE_VERSION, template_assets_sha256=TEMPLATE_ASSET_SHA256,
-        mode=title_transfer_mode, body=body_with_cards, seo_title=html.escape(seo_title),
-        tags=html.escape(tags), description=html.escape(description),
-    )
-    rendered_markdown = """<!-- {template_id}@{template_version}: compiler-generated Markdown companion -->
-
-# {title}
-
-{body}
-
-## SEO Metadata
-
-- SEO title：{seo_title}
-- Tags：{tags}
-- Description：{description}
-""".format(
-        template_id=TEMPLATE_ID, template_version=TEMPLATE_VERSION,
-        title=args.title.strip(), body=markdown_with_cards.strip(), seo_title=seo_title,
-        tags=tags, description=description,
+            raise ValueError("--title must match canonical metadata platform_title for the current article-package")
+    if package.get("schema_version") == CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA:
+        declared_mode = package.get("title_transfer_mode")
+        if declared_mode not in {"SEPARATE_TITLE_FIELD", "TITLE_IN_BODY"}:
+            raise ValueError("article-package schema 1.5 title_transfer_mode is invalid")
+        if title_transfer_mode != declared_mode:
+            raise ValueError("--title-transfer-mode must match article-package title_transfer_mode")
+    rendered, rendered_markdown = render_payload_pair(
+        title=args.title.strip(), body=body, image_items=image_items,
+        metadata_path=args.metadata_json, title_transfer_mode=title_transfer_mode,
     )
     if args.handoff_manifest_output is not None:
         if args.workspace is None or args.requirements_traceability is None:
             raise ValueError("--handoff-manifest-output requires --workspace and --requirements-traceability")
-        if package.get("schema_version") not in {"1.3", "1.4"}:
-            raise ValueError("--handoff-manifest-output requires article-package schema_version 1.3 or 1.4")
+        if package.get("schema_version") not in {"1.3", "1.4", CURRENT_SINGLE_SOURCE_PACKAGE_SCHEMA}:
+            raise ValueError("--handoff-manifest-output requires article-package schema_version 1.3, 1.4 or 1.5")
         require_handoff_preserves_reviewed_payload(
             args.output, markdown_output, args.handoff_manifest_output,
             rendered, rendered_markdown,

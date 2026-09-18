@@ -1,30 +1,31 @@
-# Shared evidence cache contract
+# Campaign shared-evidence contract
 
-Use a cache only to avoid repeating the same bounded, read-only observation. A cache record is an evidence reference, never a research conclusion, a platform-selection authority, or permission to widen scope. Store it under `evidence/shared/` with its source URL/path, observation time, scope, query or page context, content hash when available, and the reuse decision that cites it.
+Use `evidence/shared/campaign-evidence-pack.json` only when a real, bounded, read-only observation can be reused inside the same confirmed content project. It is an immutable source pack, not a research conclusion, platform-selection authority, or permission to widen scope. Each record retains its ID, source URL/path, observation time, scope, query or page context, content hash when available, and an exact reuse key.
 
-## Reuse keys
+An article that actually uses one or more records declares `campaign_shared_evidence` with the pack `path`, `sha256`, and exact `record_ids`, then records its own `article_delta` with `decision`, `freshness_or_scope_check`, and `additional_evidence_refs`. Do not copy shared conclusions into a new article record. If there is no exact reusable record, omit both declarations and perform ordinary article research; never create an empty shared pack, empty citation, or empty rejection record.
 
-| Record kind | A cache hit requires | What the receiving article still records |
+## Exact reuse keys
+
+| Record kind | A hit requires | Article-only work that remains |
 | --- | --- | --- |
-| `GLOBAL_ENGLISH_TRENDS` | The same `english_concept_id`, English seed/candidate set, observation date, and Trends window. A different concept, candidate set, date, or window is a miss. This optional record is absent when data is insufficient or inconclusive. | Its own selected long-tail reader-problem rationale and English-to-target-market mapping. Trends remains global relative-interest context, not local-demand, volume, popularity, commercial-intent, or momentum evidence. |
-| `BRAND_SITE_VARIANT` | The same target locale and reader intent, a current public brand page, and a fresh recheck of the page or an explicitly recorded valid-through date. | Adoption or evidence-backed rejection for that article's wording. Brand ownership alone does not prove naturalness. |
-| `REGIONAL_SERP_VARIANT` | The exact locale, market, reader intent, query context, and dated SERP observation. Any locale, market, intent, query, or stale-observation change is a miss. | The selected natural variant, rejected literal translations, and its article-specific intent rationale. |
-
-The cache key and cited record must be visible in the receiving article's evidence. A cache hit may shorten collection, but it does not let W omit article-specific reasoning or let R omit independent review.
+| `GLOBAL_ENGLISH_TRENDS` | Same `english_concept_id`, English seed/candidate set, observation date, and Trends window. A different concept, candidate set, date, or window is a miss. This optional record is absent when data is insufficient or inconclusive. | Select the long-tail reader problem and record the English-to-target-market rationale. Trends remains global relative-interest context, not local-demand, volume, popularity, commercial-intent, or momentum evidence. |
+| `BRAND_SITE_VARIANT` | Same target locale and reader intent, a current public brand page, and a fresh recheck or explicitly valid-through date. | Record adoption or evidence-based rejection for this article's wording. Brand ownership alone does not prove naturalness. |
+| `REGIONAL_SERP_VARIANT` | Exact locale, market, reader intent, query context, and dated SERP observation. Any locale, market, intent, query, or stale-observation change is a miss. | Record the selected natural variant, rejected literal translations, and this article's intent rationale. |
 
 ## Never-reuse class
 
-Do not reuse any cache record as evidence for volatile or account-specific facts: product capability/availability, price, quota, performance, rankings, comparative results, current policy, moderation outcome, registration/login/OAuth/session state, account eligibility, editor behavior tied to an account or theme, or platform language support. `MODEL_TRANSLATION_FALLBACK` is also never reusable: it is an article-specific conclusion from that article's two dated regional-SERP no-consensus checks.
+Never reuse a record for product capability/availability, price, quota, performance, rankings, comparative results, current policy, moderation outcome, registration/login/OAuth/session state, account eligibility, editor behavior tied to an account or theme, or platform language support. `MODEL_TRANSLATION_FALLBACK` is also always article-specific because it follows that article's two dated regional-SERP no-consensus checks.
 
-When a record is stale, mismatched, inaccessible, contradicted, or lacks a clear scope, mark it `UNVERIFIED` and collect fresh evidence. Do not silently substitute a nearby variant, platform, account, locale, or market.
+When a record is stale, mismatched, inaccessible, contradicted, or lacks a clear scope, mark the proposed use `UNVERIFIED` in the article delta and collect fresh evidence. Do not silently substitute a nearby variant, platform, account, locale, market, or record ID.
 
-## Role boundary
+## Role boundary and review cost
 
-- Campaign G may cite a cache record in the pre-write plan as known evidence or a research lead. It still needs owner confirmation before any article lane, and a cache can never select, lock, replace, or validate a platform/account pair.
-- W independently verifies the cache key, records the article-specific use, and gathers any non-reusable or fresh evidence. Cached context never turns into `RESEARCH_READY` by itself.
-- R independently judges the cached evidence's fit, freshness, target-language naturalness, and the receiving article's use of it. G only checks that the declared cache reference remains within the confirmed scope.
-- The campaign operations steward may reuse only durable public format facts under the platform-profile rules. It must refresh campaign-specific, login/account, policy, price, and locale-support facts for the current campaign.
+- G may cite a shared record in the pre-write plan only as known evidence or a research lead. It still needs owner confirmation before an article worktree, and shared evidence can never select, lock, replace, or validate a platform/account pair.
+- W verifies the exact key, records only the article-level difference and required freshness check, and gathers all non-reusable or fresh evidence. A cited source never turns into `RESEARCH_READY` by itself.
+- R independently judges the receiving article's use. For a cited pack, R reads the exact cited records plus that article's `article_delta`; it does not reload unrelated records from the whole shared pack. This is not a new role, review round, or shared W/R conversation memory.
+- G checks only that a declared pack/hash/record-ID reference remains in confirmed scope. A changed shared-pack hash must not silently modify an approved article; only articles that cite the affected record follow the applicable R delta or full-review path.
+- The campaign operations steward may reuse only durable public format facts under the platform-profile rules. It refreshes campaign-specific, login/account, policy, price, and locale-support facts for the current project.
 
-## Cache record minimum
+## Compact record minimum
 
-Use a compact record with: `id`, `kind`, `status`, `source`, `observed_at`, `scope`, `query_or_page_context`, `valid_through_or_recheck`, `evidence_path`, and `reuse_decision`. For a reused record, add the receiving `article_id` and exact matching key. Do not copy a cached conclusion into a new record without preserving its source and date.
+Each shared record has `id`, `kind`, `status`, `source`, `observed_at`, `scope`, `query_or_page_context`, `valid_through_or_recheck`, `evidence_path`, and its exact reuse key. The pack itself is hash-bound. A receiving article stores the pack hash and IDs once, not copied source text or a second cache conclusion.

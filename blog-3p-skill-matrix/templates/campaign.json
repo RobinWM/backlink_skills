@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.11",
+  "schema_version": "2.12",
   "campaign_id": "REPLACE_ME",
   "scope_lock": {
     "status": "DRAFT",
@@ -230,9 +230,14 @@
       "canonical": true
     },
     "article_package": {
-      "current_schema_version": "1.4",
-      "legacy_schema_versions": ["1.2", "1.3"],
+      "current_schema_version": "1.5",
+      "legacy_schema_versions": ["1.2", "1.3", "1.4"],
       "one_way_sources": ["canonical_article", "metadata", "research_evidence_pack", "visual_manifest"],
+      "canonical_article": {
+        "path": "canonical/article.html",
+        "format": "RICH_TEXT_HTML_FRAGMENT",
+        "compiler_input": "PACKAGE_DECLARED_ONLY"
+      },
       "duplicate_metadata_links_images": "PROHIBITED"
     },
     "final_artifact_review": {
@@ -247,9 +252,10 @@
     "visual_payloads": {
       "html": "handoff/visual-payload.html",
       "markdown": "handoff/visual-payload.md",
-      "both_required": true
+      "both_required": true,
+      "review_surface": "HTML_PRIMARY_MARKDOWN_COMPILER_VERIFIED_FALLBACK"
     },
-    "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER",
+    "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER_HTML_PRIMARY",
     "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY",
     "model_owned_research_record": "ONE_EVIDENCE_PACK_WITH_DERIVED_VIEWS",
     "review_route": "STANDARD_INTEGRATED_REVIEW_UNLESS_ELEVATED",

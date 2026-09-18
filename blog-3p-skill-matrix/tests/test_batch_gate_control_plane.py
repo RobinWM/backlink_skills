@@ -113,7 +113,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
         )
         self.assertEqual(confirmed.returncode, 0, confirmed.stdout + confirmed.stderr)
 
-        canonical = workspace / "canonical/article.md"
+        canonical = workspace / "canonical/article.html"
         canonical.parent.mkdir(parents=True, exist_ok=True)
         canonical.write_text("# Batch gate workflow\n\nUseful answer.\n", encoding="utf-8")
         evidence = workspace / "research/evidence-pack.json"
@@ -131,7 +131,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
         handoff = workspace / "handoff/handoff-manifest.json"
         write_json(handoff, {"schema_version": "1.0", "article_id": "A1"})
         trace = workspace / "requirements-traceability.md"
-        trace.write_text("REQ-SEO-001 -> canonical/article.md\n", encoding="utf-8")
+        trace.write_text("REQ-SEO-001 -> canonical/article.html\n", encoding="utf-8")
 
         context = workspace / "context/article-contract.json"
         built_context = self.run_harness(
@@ -163,7 +163,7 @@ class BatchGateControlPlaneTests(unittest.TestCase):
         write_json(package, {
             "schema_version": "1.4",
             "article_id": "A1",
-            "canonical_path": "canonical/article.md",
+            "canonical_path": "canonical/article.html",
             "canonical_sha256": HARNESS.sha256_file(canonical),
             "reader_value_promise": item["reader_value_promise"],
             "cta": copy.deepcopy(item["cta"]),

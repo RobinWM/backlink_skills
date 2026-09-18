@@ -13,6 +13,7 @@
 
 - W 与 R 按读者任务、证据边界和文章整体效果作判断，不以完成表格、关键词次数、字符数或格式启发式代替编辑判断。G 只守住用户确认的范围和交付保真，绝不重复 R 的语义审稿。
 - 默认只维护能够支持下一次决策的最小来源：一份 evidence pack、唯一基准稿、最终视觉清单、一次完整 R 报告和短的需求映射。正常通过时不生成逐项 `PASS` 表、重复研究摘要或额外审稿报告；只记录实际 finding、风险或例外。
+- 可复用的稳定观察可放入内容项目范围内、哈希固定的共享证据包；接收文章只能按精确匹配的记录 ID 引用，在 `campaign_shared_evidence` 写 `path`、`sha256`、`record_ids`，并在 `article_delta` 写 `decision`、`freshness_or_scope_check`、`additional_evidence_refs`。缓存未命中时两字段都省略，继续本篇调研，不创建空共享包、空引用或“未采用”占位记录。共享包不跨内容项目、不代替用户确认，也不承载易变、账号或文章专属事实。
 - 脚本在创作完成后做结构/身份/范围/哈希/必保留 CTA 与交付模板完整性检查，也检查证据层没有把平台画像当成选词证据，并把“方法模板”与“有记录实测”分开。它们不能根据文字长度、词频、评分或可选外部数据替模型判定文章质量；无法满足的语义问题仍由 R 以有理由的 finding 提出。
 - 常规上下文只读本页、文章契约、审稿索引和当前变更产物。只有某个风险、finding 或路线明确关联一段契约/参考资料时才按段读取；不得为了“以防万一”装载整套历史、Skill 或参考目录。
 - `HUMAN_RELEASE_ONLY_V1` 将用户确认保存为本地回执，再用 `confirm-prewrite-plan` 绑定。它要求每篇文章的用户确认平台／账号映射和受众／传递记录均已就绪；语言、市场、平台、账号、适配模式、跨语言例外或研究姿态变化时必须重新确认。只有 `dispatch-readiness` 显示 `DISPATCH_READY` 才能建立 W/R 协作组。它只是本地防错步骤，不增加模型审稿回合。
@@ -23,7 +24,7 @@
 
 1. 项目统筹 G 收集范围内的写前方案、平台匹配调研与文章计划，逐篇冻结 `topic_slot`（读者任务、核心意图、市场、差异化角度、禁止偏离项），等待用户一次确认；G 保存该确认的原始回执并完成本地绑定后才可启动文章协作组。它冻结选题边界，不冻结最终关键词或标题。
 2. 每篇已确认文章使用一个可见、可复用的 W/R 协作组；支持时以该 W/R 对为根创建独立 Git 工作树。项目统筹 G 是全项目唯一、持续复用的控制面，不为每篇文章新建 G 会话。
-3. 默认采用 `STANDARD_INTEGRATED_REVIEW`：W 在一条连续工作中完成 `RESEARCH → DRAFT → VISUALS → PAYLOAD`，随后独立 R 一次完整审查研究证据、唯一基准稿、图片、元数据和可视化富文本交付页。R 同时判断平台画像是否越界为关键词/需求证据，以及文章是否把方法模板伪装成实测。只有冻结或 R 升级为 `ELEVATED_EARLY_CHALLENGE` 的风险路线，才在成文前增加一次独立研究审查。
+3. 默认采用 `STANDARD_INTEGRATED_REVIEW`：W 在一条连续工作中完成 `RESEARCH → DRAFT → VISUALS → PAYLOAD`，随后独立 R 一次完整审查本篇 evidence delta、其中实际引用的共享记录、唯一基准稿、图片、元数据和 HTML 主交付页。Markdown 是同一编译器的机械备用投影；只有校验器明确输出 `COMPANION_DUAL_READ_REQUIRED` 时，R 才把它加入语义双读。R 同时判断平台画像是否越界为关键词/需求证据，以及文章是否把方法模板伪装成实测。只有冻结或 R 升级为 `ELEVATED_EARLY_CHALLENGE` 的风险路线，才在成文前增加一次独立研究审查。
 4. G 在一个可见 `BATCH_GATE_ACCEPTANCE` 回合中处理**当前所有已获 R 批准的文章**。每篇仍有独立哈希行和 `HUMAN_RELEASE_READY`／`CHANGES_REQUIRED` 结论；G 不重读全文、不重做 SEO 审稿，也不等待未就绪文章。
 5. 人工发布后回传 URL 与精确 `HUMAN_ACCEPTED`；G 在 `PUBLIC_QA_BATCH_READONLY` 回合中处理当前已回传的文章。每篇 URL、回执、快照、视觉证据和结果保持独立，不恢复 W/R、不创建新的公开审稿角色。
 
@@ -35,13 +36,13 @@ W 在 `topic_slot` 内以证据调整关键词、标题和本地自然变体时�
 
 ## 当前最小文件链
 
-每篇保留：唯一基准稿、`canonical/metadata.json`、作为研究唯一事实源的 `research/evidence-pack.json`、`canonical/visual-manifest.json`、R 报告与 `reviews/review-index.json`、`requirements-traceability.md`、配对的 `handoff/visual-payload.html` 与 `handoff/visual-payload.md`、单向 `handoff/handoff-manifest.json`，以及人工回传后的 receipt 和公开快照。HTML 用于可视化富文本复制，Markdown 是同一内容和图片注释的可读／追溯备用稿；二者均由同一编译器生成并各自哈希绑定。G 的成稿验收与公开页 QA 分别使用一份批量报告；报告内每篇保留独立、可校验的行和哈希。关键词、来源、跨语言、简报与图片计划可由 evidence pack 渲染为查阅视图；不得为同一事实手工维护多份彼此独立的研究包。
+每篇保留：唯一基准稿 `canonical/article.html`、`canonical/metadata.json`、作为本篇研究差异与引用索引的 `research/evidence-pack.json`、`canonical/visual-manifest.json`、R 报告与 `reviews/review-index.json`、`requirements-traceability.md`、配对的 `handoff/visual-payload.html` 与 `handoff/visual-payload.md`、单向 `handoff/handoff-manifest.json`，以及人工回传后的 receipt 和公开快照。若本篇实际采用共享证据，evidence pack 仅记录 `campaign_shared_evidence.path`、`.sha256`、`.record_ids` 与 `article_delta` 的三个本篇字段；否则不出现共享引用。HTML 是供人工富文本复制和 R 语义审稿的主投影；Markdown 是同一内容和图片注释的可读／追溯备用投影。二者只能从 package 声明的上游来源由同一编译器生成，并各自哈希绑定。G 的成稿验收与公开页 QA 分别使用一份批量报告；报告内每篇保留独立、可校验的行和哈希。关键词、来源、跨语言、简报与图片计划可由 evidence pack 渲染为查阅视图；不得为同一事实手工维护多份彼此独立的研究包。
 
-新 `article-package.json@1.4` 只索引冻结声明和上游唯一来源；它不得反向指向派生的 handoff manifest，也不重复 SEO 字段、链接或图片清单。图片以 visual manifest 为唯一最终事实；文章标题与 SEO 元数据以 metadata 为唯一事实。
+当前 `article-package.json@1.5` 只索引冻结声明和上游唯一来源，并固定 `canonical/article.html` 为唯一基准稿；它不得反向指向派生的 handoff manifest，也不重复 SEO 字段、链接或图片清单。编译器只接受 package 所声明且哈希相符的 canonical、metadata、evidence pack 与 visual manifest，不能以命令行的另一份正文或元数据替换它们。图片以 visual manifest 为唯一最终事实；文章标题与 SEO 元数据以 metadata 为唯一事实。`2.11 / 1.4` 仅作历史读取与校验兼容。
 
 ## 审稿成本控制
 
-写前计划为每篇冻结一个 `review_effort`。默认 `STANDARD_INTEGRATED_REVIEW / INTEGRATED_IN_FULL_REVIEW`：W 不等待 `RESEARCH_APPROVED`，而是在连续创作中先建立足以支撑主张的研究证据，再完成正文、元数据、最终视觉清单和交付页。R 的一次 `FULL_REVIEW` 同时审研究证据与最终交付，并绑定 evidence pack、唯一基准稿、metadata、visual manifest、payload 和 package 的哈希；索引中的研究审状态为 `NOT_REQUIRED`，不是漏审。
+写前计划为每篇冻结一个 `review_effort`。默认 `STANDARD_INTEGRATED_REVIEW / INTEGRATED_IN_FULL_REVIEW`：W 不等待 `RESEARCH_APPROVED`，而是在连续创作中先建立足以支撑主张的研究证据，再完成正文、元数据、最终视觉清单和交付页。R 的一次 `FULL_REVIEW` 同时审本篇 evidence delta、其引用的共享记录与最终交付；它语义审 HTML 主投影，并绑定 evidence pack、唯一基准稿、metadata、visual manifest、HTML/Markdown payload 和 package 的哈希。索引中的研究审状态为 `NOT_REQUIRED`，不是漏审；Markdown 的哈希是机械投影绑定，而不是默认第二次人工语义覆盖。
 
 只有 `ELEVATED_EARLY_CHALLENGE / SEPARATE_RESEARCH_REVIEW_REQUIRED` 才要求 W 在大纲/正文前提交一个研究审查点并取得 `RESEARCH_APPROVED`，之后仍必须完成一次独立 `FULL_REVIEW`。适用情形包括高后果或易变主张、来源冲突/关键证据不足、比较或性能结论、可能被误认为真实证据的图片，或已有的重大读者传输风险。`MODEL_TRANSLATION_FALLBACK` 只有与高后果主张、重大不确定性或读者传输风险叠加时才触发提前审稿；它本身是有边界的允许路径。R 可以要求升级并说明原因；W 或 G 不得自行降档。
 
@@ -51,13 +52,13 @@ W 在 `topic_slot` 内以证据调整关键词、标题和本地自然变体时�
 
 已获完整审稿批准后的有限修复由同一 W 完成后，R 先以 `R_DELTA` 审变更摘要、变更交付文件和直接依赖；它绑定原完整审稿报告与当前全部交付哈希，不因一个已定位的问题机械重读全篇。摘要缺失、哈希漂移、问题项谱系不清、范围/读者价值承诺变更，或改动已超出已知风险面时才升级完整 R。完整审稿通过后的纯视觉改动使用更窄的 `R_VISUAL_DELTA`。任何读者可见改动都回到 R，但不自动新增 G 回合。
 
-R 的完整审稿采用“问题 → 收窄 → 取证 → 判定”：先从冻结读者任务、CTA、当前稿和 evidence pack 提出有限的审查问题，再读取直接相关段落和来源，最后记录可复现的 finding 或 `APPROVED`。首次 `FULL_REVIEW` 仍必须独立审整包，不能被差异审或机器检查替代；但不得把已通过的清单、全文摘要或 W 的自评重复写进报告。
+R 的完整审稿采用“问题 → 收窄 → 取证 → 判定”：先从冻结读者任务、CTA、当前稿、本篇 evidence delta 和已引用共享记录提出有限的审查问题，再读取直接相关段落和来源，最后记录可复现的 finding 或 `APPROVED`。首次 `FULL_REVIEW` 仍必须独立审完整的文章语义包，不能被差异审或机器检查替代；但不得把已通过的清单、全文摘要或 W 的自评重复写进报告。通过 `check-review-ready` 的正常投影只需审 HTML；只有 `COMPANION_DUAL_READ_REQUIRED` 才要求 Markdown 的第二次语义读取。
 
 事实核验优先处理会显著改变读者决定或易过期的主张，例如价格/日期、排名或比较、性能/能力、平台政策、受监管或高后果信息。低风险背景表述不要求为了“凑台账”拆成大量原子记录；但任何模型置信度只可提示是否升级核验，不能充当证据。来源冲突、实体混淆或跨语言歧义必须扩大读取范围。
 
 停止条件由 finding 驱动：结构预检通过、适用来源边界已记录、开放 finding 为零、当前 `FULL_REVIEW` 或必要 R-Δ 已批准且哈希未漂移时停止。不得为了“再保险”追加一轮通过项复述、同类自我批评或多代理辩论；若出现新风险、矛盾或范围变化，改走完整 R 或用户确认。相同稳定 finding 连续三次实际修复仍不能闭合时，升级人工决定，而不是无限重试。
 
-模型路由不是默认降级：W/R 的创作和语义判断保持项目配置模型；哈希、字段映射、文件清单、固定载荷编译等走程序。只有完成本地影子评测后，才可为低风险、可逆、非语义辅助任务配置较低成本模型；重大证据冲突、跨语言歧义或高后果 finding 可以选择更强推理模型。任何路由都不改变人工发布边界。
+本轮不冻结模型或推理强度分层：W/R 的创作和语义判断继续使用项目已配置的模型；哈希、字段映射、文件清单、固定载荷编译等走程序。后续如要改变路由，必须以独立的本地影子评测和用户／项目配置决定，不能由本矩阵的降本规则自动降级或升级模型。任何路由都不改变人工发布边界。
 
 每个批次可选运行 `harnessctl.py summarize-efficiency`。它仅汇总可见模型阶段、返修信号和运行时**已提供**的 token/耗时/工具调用；缺失数据必须标记 `UNAVAILABLE`，不得估算或成为发布门。先用 3–5 个真实历史文章做影子对照，再决定是否扩大某项优化。
 

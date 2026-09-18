@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | 最小充分上下文 | `context/article-contract.json`、`reviews/review-index.json` 和发生变化的文件；历史只以路径/哈希按需回读 | 冻结范围、CTA 和 finding 谱系不丢失，同时避免每轮重灌历史日志。 |
 | 程序先处理确定性错误 | `check-article-package`、`check-review-ready`、载荷校验、哈希和批量 G 检查 | 路径、hash、精确 CTA、固定载荷顺序不需要占用 R 的编辑推理。脚本通过绝不等于文章通过。 |
+| 项目内共享证据、文章内差异判断 | 共享包只保存哈希固定、精确 key 命中的稳定观察；文章 evidence pack 只引实际引用记录和本篇采用/拒绝/新鲜度/补充 | 同一品牌用语、同一地区 SERP 观察不必逐篇重新收集；W 仍做本篇判断，易变、账号和文章专属事实绝不复用。未命中不建空缓存。 |
+| 单源编译的主／从交付页 | `article-package.json@1.5` 声明 `canonical/article.html`、metadata、evidence pack 与 visual manifest；同一编译器生成 HTML 和 Markdown | 避免同一正文被手工投影为多份可漂移载荷。HTML 是人工发布与 R 的主审面；Markdown 由机械一致性校验覆盖，只有 `COMPANION_DUAL_READ_REQUIRED` 才人工双读。 |
 | 首次完整审稿，后续按差异审 | 同一 R 的 `FULL_REVIEW`，以及有边界的 `R_DELTA` / `R_VISUAL_DELTA` | 初次独立性保留；已定位、小范围修复不强迫全文重读。 |
 | 批量 G | 一次 `BATCH_GATE_ACCEPTANCE` 与按 URL 回传批次的公开页 G | G 只验收范围、哈希和例外，不重做 R 的 SEO/语义审稿。 |
 | 只记录异常 | 不生成逐项 PASS 表、重复研究摘要或空泛复盘 | 降低输出与下轮输入，不丢失真正的 finding ID、来源与哈希。 |
@@ -18,7 +20,7 @@
 
 | 想法 | 结论 | 原因与条件 |
 | --- | --- | --- |
-| 自动为 W/R 换低价模型 | 不默认采用 | 路由论文多来自问答或代码基准，不能直接外推到跨语言 SEO 文稿。必须先对 3–5 条历史 lane 影子评测，并记录被强模型推翻的比例。 |
+| 自动为 W/R 换低价模型或固定推理强度 | 本轮不采用 | 模型与推理强度仍待用户／项目配置决定。路由论文多来自问答或代码基准，不能直接外推到跨语言 SEO 文稿；任何未来变更必须先对 3–5 条历史文章做影子评测，并记录被更强审稿推翻的比例。 |
 | 用模型摘要取代旧来源或冻结契约 | 不采用 | 摘要可能遗漏限定条件或把旧错误固化。摘要只能当导航；冻结字段、URL、来源原文与哈希必须可回源。 |
 | 增加辩论/更多审稿代理 | 不默认采用 | 同一篇文章的 W→R 有依赖关系；额外辩论通常增加上下文与协调成本。只有重大来源冲突可临时增加一次盲挑战，且由原 R 依据来源裁决。 |
 | 所有主张拆成原子台账 | 不采用 | 机械拆分会让普通背景写作变成填表。仅对价格、日期、比较、性能、易变政策和高后果表述优先建可核验记录。 |
@@ -26,14 +28,14 @@
 
 ## 量什么，而非猜什么
 
-运行 `harnessctl.py summarize-efficiency --workspace <campaign> --output evidence/operations/efficiency-summary.json` 可得到本地只读汇总。它不伪造模型账单：只有运行环境实际提供 `input_tokens`、`output_tokens`、`wall_time_seconds` 或 `tool_calls` 时才累加；否则明确写为 `UNAVAILABLE`。
+运行 `harnessctl.py summarize-efficiency --workspace <campaign> --output evidence/operations/efficiency-summary.json` 可得到本地只读汇总。它不伪造模型账单：只有运行环境实际提供 `input_tokens`、`output_tokens`、`wall_time_seconds` 或 `tool_calls` 时才累加；否则明确写为 `UNAVAILABLE`。汇总按已有工作阶段分组，并只读归纳人工回传后的传输信号；它不新建角色、文件链或发布门。
 
 比较实验必须保持文章、模型、验收标准和人工发布边界一致。建议同时看：
 
 - 每个 `HUMAN_RELEASE_READY` / `PUBLIC_QA_PASSED` 的总阶段数、实际 token 和墙钟时间；
 - 首次完整 R 通过率、R-Δ 次数、R-Δ 升级全文的比例；
 - 被 R/G 发现的 CTA、事实、范围或交付传递缺陷；
-- 人工发布后的 `HUMAN_TRANSPORT_FIX_REQUIRED` 与公开页缺陷。
+- 人工发布后的 `HUMAN_TRANSPORT_FIX_REQUIRED`、`PUBLIC_QA_UNVERIFIED`、已接受限制和 canonical 重开请求；这些是传输或验收信号，不能一概当成文章质量失败。
 
 若成本下降但高风险主张漏检、CTA 漂移、人工返工或公开页问题增加，就视为失败，不扩展到下一批。
 

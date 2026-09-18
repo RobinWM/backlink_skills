@@ -18,7 +18,7 @@ PRIORITY = ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"]
 VISUAL_ZONES = ["LEAD", "MIDDLE", "CLOSING"]
 OWNER_SOURCE_TYPES = {"OWNER_XLSX", "OWNER_TABLE", "OWNER_MESSAGE"}
 MATCHING_ROLE = "CAMPAIGN_PLATFORM_MATCHING_RESEARCHER"
-CURRENT_CAMPAIGN_SCHEMA = "2.11"
+CURRENT_CAMPAIGN_SCHEMA = "2.12"
 CURRENT_PREWRITE_PLAN_SCHEMA = "1.7"
 CURRENT_EVIDENCE_PACK_SCHEMA = "1.3"
 RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA = "1.6"
@@ -105,8 +105,9 @@ FINAL_VISUAL_DELTA_FIELDS = (
     "report_sha256", "reviewer_agent_id", "review_index_sha256",
     "reviewed_visual_manifest_sha256", "reviewed_visual_payload_sha256",
 )
-CURRENT_ARTICLE_PACKAGE_SCHEMA = "1.4"
-OPTIMIZED_ARTICLE_PACKAGE_SCHEMAS = {"1.3", CURRENT_ARTICLE_PACKAGE_SCHEMA}
+CURRENT_ARTICLE_PACKAGE_SCHEMA = "1.5"
+PACKAGE_SCHEMA_WITH_METADATA_SOURCE = {"1.4", CURRENT_ARTICLE_PACKAGE_SCHEMA}
+OPTIMIZED_ARTICLE_PACKAGE_SCHEMAS = {"1.3", *PACKAGE_SCHEMA_WITH_METADATA_SOURCE}
 DELTA_CHANGE_KINDS = {
     "CANONICAL_TEXT",
     "METADATA_OR_CTA",
@@ -244,6 +245,27 @@ LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11 = {
         "canonical": True,
         "schema_version": CURRENT_EVIDENCE_PACK_SCHEMA,
     },
+}
+LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 = {
+    **LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11,
+    "article_package": {
+        "current_schema_version": CURRENT_ARTICLE_PACKAGE_SCHEMA,
+        "legacy_schema_versions": ["1.2", "1.3", "1.4"],
+        "one_way_sources": ["canonical_article", "metadata", "research_evidence_pack", "visual_manifest"],
+        "canonical_article": {
+            "path": "canonical/article.html",
+            "format": "RICH_TEXT_HTML_FRAGMENT",
+            "compiler_input": "PACKAGE_DECLARED_ONLY",
+        },
+        "duplicate_metadata_links_images": "PROHIBITED",
+    },
+    "visual_payloads": {
+        "html": "handoff/visual-payload.html",
+        "markdown": "handoff/visual-payload.md",
+        "both_required": True,
+        "review_surface": "HTML_PRIMARY_MARKDOWN_COMPILER_VERIFIED_FALLBACK",
+    },
+    "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER_HTML_PRIMARY",
 }
 MODEL_FIRST_EXECUTION_POLICY_2_6 = {
     "mode": "MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION",
@@ -834,7 +856,7 @@ def package_artifact_source_errors(package: object) -> list[str]:
     schema = package.get("schema_version")
     if schema == "1.3":
         expected["handoff_manifest"] = ("handoff/handoff-manifest.json", "DERIVED_HANDOFF_ARTIFACT_AND_HASH_INDEX")
-    elif schema == CURRENT_ARTICLE_PACKAGE_SCHEMA:
+    elif schema in PACKAGE_SCHEMA_WITH_METADATA_SOURCE:
         expected["metadata"] = ("canonical/metadata.json", "SINGLE_SOURCE_FOR_TITLE_AND_SEO_METADATA")
     errors: list[str] = []
     if not isinstance(sources, dict):
@@ -854,11 +876,16 @@ def package_artifact_source_errors(package: object) -> list[str]:
             errors.append(f"article package {key} requires sha256 or a lifecycle placeholder")
     if schema == "1.3":
         errors.extend(final_visual_payload_delta_errors(package.get("final_visual_payload_delta")))
-    elif schema == CURRENT_ARTICLE_PACKAGE_SCHEMA:
+    elif schema in PACKAGE_SCHEMA_WITH_METADATA_SOURCE:
         if "handoff_manifest" in sources:
-            errors.append("article package schema 1.4 must not point back to its derived handoff manifest")
+            errors.append("current article package must not point back to its derived handoff manifest")
+        if schema == CURRENT_ARTICLE_PACKAGE_SCHEMA:
+            if package.get("canonical_path") != "canonical/article.html":
+                errors.append("article package schema 1.5 canonical_path must be canonical/article.html")
+            if package.get("canonical_format") != "RICH_TEXT_HTML_FRAGMENT":
+                errors.append("article package schema 1.5 canonical_format must be RICH_TEXT_HTML_FRAGMENT")
     else:
-        errors.append("article package artifact optimization supports schema_version 1.3 or 1.4")
+        errors.append("article package artifact optimization supports schema_version 1.3, 1.4 or 1.5")
     return errors
 
 
@@ -975,6 +1002,104 @@ def json_object_file(path: Path, *, label: str) -> tuple[dict | None, str | None
     if not isinstance(parsed, dict):
         return None, f"{label} must contain a JSON object"
     return parsed, None
+
+
+def shared_campaign_evidence_reuse_errors(workspace: Path, evidence: object) -> list[str]:
+    """Validate only the provenance of an optional campaign-local cache hit.
+
+    This intentionally does not decide whether the selected source is fresh,
+    natural for the target language, or appropriate for the reader task.  W
+    records that article-level reasoning and R reviews it.  The harness only
+    ensures that a declared reuse points at a real, bounded record and never
+    reuses the volatile/account/editor-transport classes.
+    """
+    if not isinstance(evidence, dict):
+        return ["research evidence pack must be an object for shared evidence reuse"]
+    has_shared = "campaign_shared_evidence" in evidence
+    has_delta = "article_delta" in evidence
+    if not has_shared and not has_delta:
+        return []
+    errors: list[str] = []
+    if not has_shared:
+        return ["research evidence pack article_delta requires campaign_shared_evidence"]
+    if not has_delta:
+        return ["research evidence pack campaign_shared_evidence requires article_delta"]
+
+    shared = evidence.get("campaign_shared_evidence")
+    delta = evidence.get("article_delta")
+    if not isinstance(shared, dict):
+        errors.append("research evidence pack campaign_shared_evidence must be an object")
+    if not isinstance(delta, dict):
+        errors.append("research evidence pack article_delta must be an object")
+    if errors:
+        return errors
+    assert isinstance(shared, dict)
+    assert isinstance(delta, dict)
+
+    for field in ("decision", "freshness_or_scope_check"):
+        if not non_empty_string(delta.get(field)):
+            errors.append(f"research evidence pack article_delta requires {field}")
+    additional_refs = delta.get("additional_evidence_refs")
+    if not isinstance(additional_refs, list) or not all(non_empty_string(ref) for ref in additional_refs):
+        errors.append("research evidence pack article_delta additional_evidence_refs must be a list of non-empty references")
+
+    shared_path, shared_error = workspace_file(
+        workspace,
+        shared.get("path"),
+        label="campaign shared evidence pack",
+    )
+    if shared_error:
+        return errors + [shared_error]
+    assert shared_path is not None
+    if relative_path(workspace, shared_path) != "evidence/shared/campaign-evidence-pack.json":
+        errors.append("campaign shared evidence pack must be stored at evidence/shared/campaign-evidence-pack.json")
+    declared_sha256 = shared.get("sha256")
+    if not non_empty_string(declared_sha256):
+        errors.append("campaign shared evidence pack requires sha256")
+    elif declared_sha256 != sha256_file(shared_path):
+        errors.append("campaign shared evidence pack sha256 does not match")
+
+    record_ids = shared.get("record_ids")
+    if (
+        not isinstance(record_ids, list)
+        or not record_ids
+        or not all(non_empty_string(record_id) for record_id in record_ids)
+        or len({record_id.strip() for record_id in record_ids if isinstance(record_id, str)}) != len(record_ids)
+    ):
+        return errors + ["campaign shared evidence pack record_ids must be non-empty and unique"]
+
+    shared_pack, shared_pack_error = json_object_file(shared_path, label="campaign shared evidence pack")
+    if shared_pack_error or shared_pack is None:
+        return errors + [shared_pack_error or "campaign shared evidence pack is invalid"]
+    records = shared_pack.get("records")
+    if not isinstance(records, list):
+        return errors + ["campaign shared evidence pack requires a records list"]
+    if not records:
+        return errors + ["referenced campaign shared evidence pack must contain at least one record"]
+    records_by_id: dict[str, dict] = {}
+    for index, record in enumerate(records, start=1):
+        if not isinstance(record, dict) or not non_empty_string(record.get("id")):
+            errors.append(f"campaign shared evidence pack record {index} requires id")
+            continue
+        record_id = record["id"].strip()
+        if record_id in records_by_id:
+            errors.append(f"campaign shared evidence pack record IDs must be unique: {record_id}")
+            continue
+        records_by_id[record_id] = record
+
+    reusable_kinds = {
+        "GLOBAL_ENGLISH_TRENDS",
+        "BRAND_SITE_VARIANT",
+        "REGIONAL_SERP_VARIANT",
+    }
+    for record_id in (record_id.strip() for record_id in record_ids):
+        record = records_by_id.get(record_id)
+        if record is None:
+            errors.append(f"campaign shared evidence pack record_id does not exist: {record_id}")
+            continue
+        if record.get("kind") not in reusable_kinds:
+            errors.append(f"campaign shared evidence record is not reusable: {record_id}")
+    return errors
 
 
 def normalized_snapshot_sha256(snapshot: dict) -> str:
@@ -2023,7 +2148,7 @@ def dispatch_readiness(workspace: Path) -> int:
     next_steps = [
         "Provision one visible W/R pair and an isolated worktree (when available) for each ready article.",
         "Write the owner-confirmed REQ-* entries before building each context/article-contract.json.",
-        "After W has created canonical/article.md, build reviews/review-index.json; a bootstrap index is not a review approval.",
+        f"After W has created {canonical_article_path_for_campaign(cfg)}, build reviews/review-index.json; a bootstrap index is not a review approval.",
     ]
     if blockers:
         print("DISPATCH_NOT_READY\n" + "\n".join(f"- {item}" for item in blockers))
@@ -2378,6 +2503,13 @@ def active_findings_for_article(finding_status: object, article_id: str) -> list
     return sorted(active, key=lambda item: item["id"])
 
 
+def canonical_article_path_for_campaign(cfg: object) -> str:
+    """Choose the unique canonical article source without rewriting history."""
+    if isinstance(cfg, dict) and schema_at_least(cfg.get("schema_version"), 2, 12):
+        return "canonical/article.html"
+    return "canonical/article.md"
+
+
 def build_article_context(workspace: Path, article_id: str, output: Path) -> int:
     """Create context from a campaign root or a complete campaign Git worktree."""
     cfg, cfg_error = read_workspace_json(workspace, "campaign.json")
@@ -2410,6 +2542,7 @@ def build_article_context(workspace: Path, article_id: str, output: Path) -> int
         return 1
     assert assignment is not None and locale_row is not None
     source_paths = ("campaign.json", "prewrite-plan.json", "requirements-contract.md")
+    canonical_article_path = canonical_article_path_for_campaign(cfg)
     context = {
         "schema_version": ARTICLE_CONTEXT_SCHEMA,
         "campaign_id": cfg.get("campaign_id"),
@@ -2422,7 +2555,7 @@ def build_article_context(workspace: Path, article_id: str, output: Path) -> int
         "source_hashes": {name: sha256_file(workspace / name) for name in source_paths},
         "artifact_paths": {
             "evidence_pack": "research/evidence-pack.json",
-            "canonical_article": "canonical/article.md",
+            "canonical_article": canonical_article_path,
             "visual_manifest": "canonical/visual-manifest.json",
             "article_package": "article-package.json",
             "review_index": "reviews/review-index.json",
@@ -2496,7 +2629,7 @@ def article_context_errors(workspace: Path, context_path: Path) -> list[str]:
                 errors.append(f"article context source hash changed: {relative}")
     expected_paths = {
         "evidence_pack": "research/evidence-pack.json",
-        "canonical_article": "canonical/article.md",
+        "canonical_article": canonical_article_path_for_campaign(cfg),
         "visual_manifest": "canonical/visual-manifest.json",
         "article_package": "article-package.json",
         "review_index": "reviews/review-index.json",
@@ -3029,7 +3162,7 @@ def campaign(campaign_id: str) -> dict:
         "visual_narrative_policy": {"mode": "LEAD_MIDDLE_CLOSING_REQUIRED", "default_applies_to": ["guide", "tutorial", "comparison", "review", "long_explainer"], "default_minimum_images": 3, "required_coverage_zones": VISUAL_ZONES, "all_articles_required": False, "exception_requires_owner_confirmation": True},
         "cross_language_seo": {"status": "NOT_REQUESTED", "target_locales": [], "google_trends_seed_language": "ENGLISH_ONLY", "variant_priority_order": PRIORITY, "minimum_independent_regional_serp_checks_for_fallback": 2},
         "quality_policy": {"aitdk_local_reference": "required", "plugin_scan": "best_effort_non_blocking", "final_prepublication_target": "visual-payload.html+visual-payload.md"},
-        "artifact_optimization_policy": LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11,
+        "artifact_optimization_policy": LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12,
         "model_first_execution_policy": MODEL_FIRST_EXECUTION_POLICY_2_6,
         "live_execution_profile": HUMAN_RELEASE_PROFILE_2_9,
         "orchestration_policy": {"delegation_default": "VISIBLE_SUBAGENTS", "visible_task_record_required": True, "invisible_cli_agent_sessions": "PROHIBITED", "writer_reviewer_pair_mode": "ONE_REUSABLE_PAIR_PER_ARTICLE", "cross_article_agent_reuse": "CAMPAIGN_GATEKEEPER_ONLY", "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD", "persistent_requirements_gatekeeper": True, "fresh_agent_roles": [], "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY", "execution_isolation": "WORKTREE_FIRST_PER_ARTICLE", "worktree_autospawn": "CREATE_VISIBLE_PROJECT_WORKTREE_PER_READY_ARTICLE_WHEN_SUPPORTED", "worktree_fallback": "VISIBLE_SHARED_WORKSPACE_WITH_PATH_ISOLATION", "silent_worktree_fallback": False, "article_worktree_role_bundle": "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G", "project_worktree_root_role": "ARTICLE_WRITER_REVIEWER_PAIR", "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA", "batch_gate_policy": GATE_BATCH_POLICY_2_7, "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY", "public_qa_policy": PUBLIC_QA_POLICY_2_7, "queue_resume_policy": "AUTO_START_NEXT_READY_TASK_ON_SLOT_AVAILABLE", "article_agent_replacement_requires_full_rehydration": True, "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]},
@@ -3151,6 +3284,7 @@ def check(workspace: Path) -> int:
     requires_human_native_release = parsed_schema_version >= (2, 9)
     requires_research_integrity = parsed_schema_version >= (2, 10)
     requires_topic_governance = parsed_schema_version >= (2, 11)
+    requires_single_source_payload = parsed_schema_version >= (2, 12)
     required_plan_sections = (
         MODEL_FIRST_PREWRITE_PLAN_SECTIONS if requires_model_first_execution_policy
         else PREWRITE_PLAN_SECTIONS if requires_content_value_policy
@@ -3194,7 +3328,8 @@ def check(workspace: Path) -> int:
         elif requires_live_execution_profile and prewrite_policy.get("confirmation_command") != "confirm-prewrite-plan": errors.append("schema 2.8+ pre-write confirmation command is invalid")
         elif requires_live_execution_profile and prewrite_policy.get("owner_confirmation_receipt_required") is not True: errors.append("schema 2.8+ pre-write confirmation requires an owner receipt")
     expected_artifact_policy = (
-        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11 if requires_topic_governance
+        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 if requires_single_source_payload
+        else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11 if requires_topic_governance
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_10 if requires_research_integrity
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_8 if requires_live_execution_profile
         else MODEL_FIRST_ARTIFACT_OPTIMIZATION_POLICY_2_6 if requires_model_first_execution_policy
@@ -3203,6 +3338,7 @@ def check(workspace: Path) -> int:
     if requires_artifact_optimization_policy and cfg.get("artifact_optimization_policy") not in (
         expected_artifact_policy,
         LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11 if not requires_research_integrity else expected_artifact_policy,
+        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 if not requires_research_integrity else expected_artifact_policy,
     ):
         errors.append("schema 2.4+ artifact optimization policy is missing or changed")
     if requires_model_first_execution_policy and cfg.get("model_first_execution_policy") != MODEL_FIRST_EXECUTION_POLICY_2_6:
@@ -3929,7 +4065,7 @@ def package_current_artifact_errors(workspace: Path, package: object) -> list[st
         errors.append("review-ready canonical article sha256 does not match article package")
     sources = package.get("artifact_sources")
     source_keys = ["evidence_pack", "visual_manifest"]
-    if package.get("schema_version") == CURRENT_ARTICLE_PACKAGE_SCHEMA:
+    if package.get("schema_version") in PACKAGE_SCHEMA_WITH_METADATA_SOURCE:
         source_keys.append("metadata")
     if not isinstance(sources, dict):
         return errors + ["review-ready article package requires artifact_sources"]
@@ -3945,6 +4081,11 @@ def package_current_artifact_errors(workspace: Path, package: object) -> list[st
             errors.append(source_error)
         elif source_path is not None and source.get("sha256") != sha256_file(source_path):
             errors.append(f"review-ready {key} sha256 does not match article package")
+    if package.get("schema_version") == CURRENT_ARTICLE_PACKAGE_SCHEMA:
+        if package.get("canonical_path") != "canonical/article.html":
+            errors.append("review-ready article package schema 1.5 canonical_path must be canonical/article.html")
+        if package.get("canonical_format") != "RICH_TEXT_HTML_FRAGMENT":
+            errors.append("review-ready article package schema 1.5 canonical_format must be RICH_TEXT_HTML_FRAGMENT")
     return errors
 
 
@@ -3963,6 +4104,7 @@ def research_evidence_pack_integrity_errors(workspace: Path, context: dict) -> l
     if evidence_error or evidence is None:
         return [evidence_error or "research evidence pack is invalid"]
     errors: list[str] = []
+    errors.extend(shared_campaign_evidence_reuse_errors(workspace, evidence))
     requires_topic_governance = schema_at_least(cfg.get("schema_version"), 2, 11)
     expected_evidence_schema = (
         CURRENT_EVIDENCE_PACK_SCHEMA
@@ -4090,7 +4232,14 @@ def check_review_ready(workspace: Path, context_path: Path, index_path: Path, pa
     if errors:
         print("REVIEW_READY_CHECK_FAILED\n" + "\n".join(errors))
         return 1
-    print("REVIEW_READY_CHECK_PASSED")
+    resolved_package = package_path if package_path.is_absolute() else workspace / package_path
+    package, package_error = json_object_file(resolved_package, label="review-ready article package")
+    companion_status = (
+        "COMPILER_VERIFIED_MATCH"
+        if package_error is None and isinstance(package, dict) and package.get("schema_version") == CURRENT_ARTICLE_PACKAGE_SCHEMA
+        else "COMPANION_DUAL_READ_REQUIRED"
+    )
+    print("REVIEW_READY_CHECK_PASSED\ncompanion_projection=" + companion_status)
     return 0
 
 
@@ -4099,6 +4248,137 @@ def runtime_metric_value(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
         return None
     return float(value)
+
+
+def runtime_metric_summary(tasks: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    """Summarize only metrics actually supplied by completed model tasks."""
+    metric_fields = ("input_tokens", "output_tokens", "wall_time_seconds", "tool_calls")
+    metrics: dict[str, dict[str, object]] = {}
+    for field in metric_fields:
+        values: list[float] = []
+        for task in tasks:
+            source = task.get("runtime_metrics")
+            source = source if isinstance(source, dict) else task
+            value = runtime_metric_value(source.get(field))
+            if value is not None:
+                values.append(value)
+        metrics[field] = {
+            "total": sum(values) if values else None,
+            "observed_task_count": len(values),
+            "availability": "RUNTIME_PROVIDED" if values else "UNAVAILABLE",
+        }
+    return metrics
+
+
+def unavailable_transport_signal(*, total: bool = False) -> dict[str, object]:
+    """Keep an absent or unusable ledger distinct from a measured zero."""
+    return {
+        "total" if total else "count": None,
+        "availability": "UNAVAILABLE",
+    }
+
+
+def observed_transport_count(
+    records: list[dict[str, object]], *, field: str, expected: object,
+    allowed_values: set[object],
+) -> dict[str, object]:
+    """Count a ledger status only when every observed row supplies that status."""
+    values = [record.get(field) for record in records]
+    if any(
+        field not in record or not any(value == allowed for allowed in allowed_values)
+        for record, value in zip(records, values)
+    ):
+        return unavailable_transport_signal()
+    return {
+        "count": sum(value == expected for value in values),
+        "availability": "LEDGER_PROVIDED",
+    }
+
+
+def public_transport_summary(publication: object) -> dict[str, object]:
+    """Expose public handoff friction from the existing ledger, never as a gate."""
+    signal_names = (
+        "human_needs_fix",
+        "human_transport_fix_required",
+        "public_qa_unverified",
+        "passed_with_limitation",
+        "accepted_platform_limitation_count",
+        "unverified_retry_count",
+        "canonical_change_requested",
+    )
+    if not isinstance(publication, dict) or not isinstance(publication.get("articles"), dict):
+        signals: dict[str, object] = {
+            "availability": "UNAVAILABLE",
+            "observed_article_count": None,
+        }
+        for name in signal_names:
+            signals[name] = unavailable_transport_signal(
+                total=name in {"accepted_platform_limitation_count", "unverified_retry_count"},
+            )
+        return signals
+
+    article_records = publication["articles"]
+    records = [record for record in article_records.values() if isinstance(record, dict)]
+    has_only_records = len(records) == len(article_records)
+    signals = {
+        "availability": "LEDGER_PROVIDED",
+        "observed_article_count": len(article_records),
+        "human_needs_fix": (
+            observed_transport_count(
+                records, field="human_state", expected="HUMAN_NEEDS_FIX",
+                allowed_values={None, *HUMAN_RETURN_STATES},
+            )
+            if has_only_records else unavailable_transport_signal()
+        ),
+        "human_transport_fix_required": (
+            observed_transport_count(
+                records, field="public_qa_status", expected="HUMAN_TRANSPORT_FIX_REQUIRED",
+                allowed_values=set(PUBLIC_QA_RECORD_STATUSES),
+            )
+            if has_only_records else unavailable_transport_signal()
+        ),
+        "public_qa_unverified": (
+            observed_transport_count(
+                records, field="public_qa_status", expected="PUBLIC_QA_UNVERIFIED",
+                allowed_values=set(PUBLIC_QA_RECORD_STATUSES),
+            )
+            if has_only_records else unavailable_transport_signal()
+        ),
+        "passed_with_limitation": (
+            observed_transport_count(
+                records, field="public_qa_status", expected="PUBLIC_QA_PASSED_WITH_LIMITATION",
+                allowed_values=set(PUBLIC_QA_RECORD_STATUSES),
+            )
+            if has_only_records else unavailable_transport_signal()
+        ),
+        "canonical_change_requested": (
+            observed_transport_count(
+                records, field="public_qa_status", expected="CANONICAL_CHANGE_REQUESTED",
+                allowed_values=set(PUBLIC_QA_RECORD_STATUSES),
+            )
+            if has_only_records else unavailable_transport_signal()
+        ),
+    }
+    limitations = [record.get("accepted_platform_limitations") for record in records]
+    if not has_only_records or any(not isinstance(value, list) for value in limitations):
+        signals["accepted_platform_limitation_count"] = unavailable_transport_signal(total=True)
+    else:
+        signals["accepted_platform_limitation_count"] = {
+            "total": sum(len(value) for value in limitations),
+            "availability": "LEDGER_PROVIDED",
+        }
+    retry_counts = [record.get("unverified_retry_count") for record in records]
+    if (
+        not has_only_records
+        or any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in retry_counts)
+    ):
+        signals["unverified_retry_count"] = unavailable_transport_signal(total=True)
+    else:
+        signals["unverified_retry_count"] = {
+            "total": sum(retry_counts),
+            "availability": "LEDGER_PROVIDED",
+        }
+    return signals
 
 
 def summarize_efficiency(workspace: Path, output: Path | None) -> int:
@@ -4121,23 +4401,22 @@ def summarize_efficiency(workspace: Path, output: Path | None) -> int:
     ]
     by_role = Counter(str(task.get("role")) for task in completed)
     by_stage = Counter(str(task.get("workflow_stage", "UNSPECIFIED")) for task in completed)
-    metric_fields = ("input_tokens", "output_tokens", "wall_time_seconds", "tool_calls")
-    metrics: dict[str, dict[str, object]] = {}
-    for field in metric_fields:
-        values: list[float] = []
-        for task in completed:
-            source = task.get("runtime_metrics")
-            source = source if isinstance(source, dict) else task
-            value = runtime_metric_value(source.get(field))
-            if value is not None:
-                values.append(value)
-        metrics[field] = {
-            "total": sum(values) if values else None,
-            "observed_task_count": len(values),
-            "availability": "RUNTIME_PROVIDED" if values else "UNAVAILABLE",
-        }
+    metrics = runtime_metric_summary(completed)
+    completed_by_stage: dict[str, list[dict[str, object]]] = {}
+    for task in completed:
+        stage = str(task.get("workflow_stage", "UNSPECIFIED"))
+        completed_by_stage.setdefault(stage, []).append(task)
+    metrics_by_stage = {
+        stage: runtime_metric_summary(stage_tasks)
+        for stage, stage_tasks in sorted(completed_by_stage.items())
+    }
     review_stages = Counter(str(task.get("workflow_stage", "UNSPECIFIED")) for task in completed)
     review_results = Counter(str(task.get("result", "UNSPECIFIED")) for task in completed if task.get("role") == "ARTICLE_LANGUAGE_REVIEWER")
+    canonical_reopen_turns = sum(
+        task.get("workflow_stage") == "CANONICAL_REOPEN"
+        and task.get("role") in {"ARTICLE_WRITER", "ARTICLE_LANGUAGE_REVIEWER"}
+        for task in completed
+    )
     summary = {
         "schema_version": "1.0",
         "purpose": "OBSERVE_ONLY_WORKFLOW_EFFICIENCY_SUMMARY",
@@ -4153,9 +4432,12 @@ def summarize_efficiency(workspace: Path, output: Path | None) -> int:
             "research_review_turns": review_stages.get("RESEARCH_REVIEW", 0),
             "targeted_delta_turns": review_stages.get("REVIEW_DELTA", 0),
             "visual_delta_turns": review_stages.get("VISUAL_PAYLOAD_DELTA", 0),
+            "canonical_reopen_turns": canonical_reopen_turns,
             "review_changes_required": review_results.get("CHANGES_REQUIRED", 0),
         },
         "runtime_metrics": metrics,
+        "runtime_metrics_by_workflow_stage": metrics_by_stage,
+        "public_transport_signals": public_transport_summary(state_record.get("publication")),
     }
     serialized = json.dumps(summary, ensure_ascii=False, indent=2) + "\n"
     if output is None:
@@ -4239,7 +4521,7 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
     if manifest.get("schema_version") != "1.0":
         errors.append("handoff manifest schema_version must be 1.0")
     if package.get("schema_version") not in OPTIMIZED_ARTICLE_PACKAGE_SCHEMAS:
-        errors.append("handoff manifest requires article package schema_version 1.3 or 1.4")
+        errors.append("handoff manifest requires article package schema_version 1.3, 1.4 or 1.5")
     errors.extend(package_artifact_source_errors(package))
     article_id = str(package.get("article_id", "")).strip()
     if manifest.get("article_id") != article_id:
@@ -4284,7 +4566,7 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
         if visual_record.get("sha256") != artifact_sources["visual_manifest"].get("sha256"):
             errors.append("handoff manifest visual_manifest sha256 does not match article package")
     metadata_record = manifest.get("metadata")
-    if package.get("schema_version") == CURRENT_ARTICLE_PACKAGE_SCHEMA:
+    if package.get("schema_version") in PACKAGE_SCHEMA_WITH_METADATA_SOURCE:
         metadata_source = artifact_sources.get("metadata") if isinstance(artifact_sources, dict) else None
         if not isinstance(metadata_source, dict) or not isinstance(metadata_record, dict):
             errors.append("current handoff requires package and manifest metadata records")
