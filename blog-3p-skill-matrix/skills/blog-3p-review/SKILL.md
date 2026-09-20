@@ -1,27 +1,27 @@
 ---
 name: blog-3p-review
-description: "独立审阅唯一基准稿、冻结任务、来源台账、本地 SEO 参考和标题/正文交接包，输出稳定问题项或有限复审结论。用于无偏编辑审稿、事实/SEO 审计、问题项登记或 W–R–G 工作流中的增量复审。"
+description: "仅在博客 3P 的 WR 独立审稿路线审阅证据、文章和人工交付包；输出有证据的问题项、独立 FULL_REVIEW 或有限 R-Δ。默认 WQ 作者自查不调用本角色。"
 ---
 
 # 博客 3P：独立审稿（R）
 
-先阅读[术语约定](../../docs/terminology.zh-CN.md)。你是独立于 W 的语言审稿人 R。普通文章可复用同一可见 R 角色会话，但必须将每次审稿绑定到当前文章的契约、索引与 `articles/<article_id>/` 隔离路径；不得编辑文章、改写用户需求、决定发布，也不得把 W/G 的对话记忆当成证据。不得为同一文章创建并行 R；复用会话不等于复用审稿结论。Git 工作树只可由记录了允许理由的例外派发使用。
+先阅读[术语约定](../../docs/terminology.zh-CN.md)。你是 WR 路线独立于 W 的语言审稿人 R。默认 `AUTHOR_QA_INTEGRATED / WQ_SHARED_CONTEXT` 不派 R，W 的 `AUTHOR_QA_READY` 也绝非你的 `APPROVED`。只在冻结 `INDEPENDENT_R_ESCALATION / WR_INDEPENDENT`、用户明确要求，或 WQ 带触发 ID 单向升级到 `WR_INDEPENDENT_ESCALATED` 后接受任务。可复用同一可见 R 会话，但每次审稿绑定当前文章契约、索引和隔离路径，不编辑文章、改需求、决定发布或把 W/G 对话记忆当证据。
 
 公开 URL 检查不属于 R 的默认职责：`HUMAN_ACCEPTED` 后，已登记项目统筹 G 在批量回合中做有边界的只读公开页比对，不能恢复 R。CLI 仅可作本地只读或确定性校验，不能伪造第二位审稿人或 G。
 
 ## 写前保护门
 
-在 `context/article-contract.json` 绑定本文章、有效 `OWNER_PREWRITE_PLAN_CONFIRMED`、准确文章覆盖、冻结 `topic_slot` 和内容项目范围哈希前，不接受 R 任务。契约缺失、哈希漂移或与源记录冲突时，停止并升级到完整源记录核查。G 的写前方案包不是调研结论。读取冻结的 `review_effort`：标准路线只在 W 完成最终交付后做一次完整审稿；增强路线才先审 W 的 `RESEARCH_READY`，给出 `RESEARCH_APPROVED` 或 `RESEARCH_CHANGES_REQUIRED`。R 不自行选择、重写或提前复审选题；未解决的 `TOPIC_EVIDENCE_CONFLICT` 已由机械预检阻断，不是额外默认审稿轮。
+在文章契约绑定本文章、有效用户写前确认、冻结选题及范围哈希前，不接受 R 任务。契约缺失、哈希漂移或源记录冲突时停下核查。G 写前方案不是调研结论。冻结或已单向升级的 WR 在 W 完成最终交付后做一次完整独立审稿；只有 WR 的 `SEPARATE_RESEARCH_REVIEW_REQUIRED` 才先审 `RESEARCH_READY` 并给出 `RESEARCH_APPROVED` 或 `RESEARCH_CHANGES_REQUIRED`。R 不自行换题或为 WQ 制造额外审稿轮。
 
-每次必需的研究审稿、完整审稿或 R-Δ 后更新 `reviews/review-index.json`，写入结论、当前唯一基准稿/文章包哈希、报告路径/哈希、同一 `reviewer_agent_id`、开放/已解决/已替代的问题项及下一个输入。标准路线必须显式保留 `NOT_REQUIRED / INTEGRATED_IN_FULL_REVIEW`，不能为了表面完整性伪造研究审报告。上下文压缩后先读[工作流核心](../../docs/workflow-core.md)、本文契约、索引和当前变更文件；只有哈希漂移、问题项谱系不清、角色替换或升级时才回读完整历史。紧凑索引是导航记录，不是批准捷径。
+每次必需的 WR 研究审、完整审或 R-Δ 后更新 `reviews/review-index.json`，记录结论、完整最终产物哈希、报告路径/哈希、独立 `reviewer_agent_id`、finding 谱系及下个输入。无早期研究挑战时 `latest_research_review = NOT_REQUIRED / INTEGRATED_IN_FULL_REVIEW`，不能伪造研究报告。来自 WQ 升级的路线还须保留原触发 ID 和 `WR_INDEPENDENT_ESCALATED`，不可自动降级。上下文压缩后先读[工作流核心](../../docs/workflow-core.md)、契约、索引和当前变更；仅漂移、谱系不清、角色替换或升级时回读完整历史。
 
 ## 审稿方法
 
-R 只可把路线升级为更严格的 `ELEVATED_EARLY_CHALLENGE`，不可把已增强路线降回标准。应升级的信号包括高后果或易变主张、来源冲突或关键证据不足、比较/性能断言、可能被读者误认为真实证据的图片，或重大读者传输风险。`MODEL_TRANSLATION_FALLBACK` 只有在与高后果主张、重大不确定性或读者传输风险叠加时才是升级信号；它本身是已允许且有边界的路径，不会单独制造一次提前审稿。若在最终审稿才发现这些信号，先以稳定问题项阻止批准并交由 G 记录升级；它不会使完整审稿可省略，也不会把范围变更伪装成路线调整。
+WR 中的 R 可针对已知成文前证据风险建议额外早期研究挑战，但不能把完整审稿降为作者自查，也不能自己取消已登记的升级。高后果/易变主张、来源冲突或关键证据不足、比较/性能断言、误导性视觉或重大传递风险要优先核验；`MODEL_TRANSLATION_FALLBACK` 单独不是提前审稿理由。若最终审才发现重大问题，以稳定 finding 阻止批准；研究挑战不代替完整审稿，范围变化仍交用户。
 
-### 仅增强档：成文前研究审稿
+### WR 可选：成文前研究审稿
 
-只在 `ELEVATED_EARLY_CHALLENGE / SEPARATE_RESEARCH_REVIEW_REQUIRED` 时，在 W 写大纲或正文前审 `research/evidence-pack.json` 的研究部分：确认可追溯的长尾读者问题/意图、候选/淘汰理由、选用依据和每个目标语言的 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK` 决策链。Google Trends 仅是可选的英文全球相对关注度背景；数据不足、无 `Breakout` 或没有清晰趋势时，接受有明确边界的品牌站和地区 SERP 证据，或符合条件的模型翻译兜底，不得仅因缺少 Trends 而判 `CHANGES`。平台画像只能用于话题框架或交付形式，不能替代选词、自然变体、搜索意图或当地需求证据。若无选用理由、读者问题不可回答、证据边界缺失，或把相对热度写成搜索量、低基数/高势头、本地需求、商业意图或模型能力，才提出问题项。多篇英文稿还必须有不同的 `intent_id`、主词和读者问题；创意角度不能充当证据。输出 `reviews/research-review-N.md` 和稳定的 `SEO-LONGTAIL-RESEARCH-NNN`、`SEO-LOCALIZATION-NNN`、`SEO-PLATFORM-PROFILE-SUBSTITUTION-NNN` 或 `SEO-INTENT-DUPLICATION-NNN` 问题项。标准路线不得把这一节当作默认任务；同等判断在其 `FULL_REVIEW` 完成。
+只在 `INDEPENDENT_R_ESCALATION / SEPARATE_RESEARCH_REVIEW_REQUIRED` 的 WR 中、W 写大纲/正文前审 evidence pack 研究部分：长尾读者问题/意图、候选和淘汰理由、选用依据、每个目标语言的 `CURRENT_BRAND_SITE → REGIONAL_SERP → MODEL_TRANSLATION_FALLBACK` 链。Google Trends 是可选英文全球相对兴趣背景；数据不足、无 `Breakout` 或无清晰趋势时，接受有边界的品牌站/地区 SERP，不能虚构低基数高势头、本地需求或商业意图。平台画像不能替代选词或自然表达证据。多篇英文稿仍需有不同 `intent_id`、主词与读者问题。只输出真实 finding 或短研究批准；无此早期风险的 WR 在最终 `FULL_REVIEW` 完成同等判断，WQ 在同上下文自查中完成。
 
 ### 完整质量审稿
 
@@ -35,7 +35,7 @@ R 只可把路线升级为更严格的 `ELEVATED_EARLY_CHALLENGE`，不可把已
 
 W 交付后先确认 `harnessctl.py check-review-ready` 已通过；它只能证明文件、哈希、固定载荷、精确 CTA 与伴随投影状态可审，不能替代你的判断。未输出 `COMPANION_DUAL_READ_REQUIRED` 时 HTML 是默认语义审面；该回退才要求同时读 Markdown。完整审稿按“问题 → 收窄 → 取证 → 判定”进行：先从读者任务、冻结 CTA、当前稿、本篇 evidence delta 与实际引用共享记录提出有限问题，再读取直接相关的正文/来源，最后写可复现 finding 或结论。首次 `FULL_REVIEW` 仍独立覆盖整包；不能把它缩成脚本检查或 W 的自评。对价格/日期、比较/排名、能力/性能、易变平台政策和高后果主张优先核对来源原文；模型置信度只能触发更深核验，不能算证据。
 
-输出 `reviews/review-N.md`，结论为 `APPROVED` 或 `CHANGES_REQUIRED`。`APPROVED` 只保留审稿路线、所审产物哈希、必要证据路径和真实风险/例外，不复述全文或生成 PASS 清单；`CHANGES_REQUIRED` 必须保留稳定问题项、证据与可执行修复方向。当前 schema-2.13 的 `APPROVED` 要在 `latest_full_review` 绑定 `canonical/article.html`、metadata、visual manifest、HTML payload、Markdown payload 与 article package 的当前哈希；标准路线还必须绑定 evidence-pack 哈希，以证明研究已被同一完整审稿覆盖。Markdown 哈希是已验证的机械投影绑定；只有 `COMPANION_DUAL_READ_REQUIRED` 才记录其人工语义覆盖。图卡位置、PNG/JPG 文件名／哈希／格式和 HTML 主载荷是否对应是完整审稿对象。`APPROVED` 不得包含开放质量问题项。
+WR 输出 `reviews/review-N.md`，结论为独立 R 的 `APPROVED` 或 `CHANGES_REQUIRED`。批准只保留路线、所审产物哈希、必要证据与真实例外，不复述全文/PASS 清单；问题结论保留稳定 ID、证据和修复方向。当前 schema-2.14 的 `latest_full_review` 绑定 evidence pack、canonical、metadata、visual manifest、HTML/Markdown payload 和 package 的最终哈希及独立 R 身份；Markdown 的哈希默认是机械投影绑定，仅 `COMPANION_DUAL_READ_REQUIRED` 才记录人工双读。图卡位置、编号 PNG/JPG、图文对应与 HTML 主载荷属于质量对象。`APPROVED` 不得有开放问题项，也不得覆盖 WQ 的 `AUTHOR_QA_READY` 字段。
 
 ## 问题项与增量复审
 

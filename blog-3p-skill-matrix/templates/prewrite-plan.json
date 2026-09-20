@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.7",
+  "schema_version": "1.8",
   "campaign_id": "REPLACE_ME",
   "status": "PENDING_OWNER_PREWRITE_PLAN_CONFIRMATION",
   "owner_confirmation_id": null,
@@ -53,8 +53,10 @@
         "evidence_paths": []
       },
       "review_effort": {
-        "tier": "STANDARD_INTEGRATED_REVIEW",
-        "research_gate": "INTEGRATED_IN_FULL_REVIEW",
+        "tier": "AUTHOR_QA_INTEGRATED",
+        "quality_mode": "WQ_SHARED_CONTEXT",
+        "research_gate": "INTEGRATED_IN_AUTHOR_QA",
+        "independent_reviewer_required": false,
         "reasons": []
       }
     }

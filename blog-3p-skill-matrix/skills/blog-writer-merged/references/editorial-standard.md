@@ -1,6 +1,6 @@
 # Editorial standard
 
-Audit the canonical article before R receives it.
+Audit the canonical article before current-route quality binding: WQ author-QA or WR independent R.
 
 | Surface | Pass condition |
 | --- | --- |
@@ -15,4 +15,4 @@ Audit the canonical article before R receives it.
 | Recommendation integrity | The required frozen CTA is secondary and contextually relevant; its exact visible anchor text, product identity, destination and material claims have a traceable basis, any material relationship is clearly disclosed, and no unsupported reliability/ranking/test claim appears. |
 | Voice | Direct, specific, non-templated and free of invented experience. |
 
-Write results as `PASS`, `FINDING`, `WARN` or `NOT_APPLICABLE`. A reproducible finding in the canonical article or visual payload gets a stable ID and returns to W–R, then the campaign G batch if necessary. Final heading hierarchy is not a local finding: after `HUMAN_ACCEPTED`, the registered campaign G judges it only from the rendered public reader page. A published reader-page discrepancy is recorded in that G's batch and does not reopen W/R unless the owner explicitly requests a canonical/payload correction.
+Only record actual `FINDING` or material `WARN`; do not produce a green `PASS` checklist. Reproducible issues get stable IDs. WQ fixes and reruns its adversarial author-QA, yielding `AUTHOR_QA_READY` with final hashes or escalating to WR; WR returns to independent R with the appropriate full/delta review. G checks requirement fidelity and the route's truthful credential, not article semantics. Heading hierarchy is judged after `HUMAN_ACCEPTED` only from the rendered reader page; a public discrepancy does not reopen canonical content without an explicit owner correction request.

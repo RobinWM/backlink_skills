@@ -217,16 +217,38 @@ def indexed_review_report_path(article_workspace: Path, report_path: object, art
 
 
 def separate_research_review_required(review_index: dict) -> bool:
-    """Keep legacy packages conservative while honoring the frozen 2.6 route."""
+    """Keep legacy packages conservative while honoring the frozen WR route."""
     effort = review_index.get("review_effort")
     if not isinstance(effort, dict):
         return True
-    return effort.get("tier") == "ELEVATED_EARLY_CHALLENGE"
+    return (
+        effort.get("tier") == "ELEVATED_EARLY_CHALLENGE"
+        or (
+            effort.get("tier") == "INDEPENDENT_R_ESCALATION"
+            and effort.get("research_gate") == "SEPARATE_RESEARCH_REVIEW_REQUIRED"
+        )
+    )
 
 
 def standard_integrated_review(review_index: dict) -> bool:
     effort = review_index.get("review_effort")
     return isinstance(effort, dict) and effort.get("tier") == "STANDARD_INTEGRATED_REVIEW"
+
+
+def author_qa_integrated(review_index: dict) -> bool:
+    effort = review_index.get("review_effort")
+    return isinstance(effort, dict) and effort.get("tier") == "AUTHOR_QA_INTEGRATED"
+
+
+def author_qa_is_un_escalated(review_index: dict) -> bool:
+    resolution = review_index.get("route_resolution")
+    return (
+        isinstance(resolution, dict)
+        and resolution.get("planned_quality_mode") == "WQ_SHARED_CONTEXT"
+        and resolution.get("effective_quality_mode") == "WQ_SHARED_CONTEXT"
+        and resolution.get("status") == "NOT_ESCALATED"
+        and resolution.get("escalation_trigger_ids") == []
+    )
 
 
 def require_approved_final_visual_delta(workspace: Path, package: dict, visual_payload: Path) -> dict:
@@ -315,23 +337,41 @@ def require_approved_final_artifact_review(
         and review_index.get("latest_research_review", {}).get("status") != "RESEARCH_APPROVED"
     ):
         raise ValueError("handoff manifest requires review-index RESEARCH_APPROVED")
-    full = review_index.get("latest_full_review")
-    if not isinstance(full, dict) or full.get("status") != "APPROVED":
-        raise ValueError("handoff manifest requires review-index full R APPROVED")
-    required = (
-        "report_path", "report_sha256", "reviewer_agent_id", "canonical_sha256",
-        "metadata_sha256", "visual_manifest_sha256", "visual_payload_sha256",
-        "visual_payload_markdown_sha256",
-        "article_package_sha256",
-    )
-    if standard_integrated_review(review_index):
-        required = (*required, "evidence_pack_sha256")
-    missing = [field for field in required if not isinstance(full.get(field), str) or not full[field].strip()]
-    if missing:
-        raise ValueError("final full review must bind all final artifacts: " + ", ".join(missing))
-    report = indexed_review_report_path(workspace, full["report_path"], package.get("article_id"))
-    if not report.is_file() or full["report_sha256"] != sha256_file(report):
-        raise ValueError("final full review report_sha256 must match its existing report")
+    wq_final = author_qa_integrated(review_index) and author_qa_is_un_escalated(review_index)
+    if wq_final:
+        quality = review_index.get("latest_author_qa")
+        if not isinstance(quality, dict) or quality.get("status") != "AUTHOR_QA_READY":
+            raise ValueError("handoff manifest requires AUTHOR_QA_READY for an un-escalated WQ route")
+        required = (
+            "receipt_path", "receipt_sha256", "author_agent_id", "candidate_canonical_sha256",
+            "canonical_sha256", "evidence_pack_sha256", "metadata_sha256",
+            "visual_manifest_sha256", "visual_payload_sha256",
+            "visual_payload_markdown_sha256", "article_package_sha256",
+        )
+        missing = [field for field in required if not isinstance(quality.get(field), str) or not quality[field].strip()]
+        if missing:
+            raise ValueError("AUTHOR_QA_READY must bind all final artifacts: " + ", ".join(missing))
+        receipt = indexed_review_report_path(workspace, quality["receipt_path"], package.get("article_id"))
+        if not receipt.is_file() or quality["receipt_sha256"] != sha256_file(receipt):
+            raise ValueError("AUTHOR_QA_READY receipt_sha256 must match its existing receipt")
+        if quality.get("open_finding_ids") != []:
+            raise ValueError("AUTHOR_QA_READY requires zero open_finding_ids")
+    else:
+        quality = review_index.get("latest_full_review")
+        if not isinstance(quality, dict) or quality.get("status") != "APPROVED":
+            raise ValueError("handoff manifest requires review-index independent full R APPROVED")
+        required = (
+            "report_path", "report_sha256", "reviewer_agent_id", "canonical_sha256",
+            "evidence_pack_sha256", "metadata_sha256", "visual_manifest_sha256",
+            "visual_payload_sha256", "visual_payload_markdown_sha256",
+            "article_package_sha256",
+        )
+        missing = [field for field in required if not isinstance(quality.get(field), str) or not quality[field].strip()]
+        if missing:
+            raise ValueError("final independent full review must bind all final artifacts: " + ", ".join(missing))
+        report = indexed_review_report_path(workspace, quality["report_path"], package.get("article_id"))
+        if not report.is_file() or quality["report_sha256"] != sha256_file(report):
+            raise ValueError("final independent full review report_sha256 must match its existing report")
     sources = package.get("artifact_sources")
     visual_source = sources.get("visual_manifest") if isinstance(sources, dict) else None
     if not isinstance(visual_source, dict) or not isinstance(visual_source.get("path"), str):
@@ -361,11 +401,13 @@ def require_approved_final_artifact_review(
         "visual_payload_markdown_sha256": sha256_file(visual_payload_markdown),
         "article_package_sha256": sha256_file(package_path),
     }
-    if standard_integrated_review(review_index):
-        expected["evidence_pack_sha256"] = evidence_source["sha256"]
-    mismatches = [field for field, value in expected.items() if full.get(field) != value]
+    expected["evidence_pack_sha256"] = evidence_source["sha256"]
+    mismatches = [field for field, value in expected.items() if quality.get(field) != value]
     if not mismatches:
-        return "FULL_REVIEW_COVERS_FINAL_PAYLOAD", full
+        return ("AUTHOR_QA_COVERS_FINAL_PAYLOAD", quality) if wq_final else ("FULL_REVIEW_COVERS_FINAL_PAYLOAD", quality)
+    if wq_final:
+        raise ValueError("AUTHOR_QA_READY no longer matches; rerun AUTHOR_QA or record a WR escalation")
+    full = quality
     delta = review_index.get("last_delta")
     review_scope = delta.get("review_scope") if isinstance(delta, dict) else None
     if not isinstance(delta, dict) or review_scope not in {"R_DELTA", "R_VISUAL_DELTA"} or delta.get("status") != "APPROVED":
@@ -471,9 +513,13 @@ def build_handoff_manifest(
         }
     else:
         manifest["review_provenance"] = {
-            "source": "reviews/review-index.json#/latest_full_review"
-            if review_mode == "FULL_REVIEW_COVERS_FINAL_PAYLOAD"
-            else "reviews/review-index.json#/last_delta",
+            "source": (
+                "reviews/review-index.json#/latest_author_qa"
+                if review_mode == "AUTHOR_QA_COVERS_FINAL_PAYLOAD"
+                else "reviews/review-index.json#/latest_full_review"
+                if review_mode == "FULL_REVIEW_COVERS_FINAL_PAYLOAD"
+                else "reviews/review-index.json#/last_delta"
+            ),
             "mode": review_mode,
         }
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -24,15 +24,15 @@
   },
   "review_index": {
     "path": "reviews/review-index.json",
-    "sha256": "REPLACE_AFTER_FINAL_FULL_REVIEW"
+    "sha256": "REPLACE_AFTER_FINAL_QUALITY"
   },
   "review_provenance": {
-    "source": "reviews/review-index.json#/latest_full_review",
-    "mode": "FULL_REVIEW_COVERS_FINAL_PAYLOAD"
+    "source": "reviews/review-index.json#/latest_author_qa",
+    "mode": "AUTHOR_QA_COVERS_FINAL_PAYLOAD"
   },
   "gate_input": {
     "requirements_traceability_path": "requirements-traceability.md",
-    "requirements_traceability_sha256": "REPLACE_AFTER_R_APPROVAL",
+    "requirements_traceability_sha256": "REPLACE_AFTER_FINAL_QUALITY",
     "gate_mode": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY"
   }
 }

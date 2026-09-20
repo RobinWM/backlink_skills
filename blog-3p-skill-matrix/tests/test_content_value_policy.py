@@ -146,19 +146,19 @@ class ContentValuePolicyTests(unittest.TestCase):
         template = json.loads((ROOT / "templates/campaign.json").read_text(encoding="utf-8"))
         generated = HARNESS.campaign("REPLACE_ME")
         self.assertEqual(template, generated)
-        self.assertEqual(template["schema_version"], "2.13")
-        self.assertEqual(template["live_execution_profile"], HARNESS.HUMAN_RELEASE_PROFILE_2_9)
+        self.assertEqual(template["schema_version"], "2.14")
+        self.assertEqual(template["live_execution_profile"], HARNESS.HUMAN_RELEASE_PROFILE_2_14)
         self.assertEqual(template["release_policy"]["mode"], "HUMAN_NATIVE_ONLY")
         self.assertNotIn("human_release_requested", template["release_policy"])
         policy = template["content_value_policy"]
         self.assertEqual(policy["cta_role"], "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION")
         self.assertTrue(policy["cta_must_be_present"])
 
-    def test_fresh_schema_2_13_workspace_checks(self) -> None:
+    def test_fresh_schema_2_14_workspace_checks(self) -> None:
         temp_dir, workspace = self.initialize()
         with temp_dir:
             manifest = json.loads((workspace / "prewrite-plan.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["schema_version"], "1.7")
+            self.assertEqual(manifest["schema_version"], "1.8")
             checked = self.run_harness("check", "--workspace", str(workspace))
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertIn("CHECK_PASSED", checked.stdout)

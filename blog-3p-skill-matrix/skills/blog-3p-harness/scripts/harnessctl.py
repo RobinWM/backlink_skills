@@ -18,8 +18,9 @@ PRIORITY = ["CURRENT_BRAND_SITE", "REGIONAL_SERP", "MODEL_TRANSLATION_FALLBACK"]
 VISUAL_ZONES = ["LEAD", "MIDDLE", "CLOSING"]
 OWNER_SOURCE_TYPES = {"OWNER_XLSX", "OWNER_TABLE", "OWNER_MESSAGE"}
 MATCHING_ROLE = "CAMPAIGN_PLATFORM_MATCHING_RESEARCHER"
-CURRENT_CAMPAIGN_SCHEMA = "2.13"
-CURRENT_PREWRITE_PLAN_SCHEMA = "1.7"
+CURRENT_CAMPAIGN_SCHEMA = "2.14"
+CURRENT_PREWRITE_PLAN_SCHEMA = "1.8"
+PREVIOUS_PREWRITE_PLAN_SCHEMA = "1.7"
 CURRENT_EVIDENCE_PACK_SCHEMA = "1.3"
 RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA = "1.6"
 RESEARCH_INTEGRITY_EVIDENCE_PACK_SCHEMA = "1.2"
@@ -88,8 +89,36 @@ ARTICLE_CONTEXT_SCHEMA = "1.0"
 REVIEW_INDEX_SCHEMA = "1.0"
 REVIEW_DELTA_SCHEMA = "1.0"
 RESEARCH_REVIEW_STATUSES = {"PENDING", "NOT_REQUIRED", "RESEARCH_APPROVED", "RESEARCH_CHANGES_REQUIRED"}
-FULL_REVIEW_STATUSES = {"PENDING", "APPROVED", "CHANGES_REQUIRED"}
-REVIEW_TIERS = {"STANDARD_INTEGRATED_REVIEW", "ELEVATED_EARLY_CHALLENGE"}
+FULL_REVIEW_STATUSES = {"PENDING", "NOT_REQUIRED", "APPROVED", "CHANGES_REQUIRED"}
+AUTHOR_QA_STATUSES = {
+    "PENDING",
+    "NOT_REQUIRED",
+    "AUTHOR_QA_READY",
+    "AUTHOR_QA_ESCALATION_REQUIRED",
+    "CHANGES_REQUIRED",
+}
+REVIEW_TIERS = {
+    "AUTHOR_QA_INTEGRATED",
+    "INDEPENDENT_R_ESCALATION",
+    # Schema-2.13 compatibility tiers.  Their meanings must never be
+    # reinterpreted as author self-QA after a matrix upgrade.
+    "STANDARD_INTEGRATED_REVIEW",
+    "ELEVATED_EARLY_CHALLENGE",
+}
+AUTHOR_QA_REVIEW_EFFORT = {
+    "tier": "AUTHOR_QA_INTEGRATED",
+    "quality_mode": "WQ_SHARED_CONTEXT",
+    "research_gate": "INTEGRATED_IN_AUTHOR_QA",
+    "independent_reviewer_required": False,
+    "reasons": [],
+}
+INDEPENDENT_R_REVIEW_EFFORT = {
+    "tier": "INDEPENDENT_R_ESCALATION",
+    "quality_mode": "WR_INDEPENDENT",
+    "research_gate": "INTEGRATED_IN_FULL_REVIEW",
+    "independent_reviewer_required": True,
+    "reasons": ["REPLACE_WITH_RECORDED_ESCALATION_REASON"],
+}
 STANDARD_REVIEW_EFFORT = {
     "tier": "STANDARD_INTEGRATED_REVIEW",
     "research_gate": "INTEGRATED_IN_FULL_REVIEW",
@@ -100,10 +129,32 @@ LEGACY_REVIEW_EFFORT = {
     "research_gate": "SEPARATE_RESEARCH_REVIEW_REQUIRED",
     "reasons": ["LEGACY_SCHEMA_COMPATIBILITY"],
 }
+AUTHOR_QA_PROTOCOL = "CANDIDATE_LOCK_ADVERSARIAL_SELF_QA_TARGETED_REPAIR_FINAL_BIND"
+AUTHOR_QA_ROUTE_RESOLUTION = {
+    "planned_quality_mode": "WQ_SHARED_CONTEXT",
+    "effective_quality_mode": "WQ_SHARED_CONTEXT",
+    "status": "NOT_ESCALATED",
+    "escalation_trigger_ids": [],
+}
+WR_ROUTE_RESOLUTION = {
+    "planned_quality_mode": "WR_INDEPENDENT",
+    "effective_quality_mode": "WR_INDEPENDENT",
+    "status": "NOT_APPLICABLE",
+    "escalation_trigger_ids": [],
+}
 FINAL_VISUAL_DELTA_RESULT = "APPROVED"
 FINAL_VISUAL_DELTA_FIELDS = (
     "report_sha256", "reviewer_agent_id", "review_index_sha256",
     "reviewed_visual_manifest_sha256", "reviewed_visual_payload_sha256",
+)
+FINAL_QUALITY_HASH_FIELDS = (
+    "canonical_sha256",
+    "evidence_pack_sha256",
+    "metadata_sha256",
+    "visual_manifest_sha256",
+    "visual_payload_sha256",
+    "visual_payload_markdown_sha256",
+    "article_package_sha256",
 )
 CURRENT_ARTICLE_PACKAGE_SCHEMA = "1.5"
 PACKAGE_SCHEMA_WITH_METADATA_SOURCE = {"1.4", CURRENT_ARTICLE_PACKAGE_SCHEMA}
@@ -165,6 +216,11 @@ GATE_BATCH_POLICY_2_7 = {
     "article_quality_rereview": "PROHIBITED",
     "per_article_traceability": "BATCH_REPORT_ROW_REQUIRED",
     "machine_external_writes_allowed": False,
+}
+GATE_BATCH_POLICY_2_14 = {
+    **GATE_BATCH_POLICY_2_7,
+    "input": "CURRENT_FINAL_QUALITY_READY_ARTICLE_ROWS_ONLY",
+    "quality_credential": "ROUTE_TRUTHFUL_WQ_OR_WR_RECEIPT",
 }
 PUBLIC_QA_POLICY_2_7 = {
     "mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY",
@@ -307,6 +363,22 @@ LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13 = {
         "review_surface": "HTML_PRIMARY_MARKDOWN_COMPILER_VERIFIED_FALLBACK",
     },
 }
+LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_14 = {
+    **LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13,
+    "review_route": "AUTHOR_QA_INTEGRATED_UNLESS_WR_ESCALATED",
+    "quality_routes": {
+        "default": "AUTHOR_QA_INTEGRATED",
+        "author_qa_receipt": "reviews/author-qa-N.json",
+        "independent_r_escalation": "INDEPENDENT_R_ESCALATION",
+        "wq_late_change": "RERUN_AUTHOR_QA_OR_ESCALATE_WR",
+    },
+    "final_artifact_review": {
+        "default": "AUTHOR_QA_COVERS_FINAL_PAYLOAD",
+        "independent_escalation": "FULL_REVIEW_COVERS_FINAL_PAYLOAD",
+        "post_full_visual_delta": "ONLY_AFTER_WR_FULL_REVIEW",
+        "semantic_change": "RERUN_AUTHOR_QA_OR_WR_DELTA_AFTER_INDEPENDENT_REVIEW",
+    },
+}
 MODEL_FIRST_EXECUTION_POLICY_2_6 = {
     "mode": "MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION",
     "default_review_tier": "STANDARD_INTEGRATED_REVIEW",
@@ -314,6 +386,18 @@ MODEL_FIRST_EXECUTION_POLICY_2_6 = {
     "separate_research_review": "RISK_TRIGGERED_ONLY",
     "independent_final_review": "REQUIRED",
     "reviewer_may_elevate_not_downgrade": True,
+    "gatekeeper_binds_tier_and_reason": True,
+    "mechanical_checks": "POSTHOC_INTEGRITY_AND_SCOPE_ONLY",
+}
+MODEL_FIRST_EXECUTION_POLICY_2_14 = {
+    "mode": "MODEL_CONTINUOUS_CREATION_WITH_DUAL_QUALITY_ROUTES",
+    "default_review_tier": "AUTHOR_QA_INTEGRATED",
+    "writer_continuous_sequence": ["RESEARCH", "DRAFT", "VISUALS", "PAYLOAD", "AUTHOR_QA"],
+    "author_qa_protocol": AUTHOR_QA_PROTOCOL,
+    "independent_r_escalation": "RISK_OR_OWNER_TRIGGERED_ONLY",
+    "separate_research_review": "WR_RISK_TRIGGERED_ONLY",
+    "independent_final_review": "REQUIRED_ONLY_FOR_WR",
+    "wq_to_wr_downgrade": "PROHIBITED",
     "gatekeeper_binds_tier_and_reason": True,
     "mechanical_checks": "POSTHOC_INTEGRITY_AND_SCOPE_ONLY",
 }
@@ -345,6 +429,11 @@ HUMAN_RELEASE_PROFILE_2_9 = {
     "extra_debate_agents": "PROHIBITED",
     "global_content_cache": "PROHIBITED",
     "telemetry": "OPTIONAL_OBSERVE_ONLY",
+}
+HUMAN_RELEASE_PROFILE_2_14 = {
+    **HUMAN_RELEASE_PROFILE_2_9,
+    "article_flow": "WQ_DEFAULT_OR_WR_INDEPENDENT_ESCALATION",
+    "quality_routes": "AUTHOR_QA_INTEGRATED_DEFAULT_WITH_ONE_WAY_WR_ESCALATION",
 }
 MODEL_FIRST_REHYDRATION_PROTOCOL = {
     "always_read_first": ["CURRENT_WORKFLOW_CORE", "context/article-contract.json", "reviews/review-index.json"],
@@ -707,46 +796,113 @@ def confirmed_scope_snapshot_errors(cfg: dict, manifest: dict) -> list[str]:
     return []
 
 
-def model_first_review_effort_errors(value: object) -> list[str]:
-    """Validate the small risk decision that chooses the R route, not prose quality."""
+def schema_2_14_or_newer(cfg_or_version: object) -> bool:
+    """Keep schema-2.13 routes readable without reclassifying old R approvals."""
+    version = cfg_or_version.get("schema_version") if isinstance(cfg_or_version, dict) else cfg_or_version
+    return schema_at_least(version, 2, 14)
+
+
+def prewrite_plan_schema_for_campaign(cfg_or_version: object) -> str:
+    """Select the manifest version without invalidating a completed 2.13 plan."""
+    return CURRENT_PREWRITE_PLAN_SCHEMA if schema_2_14_or_newer(cfg_or_version) else PREVIOUS_PREWRITE_PLAN_SCHEMA
+
+
+def author_qa_route(review_effort: object) -> bool:
+    return isinstance(review_effort, dict) and review_effort.get("tier") == "AUTHOR_QA_INTEGRATED"
+
+
+def independent_review_route(review_effort: object) -> bool:
+    return isinstance(review_effort, dict) and review_effort.get("tier") in {
+        "INDEPENDENT_R_ESCALATION",
+        "STANDARD_INTEGRATED_REVIEW",
+        "ELEVATED_EARLY_CHALLENGE",
+    }
+
+
+def model_first_review_effort_errors(value: object, *, cfg_or_version: object = CURRENT_CAMPAIGN_SCHEMA) -> list[str]:
+    """Validate a frozen quality route without using field mechanics as a quality score.
+
+    Schema-2.14 introduces WQ but keeps the old two independent-R tiers
+    readable.  In particular, a historical ``STANDARD_INTEGRATED_REVIEW``
+    cannot be reinterpreted as the new author-QA route merely because a user
+    upgrades the local skill.
+    """
     if not isinstance(value, dict):
         return ["review_effort must be an object"]
     tier = value.get("tier")
-    if tier not in REVIEW_TIERS:
-        return ["review_effort.tier must be STANDARD_INTEGRATED_REVIEW or ELEVATED_EARLY_CHALLENGE"]
-    expected_gate = (
-        "INTEGRATED_IN_FULL_REVIEW"
-        if tier == "STANDARD_INTEGRATED_REVIEW"
-        else "SEPARATE_RESEARCH_REVIEW_REQUIRED"
-    )
-    if value.get("research_gate") != expected_gate:
-        return [f"review_effort.research_gate must be {expected_gate}"]
     reasons = value.get("reasons")
     if not isinstance(reasons, list) or not all(non_empty_string(reason) for reason in reasons):
         return ["review_effort.reasons must be a list of non-empty strings"]
-    if tier == "ELEVATED_EARLY_CHALLENGE" and not reasons:
-        return ["elevated review_effort requires at least one risk reason"]
-    return []
+    if not schema_2_14_or_newer(cfg_or_version):
+        if tier not in {"STANDARD_INTEGRATED_REVIEW", "ELEVATED_EARLY_CHALLENGE"}:
+            return ["schema 2.13 and earlier review_effort.tier must be STANDARD_INTEGRATED_REVIEW or ELEVATED_EARLY_CHALLENGE"]
+        expected_gate = (
+            "INTEGRATED_IN_FULL_REVIEW"
+            if tier == "STANDARD_INTEGRATED_REVIEW"
+            else "SEPARATE_RESEARCH_REVIEW_REQUIRED"
+        )
+        if value.get("research_gate") != expected_gate:
+            return [f"review_effort.research_gate must be {expected_gate}"]
+        if tier == "ELEVATED_EARLY_CHALLENGE" and not reasons:
+            return ["elevated review_effort requires at least one risk reason"]
+        return []
+
+    if tier == "AUTHOR_QA_INTEGRATED":
+        expected = {
+            "quality_mode": "WQ_SHARED_CONTEXT",
+            "research_gate": "INTEGRATED_IN_AUTHOR_QA",
+            "independent_reviewer_required": False,
+        }
+        for field, expected_value in expected.items():
+            if value.get(field) != expected_value:
+                return [f"AUTHOR_QA_INTEGRATED review_effort.{field} must be {expected_value}"]
+        return []
+    if tier == "INDEPENDENT_R_ESCALATION":
+        if value.get("quality_mode") != "WR_INDEPENDENT":
+            return ["INDEPENDENT_R_ESCALATION review_effort.quality_mode must be WR_INDEPENDENT"]
+        if value.get("research_gate") not in {"INTEGRATED_IN_FULL_REVIEW", "SEPARATE_RESEARCH_REVIEW_REQUIRED"}:
+            return ["INDEPENDENT_R_ESCALATION review_effort.research_gate must be INTEGRATED_IN_FULL_REVIEW or SEPARATE_RESEARCH_REVIEW_REQUIRED"]
+        if value.get("independent_reviewer_required") is not True:
+            return ["INDEPENDENT_R_ESCALATION requires independent_reviewer_required=true"]
+        if not reasons:
+            return ["INDEPENDENT_R_ESCALATION requires at least one recorded risk or owner reason"]
+        return []
+
+    # Explicit legacy compatibility remains usable in a 2.14 workspace only
+    # for a pre-existing or deliberately retained independent-R route.
+    if tier == "STANDARD_INTEGRATED_REVIEW":
+        if value.get("research_gate") != "INTEGRATED_IN_FULL_REVIEW":
+            return ["review_effort.research_gate must be INTEGRATED_IN_FULL_REVIEW"]
+        return []
+    if tier == "ELEVATED_EARLY_CHALLENGE":
+        if value.get("research_gate") != "SEPARATE_RESEARCH_REVIEW_REQUIRED":
+            return ["review_effort.research_gate must be SEPARATE_RESEARCH_REVIEW_REQUIRED"]
+        if not reasons:
+            return ["elevated review_effort requires at least one risk reason"]
+        return []
+    return ["review_effort.tier must be AUTHOR_QA_INTEGRATED, INDEPENDENT_R_ESCALATION, STANDARD_INTEGRATED_REVIEW or ELEVATED_EARLY_CHALLENGE"]
 
 
 def review_effort_for_plan(cfg: dict, plan: dict) -> tuple[dict, list[str]]:
-    """Return the frozen article review route; old campaigns retain their two-stage path."""
+    """Return the frozen article quality route; old campaigns retain independent R."""
     if not schema_at_least(cfg.get("schema_version"), 2, 6):
         return dict(LEGACY_REVIEW_EFFORT), []
     value = plan.get("review_effort")
-    errors = model_first_review_effort_errors(value)
+    errors = model_first_review_effort_errors(value, cfg_or_version=cfg)
     if errors:
         return {}, errors
     assert isinstance(value, dict)
-    return {
-        "tier": value["tier"],
-        "research_gate": value["research_gate"],
-        "reasons": list(value["reasons"]),
-    }, []
+    return dict(value), []
 
 
 def research_review_required(review_effort: object) -> bool:
-    return isinstance(review_effort, dict) and review_effort.get("tier") == "ELEVATED_EARLY_CHALLENGE"
+    return isinstance(review_effort, dict) and (
+        review_effort.get("tier") == "ELEVATED_EARLY_CHALLENGE"
+        or (
+            review_effort.get("tier") == "INDEPENDENT_R_ESCALATION"
+            and review_effort.get("research_gate") == "SEPARATE_RESEARCH_REVIEW_REQUIRED"
+        )
+    )
 
 
 def prewrite_plan_submission_errors(cfg: dict, manifest: dict) -> list[str]:
@@ -767,8 +923,9 @@ def prewrite_plan_submission_errors(cfg: dict, manifest: dict) -> list[str]:
     # makes a valid 2.11/1.7 pair fall through into the historical 2.10/1.6
     # error branch.
     if schema_at_least(cfg.get("schema_version"), 2, 11):
-        if manifest.get("schema_version") != CURRENT_PREWRITE_PLAN_SCHEMA:
-            errors.append(f"schema 2.11+ pre-write manifest schema_version must be {CURRENT_PREWRITE_PLAN_SCHEMA}")
+        expected_schema = prewrite_plan_schema_for_campaign(cfg)
+        if manifest.get("schema_version") != expected_schema:
+            errors.append(f"schema 2.11+ pre-write manifest schema_version must be {expected_schema}")
     elif schema_at_least(cfg.get("schema_version"), 2, 10):
         if manifest.get("schema_version") != RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA:
             errors.append(f"schema 2.10 pre-write manifest schema_version must be {RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA}")
@@ -791,7 +948,7 @@ def prewrite_plan_submission_errors(cfg: dict, manifest: dict) -> list[str]:
         for section in MODEL_FIRST_PREWRITE_PLAN_SECTIONS:
             if not non_empty_string(plan.get(section)):
                 errors.append(f"pre-write manifest article {article_id}: missing {section}")
-        for error in model_first_review_effort_errors(plan.get("review_effort")):
+        for error in model_first_review_effort_errors(plan.get("review_effort"), cfg_or_version=cfg):
             errors.append(f"pre-write manifest article {article_id}: {error}")
         errors.extend(frozen_delivery_mapping_errors(cfg, plan))
         errors.extend(topic_slot_errors(cfg, plan))
@@ -1160,12 +1317,13 @@ def public_qa_policy_errors(policy: object, *, expected: dict | None = None) -> 
     ]
 
 
-def batch_gate_policy_errors(policy: object) -> list[str]:
+def batch_gate_policy_errors(policy: object, *, expected: dict | None = None) -> list[str]:
     if not isinstance(policy, dict):
         return ["batch gate policy must be an object"]
+    expected = GATE_BATCH_POLICY_2_7 if expected is None else expected
     return [
         f"batch gate policy requires {key}={value!r}"
-        for key, value in GATE_BATCH_POLICY_2_7.items()
+        for key, value in expected.items()
         if policy.get(key) != value
     ]
 
@@ -1691,7 +1849,7 @@ def article_id_is_safe_path_component(article_id: object) -> bool:
 
 
 def uses_main_session_path_isolation(cfg: object) -> bool:
-    """Return whether this campaign uses the schema-2.13 article-root layout."""
+    """Return whether this campaign uses the schema-2.13+ article-root layout."""
     return isinstance(cfg, dict) and schema_at_least(cfg.get("schema_version"), 2, 13)
 
 
@@ -1714,6 +1872,7 @@ def article_artifact_paths_for_campaign(cfg: object, article_id: object) -> dict
     return {
         "evidence_pack": article_path("research/evidence-pack.json"),
         "canonical_article": article_path(canonical_article_path_for_campaign(cfg)),
+        "metadata": article_path("canonical/metadata.json"),
         "visual_manifest": article_path("canonical/visual-manifest.json"),
         "article_package": article_path("article-package.json"),
         "review_index": article_path("reviews/review-index.json"),
@@ -1776,6 +1935,31 @@ def article_workspace_isolation_errors(records: object, *, article_ids: set[str]
     return errors
 
 
+def route_requires_independent_reviewer(
+    workspace: Path, cfg: dict, article_id: str, review_effort: object,
+) -> bool:
+    """Resolve whether a registered R is needed without fabricating one for WQ.
+
+    A frozen WQ plan normally needs only W.  Once its index records a pending
+    or completed one-way WR escalation, the visible article lane must add an
+    independent reviewer.  A missing/unreadable index deliberately remains
+    WQ here; the index validator reports any malformed escalation separately.
+    """
+    if not author_qa_route(review_effort):
+        return True
+    try:
+        index_path = workspace / article_artifact_root_relative(cfg, article_id) / "reviews/review-index.json"
+    except ValueError:
+        return False
+    index, error = json_object_file(index_path, label="article quality route index")
+    if error or not isinstance(index, dict):
+        return False
+    resolution = index.get("route_resolution")
+    return isinstance(resolution, dict) and resolution.get("status") in {
+        "WR_ESCALATION_REQUIRED", "WR_ESCALATED",
+    }
+
+
 def manifest_text(value: object, *, pending: str = "PENDING") -> str:
     return value.strip() if isinstance(value, str) and value.strip() else pending
 
@@ -1812,7 +1996,8 @@ MODEL_FIRST_PREWRITE_PLAN_LABELS = {
 def render_prewrite_plan_markdown(manifest: dict, manifest_sha256: str) -> str:
     """Render the owner view from the canonical JSON plan; never hand-maintain it."""
     model_first = manifest.get("schema_version") in {
-        "1.4", "1.5", RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA, CURRENT_PREWRITE_PLAN_SCHEMA,
+        "1.4", "1.5", RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA,
+        PREVIOUS_PREWRITE_PLAN_SCHEMA, CURRENT_PREWRITE_PLAN_SCHEMA,
     }
     article_plans = manifest.get("article_plans")
     article_plans = article_plans if isinstance(article_plans, list) else []
@@ -2397,8 +2582,13 @@ def human_native_release_policy_errors(cfg: object) -> list[str]:
     if not isinstance(cfg, dict):
         return ["campaign configuration must be an object"]
     errors: list[str] = []
-    if cfg.get("live_execution_profile") != HUMAN_RELEASE_PROFILE_2_9:
-        errors.append("schema 2.9+ requires the human-native release profile")
+    expected_profile = (
+        HUMAN_RELEASE_PROFILE_2_14
+        if schema_2_14_or_newer(cfg)
+        else HUMAN_RELEASE_PROFILE_2_9
+    )
+    if cfg.get("live_execution_profile") != expected_profile:
+        errors.append("current schema requires the matching human-native release profile")
     release_policy = cfg.get("release_policy")
     if not isinstance(release_policy, dict):
         return errors + ["schema 2.9+ release_policy must be an object"]
@@ -2677,7 +2867,7 @@ def build_article_context(workspace: Path, article_id: str, output: Path) -> int
     if expected_context is not None and output.resolve() != expected_context.resolve():
         print(
             "ARTICLE_CONTEXT_BUILD_FAILED\n"
-            f"schema 2.13 article context must be {relative_path(workspace, expected_context)}"
+            f"main-session article context must be {relative_path(workspace, expected_context)}"
         )
         return 1
     policy_errors = human_native_release_policy_errors(cfg)
@@ -2805,23 +2995,27 @@ def build_review_index(workspace: Path, context_path: Path, output: Path, canoni
     if context.get("schema_version") != ARTICLE_CONTEXT_SCHEMA or not non_empty_string(context.get("article_id")):
         print("REVIEW_INDEX_BUILD_FAILED\narticle contract schema or article_id is invalid")
         return 1
+    cfg, cfg_error = read_workspace_json(workspace, "campaign.json")
+    if cfg_error or cfg is None:
+        print("REVIEW_INDEX_BUILD_FAILED\n" + (cfg_error or "campaign.json is invalid"))
+        return 1
     artifact_paths = context.get("artifact_paths")
     if not isinstance(artifact_paths, dict):
         print("REVIEW_INDEX_BUILD_FAILED\narticle contract artifact paths are invalid")
         return 1
-    if uses_main_session_path_isolation(read_workspace_json(workspace, "campaign.json")[0]):
+    if uses_main_session_path_isolation(cfg):
         expected_output = workspace / str(artifact_paths.get("review_index", ""))
         expected_canonical = workspace / str(artifact_paths.get("canonical_article", ""))
         if output.resolve() != expected_output.resolve():
             print(
                 "REVIEW_INDEX_BUILD_FAILED\n"
-                f"schema 2.13 review index must be {relative_path(workspace, expected_output)}"
+                f"main-session review index must be {relative_path(workspace, expected_output)}"
             )
             return 1
         if canonical_path is not None and canonical_path.resolve() != expected_canonical.resolve():
             print(
                 "REVIEW_INDEX_BUILD_FAILED\n"
-                f"schema 2.13 canonical article must be {relative_path(workspace, expected_canonical)}"
+                f"main-session canonical article must be {relative_path(workspace, expected_canonical)}"
             )
             return 1
     state_record, state_error = read_workspace_json(workspace, "state.json")
@@ -2831,11 +3025,43 @@ def build_review_index(workspace: Path, context_path: Path, output: Path, canoni
     canonical = canonical_path or workspace / str(artifact_paths.get("canonical_article", "canonical/article.md"))
     canonical_record = {"path": relative_path(workspace, canonical), "sha256": sha256_file(canonical)} if canonical.is_file() else {"path": relative_path(workspace, canonical), "sha256": None}
     review_effort = context.get("review_effort")
-    review_effort_errors = model_first_review_effort_errors(review_effort)
+    review_effort_errors = model_first_review_effort_errors(review_effort, cfg_or_version=cfg)
     if review_effort_errors:
         print("REVIEW_INDEX_BUILD_FAILED\narticle contract review_effort is invalid\n" + "\n".join(review_effort_errors))
         return 1
-    integrated = review_effort.get("tier") == "STANDARD_INTEGRATED_REVIEW"
+    is_wq = author_qa_route(review_effort)
+    independent = independent_review_route(review_effort)
+    research_required = research_review_required(review_effort)
+    if is_wq:
+        research_record = {
+            "status": "NOT_REQUIRED",
+            "coverage": "INTEGRATED_IN_AUTHOR_QA",
+            "report_path": None, "report_sha256": None,
+            "reviewer_agent_id": None, "reviewed_evidence_pack_sha256": None,
+        }
+        full_record = {
+            "status": "NOT_REQUIRED", "report_path": None, "report_sha256": None,
+            "reviewer_agent_id": None, "canonical_sha256": None,
+            "evidence_pack_sha256": None, "metadata_sha256": None, "visual_manifest_sha256": None,
+            "visual_payload_sha256": None, "visual_payload_markdown_sha256": None,
+            "article_package_sha256": None,
+        }
+        route_resolution = dict(AUTHOR_QA_ROUTE_RESOLUTION)
+    else:
+        research_record = {
+            "status": "PENDING" if research_required else "NOT_REQUIRED",
+            "coverage": None if research_required else "INTEGRATED_IN_FULL_REVIEW",
+            "report_path": None, "report_sha256": None,
+            "reviewer_agent_id": None, "reviewed_evidence_pack_sha256": None,
+        }
+        full_record = {
+            "status": "PENDING", "report_path": None, "report_sha256": None,
+            "reviewer_agent_id": None, "canonical_sha256": canonical_record["sha256"],
+            "evidence_pack_sha256": None, "metadata_sha256": None, "visual_manifest_sha256": None,
+            "visual_payload_sha256": None, "visual_payload_markdown_sha256": None,
+            "article_package_sha256": None,
+        }
+        route_resolution = dict(WR_ROUTE_RESOLUTION) if schema_2_14_or_newer(cfg) and independent else None
     index = {
         "schema_version": REVIEW_INDEX_SCHEMA,
         "article_id": context["article_id"],
@@ -2843,19 +3069,18 @@ def build_review_index(workspace: Path, context_path: Path, output: Path, canoni
         "canonical": canonical_record,
         "open_findings": active_findings_for_article(state_record.get("finding_status"), context["article_id"]),
         "review_effort": review_effort,
-        "latest_research_review": {
-            "status": "NOT_REQUIRED" if integrated else "PENDING",
-            "coverage": "INTEGRATED_IN_FULL_REVIEW" if integrated else None,
-            "report_path": None, "report_sha256": None,
-            "reviewer_agent_id": None, "reviewed_evidence_pack_sha256": None,
-        },
-        "latest_full_review": {
-            "status": "PENDING", "report_path": None, "report_sha256": None,
-            "reviewer_agent_id": None, "canonical_sha256": canonical_record["sha256"],
+        "route_resolution": route_resolution,
+        "latest_research_review": research_record,
+        "latest_author_qa": {
+            "status": "PENDING" if is_wq else "NOT_REQUIRED",
+            "receipt_path": None, "receipt_sha256": None, "author_agent_id": None,
+            "self_qa_protocol": AUTHOR_QA_PROTOCOL if is_wq else None,
+            "candidate_canonical_sha256": None, "canonical_sha256": None,
             "evidence_pack_sha256": None, "metadata_sha256": None, "visual_manifest_sha256": None,
             "visual_payload_sha256": None, "visual_payload_markdown_sha256": None,
-            "article_package_sha256": None,
+            "article_package_sha256": None, "open_finding_ids": [],
         },
+        "latest_full_review": full_record,
         "last_delta": None,
         "read_protocol": context.get("rehydration_protocol"),
     }
@@ -2902,11 +3127,149 @@ def review_record_errors(
     return errors
 
 
+def author_qa_record_errors(
+    workspace: Path, record: object, *, require_ready: bool,
+    expected_hashes: dict[str, str | None],
+) -> list[str]:
+    """Validate the compact WQ receipt without calling it an independent review."""
+    if not isinstance(record, dict):
+        return ["review index requires latest_author_qa"]
+    errors: list[str] = []
+    status = record.get("status")
+    if status not in AUTHOR_QA_STATUSES:
+        errors.append("latest_author_qa has an invalid status")
+        return errors
+    if status in {"PENDING", "NOT_REQUIRED"}:
+        for field in ("receipt_path", "receipt_sha256", "author_agent_id"):
+            if record.get(field) not in {None, ""}:
+                errors.append(f"{status.lower()} latest_author_qa may not carry {field}")
+        if status == "NOT_REQUIRED" and record.get("self_qa_protocol") not in {None, ""}:
+            errors.append("not_required latest_author_qa may not carry self_qa_protocol")
+    else:
+        for field in ("receipt_path", "receipt_sha256", "author_agent_id"):
+            if not non_empty_string(record.get(field)):
+                errors.append(f"latest_author_qa requires {field}")
+        receipt_path, receipt_error = workspace_file(
+            workspace, record.get("receipt_path"), label="latest_author_qa receipt",
+        )
+        if receipt_error:
+            errors.append(receipt_error)
+        elif receipt_path is not None and record.get("receipt_sha256") != sha256_file(receipt_path):
+            errors.append("latest_author_qa receipt_sha256 does not match")
+        if record.get("self_qa_protocol") != AUTHOR_QA_PROTOCOL:
+            errors.append("latest_author_qa self_qa_protocol is invalid")
+        finding_ids = record.get("open_finding_ids")
+        if not isinstance(finding_ids, list) or any(not non_empty_string(item) for item in finding_ids):
+            errors.append("latest_author_qa open_finding_ids must be a list of non-empty IDs")
+        if status == "AUTHOR_QA_READY":
+            if finding_ids != []:
+                errors.append("AUTHOR_QA_READY requires zero open_finding_ids")
+            if not non_empty_string(record.get("candidate_canonical_sha256")):
+                errors.append("AUTHOR_QA_READY requires candidate_canonical_sha256")
+            for field, expected in expected_hashes.items():
+                if not non_empty_string(record.get(field)):
+                    errors.append(f"AUTHOR_QA_READY requires {field}")
+                elif expected is None or record.get(field) != expected:
+                    errors.append(f"AUTHOR_QA_READY {field} does not match the current artifact")
+    if require_ready and status != "AUTHOR_QA_READY":
+        errors.append("handoff requires latest_author_qa status AUTHOR_QA_READY")
+    return errors
+
+
+def author_qa_route_resolution_errors(index: dict, *, require_final_quality: bool) -> tuple[list[str], str]:
+    """Return the effective WQ/WR mode and reject silent route changes."""
+    resolution = index.get("route_resolution")
+    if not isinstance(resolution, dict):
+        return ["AUTHOR_QA_INTEGRATED requires route_resolution"], "INVALID"
+    expected_planned = "WQ_SHARED_CONTEXT"
+    if resolution.get("planned_quality_mode") != expected_planned:
+        return ["WQ route_resolution planned_quality_mode must be WQ_SHARED_CONTEXT"], "INVALID"
+    triggers = resolution.get("escalation_trigger_ids")
+    if not isinstance(triggers, list) or any(not non_empty_string(item) for item in triggers):
+        return ["WQ route_resolution escalation_trigger_ids must be a list of non-empty IDs"], "INVALID"
+    status = resolution.get("status")
+    effective = resolution.get("effective_quality_mode")
+    if status == "NOT_ESCALATED":
+        errors = []
+        if effective != "WQ_SHARED_CONTEXT":
+            errors.append("un-escalated WQ route must retain WQ_SHARED_CONTEXT")
+        if triggers:
+            errors.append("un-escalated WQ route may not carry escalation_trigger_ids")
+        return errors, "WQ_SHARED_CONTEXT"
+    if status == "WR_ESCALATION_REQUIRED":
+        errors = []
+        if effective != "WQ_SHARED_CONTEXT":
+            errors.append("pending WQ escalation must retain WQ_SHARED_CONTEXT until an independent R is registered")
+        if not triggers:
+            errors.append("WQ escalation requires at least one stable escalation trigger ID")
+        if require_final_quality:
+            errors.append("handoff is blocked while WQ escalation is still pending")
+        return errors, "WQ_SHARED_CONTEXT"
+    if status == "WR_ESCALATED":
+        errors = []
+        if effective != "WR_INDEPENDENT_ESCALATED":
+            errors.append("escalated WQ route must use WR_INDEPENDENT_ESCALATED")
+        if not triggers:
+            errors.append("escalated WQ route requires at least one stable escalation trigger ID")
+        return errors, "WR_INDEPENDENT_ESCALATED"
+    return ["WQ route_resolution status must be NOT_ESCALATED, WR_ESCALATION_REQUIRED or WR_ESCALATED"], "INVALID"
+
+
+def independent_route_resolution_errors(index: dict, review_effort: dict) -> list[str]:
+    """Validate the explicit 2.14 WR declaration while tolerating 2.13 indexes."""
+    resolution = index.get("route_resolution")
+    if resolution is None or resolution == "":
+        return []
+    if not isinstance(resolution, dict):
+        return ["WR route_resolution must be an object when present"]
+    if resolution.get("planned_quality_mode") != "WR_INDEPENDENT":
+        return ["WR route_resolution planned_quality_mode must be WR_INDEPENDENT"]
+    if resolution.get("effective_quality_mode") != "WR_INDEPENDENT":
+        return ["WR route_resolution effective_quality_mode must be WR_INDEPENDENT"]
+    if resolution.get("status") != "NOT_APPLICABLE":
+        return ["WR route_resolution status must be NOT_APPLICABLE"]
+    triggers = resolution.get("escalation_trigger_ids")
+    if not isinstance(triggers, list) or triggers:
+        return ["WR route_resolution escalation_trigger_ids must be an empty list"]
+    return []
+
+
+def final_artifact_hashes(workspace: Path, context: dict, canonical: object) -> dict[str, str | None]:
+    """Resolve only the bounded final sources that a quality receipt must bind."""
+    paths = context.get("artifact_paths") if isinstance(context.get("artifact_paths"), dict) else {}
+    values: dict[str, str | None] = {
+        "canonical_sha256": canonical.get("sha256") if isinstance(canonical, dict) else None,
+        "evidence_pack_sha256": None,
+        "metadata_sha256": None,
+        "visual_manifest_sha256": None,
+        "visual_payload_sha256": None,
+        "visual_payload_markdown_sha256": None,
+        "article_package_sha256": None,
+    }
+    for field, path_key in (
+        ("evidence_pack_sha256", "evidence_pack"),
+        ("metadata_sha256", "metadata"),
+        ("visual_manifest_sha256", "visual_manifest"),
+        ("visual_payload_sha256", "visual_payload"),
+        ("visual_payload_markdown_sha256", "visual_payload_markdown"),
+        ("article_package_sha256", "article_package"),
+    ):
+        path, path_error = workspace_file(workspace, paths.get(path_key), label=f"review index {path_key}")
+        if path_error is None and path is not None:
+            values[field] = sha256_file(path)
+    return values
+
+
 def review_index_errors(
     workspace: Path, index_path: Path, *, require_research_approved: bool = False,
     require_full_approved: bool = False,
 ) -> list[str]:
-    """Verify review-baseline provenance before an R or hand-off turn."""
+    """Verify the route-appropriate, hash-bound quality receipt.
+
+    ``require_full_approved`` is retained as a CLI-compatible parameter name.
+    On a WQ route it means "require final quality readiness", not an invented
+    independent full review.
+    """
     index, index_error = json_object_file(index_path, label="review index")
     errors: list[str] = [index_error] if index_error else []
     if index is None:
@@ -2953,51 +3316,84 @@ def review_index_errors(
         errors.append("legacy article contract may not introduce a review_effort in the review index")
     effective_effort = context_effort if isinstance(context_effort, dict) else LEGACY_REVIEW_EFFORT
     if isinstance(context_effort, dict):
-        errors.extend(model_first_review_effort_errors(effective_effort))
+        cfg, cfg_error = read_workspace_json(workspace, "campaign.json")
+        if cfg_error:
+            errors.append(cfg_error)
+        else:
+            errors.extend(model_first_review_effort_errors(effective_effort, cfg_or_version=cfg or {}))
+    expected_hashes = final_artifact_hashes(workspace, context, canonical) if isinstance(context, dict) else {
+        field: None for field in FINAL_QUALITY_HASH_FIELDS
+    }
+    evidence_pack_sha256 = expected_hashes["evidence_pack_sha256"]
+    if evidence_pack_sha256 is None and (require_research_approved or require_full_approved):
+        errors.append("review index evidence pack is missing or unreadable")
     research_required = research_review_required(effective_effort)
-    evidence_pack_sha256 = None
-    if isinstance(context, dict):
-        evidence_pack_path = context.get("artifact_paths", {}).get("evidence_pack") if isinstance(context.get("artifact_paths"), dict) else None
-        evidence_pack, evidence_pack_error = workspace_file(workspace, evidence_pack_path, label="review index evidence pack")
-        if evidence_pack_error and (require_research_approved or require_full_approved):
-            errors.append(evidence_pack_error)
-        elif evidence_pack is not None:
-            evidence_pack_sha256 = sha256_file(evidence_pack)
     research_record = index.get("latest_research_review")
     errors.extend(review_record_errors(
         workspace, research_record, label="latest_research_review",
         allowed_statuses=RESEARCH_REVIEW_STATUSES, approved_status="RESEARCH_APPROVED",
-        require_approved=require_research_approved, expected_artifact_sha256=evidence_pack_sha256,
+        require_approved=require_research_approved and research_required, expected_artifact_sha256=evidence_pack_sha256,
         artifact_field="reviewed_evidence_pack_sha256",
     ))
     if research_required:
         if isinstance(research_record, dict) and research_record.get("status") == "NOT_REQUIRED":
-            errors.append("elevated review route requires a separate research review")
+            errors.append("this WR route requires a separate research review")
     elif isinstance(research_record, dict):
         if research_record.get("status") != "NOT_REQUIRED":
-            errors.append("standard integrated review route must not create a separate research-review gate")
-        if research_record.get("coverage") != "INTEGRATED_IN_FULL_REVIEW":
-            errors.append("standard integrated review route requires INTEGRATED_IN_FULL_REVIEW coverage")
-    canonical_sha256 = None
-    if isinstance(canonical, dict) and canonical.get("sha256") is not None:
-        canonical_sha256 = canonical.get("sha256")
+            errors.append("an integrated quality route must not create a separate research-review gate")
+        expected_coverage = "INTEGRATED_IN_AUTHOR_QA" if author_qa_route(effective_effort) else "INTEGRATED_IN_FULL_REVIEW"
+        if research_record.get("coverage") != expected_coverage:
+            errors.append(f"integrated quality route requires {expected_coverage} coverage")
+
+    if author_qa_route(effective_effort):
+        resolution_errors, effective_mode = author_qa_route_resolution_errors(
+            index, require_final_quality=require_full_approved,
+        )
+        errors.extend(resolution_errors)
+        author_record = index.get("latest_author_qa")
+        author_needs_ready = require_full_approved and effective_mode == "WQ_SHARED_CONTEXT"
+        errors.extend(author_qa_record_errors(
+            workspace, author_record, require_ready=author_needs_ready,
+            expected_hashes=expected_hashes,
+        ))
+        full_record = index.get("latest_full_review")
+        if effective_mode == "WQ_SHARED_CONTEXT":
+            errors.extend(review_record_errors(
+                workspace, full_record, label="latest_full_review",
+                allowed_statuses=FULL_REVIEW_STATUSES, approved_status="APPROVED",
+                require_approved=False, expected_artifact_sha256=expected_hashes["canonical_sha256"],
+                artifact_field="canonical_sha256", pending_allows_artifact=True,
+            ))
+            if not isinstance(full_record, dict) or full_record.get("status") != "NOT_REQUIRED":
+                errors.append("un-escalated AUTHOR_QA_INTEGRATED must not carry a full R review")
+            if author_needs_ready and index.get("open_findings") != []:
+                errors.append("AUTHOR_QA_READY requires the review index to have zero open_findings")
+        elif effective_mode == "WR_INDEPENDENT_ESCALATED":
+            if isinstance(author_record, dict) and author_record.get("status") != "AUTHOR_QA_ESCALATION_REQUIRED":
+                errors.append("escalated WQ route requires AUTHOR_QA_ESCALATION_REQUIRED before independent R")
+            errors.extend(review_record_errors(
+                workspace, full_record, label="latest_full_review",
+                allowed_statuses=FULL_REVIEW_STATUSES, approved_status="APPROVED",
+                require_approved=require_full_approved, expected_artifact_sha256=expected_hashes["canonical_sha256"],
+                artifact_field="canonical_sha256", pending_allows_artifact=True,
+            ))
+            if isinstance(full_record, dict) and full_record.get("status") == "APPROVED":
+                if full_record.get("evidence_pack_sha256") != evidence_pack_sha256:
+                    errors.append("escalated WQ independent full review evidence_pack_sha256 does not match")
+        return errors
+
+    # Independent WR routes retain the existing R receipt and delta semantics.
+    errors.extend(independent_route_resolution_errors(index, effective_effort))
+    full_record = index.get("latest_full_review")
     errors.extend(review_record_errors(
-        workspace, index.get("latest_full_review"), label="latest_full_review",
+        workspace, full_record, label="latest_full_review",
         allowed_statuses=FULL_REVIEW_STATUSES, approved_status="APPROVED",
-        require_approved=require_full_approved, expected_artifact_sha256=canonical_sha256,
+        require_approved=require_full_approved, expected_artifact_sha256=expected_hashes["canonical_sha256"],
         artifact_field="canonical_sha256", pending_allows_artifact=True,
     ))
-    full_record = index.get("latest_full_review")
-    if (
-        isinstance(effective_effort, dict)
-        and effective_effort.get("tier") == "STANDARD_INTEGRATED_REVIEW"
-        and isinstance(full_record, dict)
-        and full_record.get("status") == "APPROVED"
-    ):
-        if not non_empty_string(full_record.get("evidence_pack_sha256")):
-            errors.append("standard integrated final review requires evidence_pack_sha256")
-        elif evidence_pack_sha256 is None or full_record.get("evidence_pack_sha256") != evidence_pack_sha256:
-            errors.append("standard integrated final review evidence_pack_sha256 does not match")
+    if isinstance(full_record, dict) and full_record.get("status") == "APPROVED":
+        if full_record.get("evidence_pack_sha256") != evidence_pack_sha256:
+            errors.append("independent final review evidence_pack_sha256 does not match")
     return errors
 
 
@@ -3026,11 +3422,26 @@ def registered_reviewer_id(workspace: Path, article_id: str) -> tuple[str | None
     return reviewer_id, []
 
 
-def reviewer_task_receipt_errors(
-    workspace: Path, *, article_id: str, reviewer_agent_id: str, workflow_stage: str,
-    result: str, report_path: str,
+def registered_writer_id(workspace: Path, article_id: str) -> tuple[str | None, list[str]]:
+    """Resolve the visible W that owns a WQ receipt for this article."""
+    state, state_error = read_workspace_json(workspace, "state.json")
+    if state_error or state is None:
+        return None, [state_error or "state.json is invalid"]
+    orchestration = state.get("orchestration")
+    workspaces = orchestration.get("article_workspaces") if isinstance(orchestration, dict) else None
+    lane = workspaces.get(article_id) if isinstance(workspaces, dict) else None
+    bundle = lane.get("role_bundle") if isinstance(lane, dict) else None
+    writer_id = bundle.get("writer_agent") if isinstance(bundle, dict) else None
+    if not non_empty_string(writer_id):
+        return None, ["handoff requires the registered article writer for AUTHOR_QA"]
+    return writer_id, []
+
+
+def visible_quality_task_receipt_errors(
+    workspace: Path, *, article_id: str, agent_role: str, agent_id: str,
+    workflow_stage: str, result: str, result_path: str,
 ) -> list[str]:
-    """Require one visible R task receipt for a final approval without rereading its report."""
+    """Require a visible WQ or WR task without pretending they are the same role."""
     state, state_error = read_workspace_json(workspace, "state.json")
     if state_error or state is None:
         return [state_error or "state.json is invalid"]
@@ -3043,24 +3454,36 @@ def reviewer_task_receipt_errors(
             continue
         if (
             task.get("article_id") == article_id
-            and task.get("role") == "ARTICLE_LANGUAGE_REVIEWER"
-            and task.get("agent_id") == reviewer_agent_id
+            and task.get("role") == agent_role
+            and task.get("agent_id") == agent_id
             and task.get("workflow_stage") == workflow_stage
             and task.get("result") == result
-            and task.get("result_path") == report_path
+            and task.get("result_path") == result_path
             and task.get("status") == "COMPLETED"
         ):
             return []
     return [
-        "handoff requires a completed visible reviewer task for "
-        f"{workflow_stage} at {report_path}"
+        "handoff requires a completed visible quality task for "
+        f"{workflow_stage} at {result_path}"
     ]
+
+
+def reviewer_task_receipt_errors(
+    workspace: Path, *, article_id: str, reviewer_agent_id: str, workflow_stage: str,
+    result: str, report_path: str,
+) -> list[str]:
+    """Compatibility wrapper for a visible independent R task receipt."""
+    return visible_quality_task_receipt_errors(
+        workspace, article_id=article_id, agent_role="ARTICLE_LANGUAGE_REVIEWER",
+        agent_id=reviewer_agent_id, workflow_stage=workflow_stage,
+        result=result, result_path=report_path,
+    )
 
 
 def handoff_review_approval_errors(
     workspace: Path, article_id: str, *, article_root: Path | None = None,
 ) -> tuple[list[str], dict | None, str | None]:
-    """Bind hand-off to the registered R's route-appropriate final approval."""
+    """Bind hand-off to the truthful WQ or WR final quality credential."""
     root = article_root or workspace
     index_path = root / "reviews/review-index.json"
     index, index_error = json_object_file(index_path, label="handoff review index")
@@ -3078,6 +3501,32 @@ def handoff_review_approval_errors(
     ))
     if index.get("article_id") != article_id:
         errors.append("handoff review index article_id does not match article package")
+    resolution_errors, effective_mode = (
+        author_qa_route_resolution_errors(index, require_final_quality=True)
+        if author_qa_route(review_effort)
+        else ([], "WR_INDEPENDENT")
+    )
+    errors.extend(resolution_errors)
+    if effective_mode == "WQ_SHARED_CONTEXT":
+        writer_id, writer_errors = registered_writer_id(workspace, article_id)
+        errors.extend(writer_errors)
+        if writer_id is None:
+            return errors, index, None
+        author = index.get("latest_author_qa")
+        if not isinstance(author, dict):
+            errors.append("handoff requires latest_author_qa")
+        else:
+            if author.get("author_agent_id") != writer_id:
+                errors.append("latest_author_qa author_agent_id must match the registered article writer")
+            receipt_path = author.get("receipt_path")
+            if non_empty_string(receipt_path):
+                errors.extend(visible_quality_task_receipt_errors(
+                    workspace, article_id=article_id, agent_role="ARTICLE_WRITER",
+                    agent_id=writer_id, workflow_stage="AUTHOR_QA",
+                    result="AUTHOR_QA_READY", result_path=receipt_path,
+                ))
+        return errors, index, writer_id
+
     reviewer_id, reviewer_errors = registered_reviewer_id(workspace, article_id)
     errors.extend(reviewer_errors)
     if reviewer_id is None:
@@ -3108,20 +3557,17 @@ def current_handoff_review_binding(
     evidence_pack_sha256: str | None,
     article_id: str, reviewer_agent_id: str | None,
 ) -> tuple[list[str], str | None]:
-    """Resolve the full-review or post-full targeted-delta handoff proof.
+    """Resolve the WQ or independent-WR handoff proof.
 
-    Schema-1.4 packages are fully assembled before `FULL_REVIEW`. The single
-    review-index receipt therefore binds the canonical source, metadata, final
-    visual manifest, compiled payload and package. R-Delta remains available
-    only when one of those artifacts changes after that approval.
+    A WQ receipt is truthful only for a same-author adversarial self-QA and
+    never grants the semantic label of an independent review.  R-Delta remains
+    available only after an actual independent WR full review.
     """
     if not isinstance(review_index, dict):
-        return ["handoff requires a review index for final full-review bindings"], None
-    full = review_index.get("latest_full_review")
-    if not isinstance(full, dict) or full.get("status") != "APPROVED":
-        return ["handoff requires an APPROVED final full review"], None
+        return ["handoff requires a review index for final quality bindings"], None
     expected = {
         "canonical_sha256": package.get("canonical_sha256"),
+        "evidence_pack_sha256": evidence_pack_sha256,
         "metadata_sha256": metadata_sha256,
         "visual_manifest_sha256": visual_manifest_sha256,
         "visual_payload_sha256": visual_payload_sha256,
@@ -3129,8 +3575,34 @@ def current_handoff_review_binding(
         "article_package_sha256": sha256_file(package_path),
     }
     review_effort = review_index.get("review_effort")
-    if isinstance(review_effort, dict) and review_effort.get("tier") == "STANDARD_INTEGRATED_REVIEW":
-        expected["evidence_pack_sha256"] = evidence_pack_sha256
+    if author_qa_route(review_effort):
+        resolution_errors, effective_mode = author_qa_route_resolution_errors(
+            review_index, require_final_quality=True,
+        )
+        if resolution_errors:
+            return resolution_errors, None
+        if effective_mode == "WQ_SHARED_CONTEXT":
+            author = review_index.get("latest_author_qa")
+            if not isinstance(author, dict) or author.get("status") != "AUTHOR_QA_READY":
+                return ["handoff requires AUTHOR_QA_READY on an un-escalated WQ route"], None
+            errors: list[str] = []
+            for field, expected_hash in expected.items():
+                if not non_empty_string(author.get(field)):
+                    errors.append(f"AUTHOR_QA_READY requires {field}")
+                elif expected_hash is None or author.get(field) != expected_hash:
+                    errors.append(f"AUTHOR_QA_READY {field} does not match the final artifact")
+            if not non_empty_string(author.get("candidate_canonical_sha256")):
+                errors.append("AUTHOR_QA_READY requires candidate_canonical_sha256")
+            if author.get("open_finding_ids") != []:
+                errors.append("AUTHOR_QA_READY requires zero open_finding_ids")
+            if errors:
+                return errors, None
+            return [], "AUTHOR_QA_COVERS_FINAL_PAYLOAD"
+        # A documented WQ escalation now follows the ordinary independent
+        # branch below; it does not regain an author-QA delta shortcut.
+    full = review_index.get("latest_full_review")
+    if not isinstance(full, dict) or full.get("status") != "APPROVED":
+        return ["handoff requires an APPROVED independent final full review"], None
     errors: list[str] = []
     for field, expected_hash in expected.items():
         if not non_empty_string(full.get(field)):
@@ -3202,6 +3674,91 @@ def current_handoff_review_binding(
     return [], "POST_FULL_REVIEW_VISUAL_DELTA" if review_scope == "R_VISUAL_DELTA" else "POST_FULL_REVIEW_TARGETED_DELTA"
 
 
+def final_quality_receipt_from_index(index: object) -> tuple[dict | None, list[str]]:
+    """Project WQ or WR evidence into G's route-truthful compact credential.
+
+    G needs to bind a completed quality route but must never relabel WQ as an
+    R approval.  The caller separately validates files and final hashes with
+    ``review_index_errors``; this helper only normalizes the identity surface
+    used by the batch report.
+    """
+    if not isinstance(index, dict):
+        return None, ["quality receipt requires a review index object"]
+    effort = index.get("review_effort")
+    if author_qa_route(effort):
+        resolution_errors, effective_mode = author_qa_route_resolution_errors(
+            index, require_final_quality=True,
+        )
+        if resolution_errors:
+            return None, resolution_errors
+        if effective_mode == "WQ_SHARED_CONTEXT":
+            record = index.get("latest_author_qa")
+            if not isinstance(record, dict):
+                return None, ["WQ quality receipt requires latest_author_qa"]
+            return {
+                "quality_mode": "WQ_SHARED_CONTEXT",
+                "status": record.get("status"),
+                "agent_role": "ARTICLE_WRITER",
+                "agent_id": record.get("author_agent_id"),
+                "receipt_path": record.get("receipt_path"),
+                "receipt_sha256": record.get("receipt_sha256"),
+            }, []
+        quality_mode = "WR_INDEPENDENT_ESCALATED"
+    else:
+        quality_mode = "WR_INDEPENDENT" if independent_review_route(effort) else "WR_INDEPENDENT_LEGACY"
+    record = index.get("latest_full_review")
+    if not isinstance(record, dict):
+        return None, ["WR quality receipt requires latest_full_review"]
+    return {
+        "quality_mode": quality_mode,
+        "status": record.get("status"),
+        "agent_role": "ARTICLE_LANGUAGE_REVIEWER",
+        "agent_id": record.get("reviewer_agent_id"),
+        "receipt_path": record.get("report_path"),
+        "receipt_sha256": record.get("report_sha256"),
+    }, []
+
+
+def quality_receipt_row_errors(
+    row: dict, review_index: dict | None, *, require_generic_receipt: bool,
+    prefix: str,
+) -> list[str]:
+    """Compare a G row to the current quality credential without re-reviewing."""
+    expected, expected_errors = final_quality_receipt_from_index(review_index)
+    errors = list(expected_errors)
+    if expected is None:
+        return errors
+    supplied = row.get("quality_receipt")
+    if require_generic_receipt:
+        if not isinstance(supplied, dict):
+            return errors + [f"{prefix}: requires quality_receipt bound to the current review index"]
+        for field, value in expected.items():
+            if supplied.get(field) != value:
+                errors.append(f"{prefix}: quality_receipt {field} does not match the review index")
+        accepted_status = "AUTHOR_QA_READY" if expected["quality_mode"] == "WQ_SHARED_CONTEXT" else "APPROVED"
+        if supplied.get("status") != accepted_status:
+            errors.append(f"{prefix}: quality_receipt status must be {accepted_status}")
+        return errors
+
+    # Legacy report rows retain the old full_review projection so completed
+    # schema-2.13 evidence remains readable and does not need migration.
+    supplied = row.get("full_review")
+    if not isinstance(supplied, dict):
+        return errors + [f"{prefix}: requires full_review bound to the current review index"]
+    legacy_projection = {
+        "status": expected.get("status"),
+        "reviewer_agent_id": expected.get("agent_id"),
+        "report_path": expected.get("receipt_path"),
+        "report_sha256": expected.get("receipt_sha256"),
+    }
+    for field, value in legacy_projection.items():
+        if supplied.get(field) != value:
+            errors.append(f"{prefix}: full_review {field} does not match the review index")
+    if supplied.get("status") != "APPROVED":
+        errors.append(f"{prefix}: full_review must be APPROVED before G batch acceptance")
+    return errors
+
+
 def check_review_delta(workspace: Path, delta_path: Path) -> int:
     """Validate a narrow R-delta hand-off without asking R to reload unrelated history."""
     delta, error = json_object_file(delta_path, label="review delta")
@@ -3233,6 +3790,15 @@ def check_review_delta(workspace: Path, delta_path: Path) -> int:
         if index_error or index is None:
             errors.append(index_error or "review index is invalid")
         else:
+            effort = index.get("review_effort")
+            if author_qa_route(effort):
+                _, effective_mode = author_qa_route_resolution_errors(
+                    index, require_final_quality=False,
+                )
+                if effective_mode != "WR_INDEPENDENT_ESCALATED":
+                    errors.append(
+                        "AUTHOR_QA_INTEGRATED does not permit R_DELTA; rerun AUTHOR_QA or record a WR escalation"
+                    )
             if index.get("schema_version") != REVIEW_INDEX_SCHEMA:
                 errors.append("review delta references an unsupported review index")
             if index.get("article_id") != article_id:
@@ -3319,10 +3885,10 @@ def campaign(campaign_id: str) -> dict:
         "visual_narrative_policy": {"mode": "LEAD_MIDDLE_CLOSING_REQUIRED", "default_applies_to": ["guide", "tutorial", "comparison", "review", "long_explainer"], "default_minimum_images": 3, "required_coverage_zones": VISUAL_ZONES, "all_articles_required": False, "exception_requires_owner_confirmation": True},
         "cross_language_seo": {"status": "NOT_REQUESTED", "target_locales": [], "google_trends_seed_language": "ENGLISH_ONLY", "variant_priority_order": PRIORITY, "minimum_independent_regional_serp_checks_for_fallback": 2},
         "quality_policy": {"aitdk_local_reference": "required", "plugin_scan": "best_effort_non_blocking", "final_prepublication_target": "visual-payload.html+visual-payload.md"},
-        "artifact_optimization_policy": LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13,
-        "model_first_execution_policy": MODEL_FIRST_EXECUTION_POLICY_2_6,
-        "live_execution_profile": HUMAN_RELEASE_PROFILE_2_9,
-        "orchestration_policy": {"delegation_default": "VISIBLE_SUBAGENTS", "visible_task_record_required": True, "invisible_cli_agent_sessions": "PROHIBITED", "writer_reviewer_pair_mode": "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION", "cross_article_agent_reuse": "CAMPAIGN_W_R_G_REUSE_ALLOWED", "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD", "persistent_requirements_gatekeeper": True, "fresh_agent_roles": [], "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY", "execution_session": "CONTINUOUS_CAMPAIGN_MAIN_SESSION", "execution_isolation": MAIN_SESSION_PATH_ISOLATION, "article_artifact_root_template": ARTICLE_ARTIFACT_ROOT_TEMPLATE, "article_artifact_roots": "REQUIRED_DISJOINT", "worktree_autospawn": WORKTREE_AUTOSPAWN_POLICY, "worktree_dispatch_decision": "REQUIRED_FOR_GIT_WORKTREE_ONLY", "worktree_allowed_reasons": ["TRUE_CONCURRENT_WRITE", "HIGH_RISK_REWRITE_OR_ROLLBACK", "OWNER_REQUESTED_GIT_ISOLATION"], "worktree_fallback": "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED", "silent_worktree_fallback": False, "article_worktree_role_bundle": "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G", "project_worktree_root_role": "ARTICLE_ARTIFACT_ROOT", "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA", "batch_gate_policy": GATE_BATCH_POLICY_2_7, "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY", "public_qa_policy": PUBLIC_QA_POLICY_2_7, "queue_resume_policy": "MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH", "article_agent_replacement_requires_full_rehydration": True, "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]},
+        "artifact_optimization_policy": LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_14,
+        "model_first_execution_policy": MODEL_FIRST_EXECUTION_POLICY_2_14,
+        "live_execution_profile": HUMAN_RELEASE_PROFILE_2_14,
+        "orchestration_policy": {"delegation_default": "VISIBLE_SUBAGENTS", "visible_task_record_required": True, "invisible_cli_agent_sessions": "PROHIBITED", "writer_reviewer_pair_mode": "REUSABLE_WQ_WR_WITH_ARTICLE_ARTIFACT_ISOLATION", "cross_article_agent_reuse": "CAMPAIGN_WQ_WR_G_REUSE_ALLOWED", "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD", "persistent_requirements_gatekeeper": True, "fresh_agent_roles": [], "pair_activation": "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY", "execution_session": "CONTINUOUS_CAMPAIGN_MAIN_SESSION", "execution_isolation": MAIN_SESSION_PATH_ISOLATION, "article_artifact_root_template": ARTICLE_ARTIFACT_ROOT_TEMPLATE, "article_artifact_roots": "REQUIRED_DISJOINT", "worktree_autospawn": WORKTREE_AUTOSPAWN_POLICY, "worktree_dispatch_decision": "REQUIRED_FOR_GIT_WORKTREE_ONLY", "worktree_allowed_reasons": ["TRUE_CONCURRENT_WRITE", "HIGH_RISK_REWRITE_OR_ROLLBACK", "OWNER_REQUESTED_GIT_ISOLATION"], "worktree_fallback": "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED", "silent_worktree_fallback": False, "article_worktree_role_bundle": "REUSABLE_WQ_WR_PLUS_SHARED_CAMPAIGN_G", "project_worktree_root_role": "ARTICLE_ARTIFACT_ROOT", "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA", "batch_gate_policy": GATE_BATCH_POLICY_2_14, "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY", "public_qa_policy": PUBLIC_QA_POLICY_2_7, "queue_resume_policy": "MAIN_SESSION_SEQUENTIAL_OR_SAFE_PATH_BATCH", "article_agent_replacement_requires_full_rehydration": True, "allowed_main_cli_use": ["local_file_operations", "deterministic_validation", "hashing", "read_only_inspection", "version_control"]},
         "release_policy": {
             "mode": "HUMAN_NATIVE_ONLY",
             "machine_external_writes_allowed": False,
@@ -3397,12 +3963,12 @@ def init(workspace: Path, campaign_id: str) -> int:
     })
     (workspace / "pre-clearance-checklist.md").write_text(
         "# 开始前照做清单（真实运行基线）\n\n"
-        "这是一份启动清单，不是新增审稿环节。默认路线是：写前 G → 用户确认 → 每篇连续 W → 一次独立 R → 批量 G → 人工发布 → 原 G 批量公开页复核。\n\n"
+        "这是一份启动清单，不是新增审稿环节。默认路线是：写前 G → 用户确认 → 每篇连续 W + WQ（作者对抗式自检）→ 批量 G → 人工发布 → 原 G 批量公开页复核；仅风险或用户明确要求的文章升级为独立 WR。\n\n"
         "- [ ] **用户确认范围。** 每篇填明文章 ID、语言、市场、读者任务、焦点关键词、读者价值与必保留 CTA（精确锚文本、URL、依据、关联性、披露），以及唯一的平台／账号组合；未确认不得自行替换。当前矩阵只支持人工原生发布。\n"
         "- [ ] **G 只做写前方案。** 填写唯一可编辑的 `prewrite-plan.json`，运行 `sync-prewrite-plan`，把生成的 `prewrite-plan.md` 发给用户。确认前不得启动文章工作区、W 或 R。\n"
         "- [ ] **保存真实确认回执。** 用户确认后，把原始确认文本保存到 `evidence/owner-confirmations/`；回执必须能说明来源定位，不能用工作流状态或内部配置代替用户确认。\n"
         "- [ ] **用命令绑定确认。** 运行 `confirm-prewrite-plan`，再运行 `check` 与 `dispatch-readiness`。前者只绑定回执和哈希，后者明确列出仍缺的 REQ、G 登记或每篇平台／账号映射；`CHECK_PASSED` 本身只表示结构可读，不等于可派发。\n"
-        "- [ ] **再启动每篇 W/R。** G 先写稳定 `REQ-*`，登记可见的项目 G；每篇准备好后创建可见 W/R 对和独立 Git 工作区（可用时）。W 连续完成调研、正文、三图和可视化富文本交付页；R 只做一次完整独立审查，除非已冻结为增强路线。\n"
+        "- [ ] **再启动每篇质量路线。** G 先写稳定 `REQ-*`，登记可见的项目 G；每篇默认只登记可见 W，在同一连续上下文完成调研、正文、三图、可视化富文本交付页和 `CANDIDATE_LOCK → ADVERSARIAL_SELF_QA → TARGETED_REPAIR → FINAL_BIND`。只有冻结为 WR、用户要求独立审稿，或 WQ 记录了升级触发 ID 时，才登记独立 R。Git 工作区不是常规路径。\n"
         "- [ ] **保留读者页边界。** Google Trends 仅为可选英文全球相对背景；跨语言用语优先品牌站、地区 SERP、最后才有边界地模型翻译。平台编辑器 HTML 不能证明标题层级；人工回传 `HUMAN_ACCEPTED` URL 后，仅由同一 G 看公开读者页视觉。\n",
         encoding="utf-8",
     )
@@ -3443,6 +4009,7 @@ def check(workspace: Path) -> int:
     requires_topic_governance = parsed_schema_version >= (2, 11)
     requires_single_source_payload = parsed_schema_version >= (2, 12)
     requires_main_session_path_isolation = parsed_schema_version >= (2, 13)
+    requires_dual_quality_routes = parsed_schema_version >= (2, 14)
     required_plan_sections = (
         MODEL_FIRST_PREWRITE_PLAN_SECTIONS if requires_model_first_execution_policy
         else PREWRITE_PLAN_SECTIONS if requires_content_value_policy
@@ -3486,7 +4053,8 @@ def check(workspace: Path) -> int:
         elif requires_live_execution_profile and prewrite_policy.get("confirmation_command") != "confirm-prewrite-plan": errors.append("schema 2.8+ pre-write confirmation command is invalid")
         elif requires_live_execution_profile and prewrite_policy.get("owner_confirmation_receipt_required") is not True: errors.append("schema 2.8+ pre-write confirmation requires an owner receipt")
     expected_artifact_policy = (
-        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13 if parsed_schema_version >= (2, 13)
+        LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_14 if requires_dual_quality_routes
+        else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_13 if parsed_schema_version >= (2, 13)
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 if requires_single_source_payload
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_11 if requires_topic_governance
         else LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_10 if requires_research_integrity
@@ -3500,7 +4068,12 @@ def check(workspace: Path) -> int:
         LIVE_ARTIFACT_OPTIMIZATION_POLICY_2_12 if not requires_research_integrity else expected_artifact_policy,
     ):
         errors.append("schema 2.4+ artifact optimization policy is missing or changed")
-    if requires_model_first_execution_policy and cfg.get("model_first_execution_policy") != MODEL_FIRST_EXECUTION_POLICY_2_6:
+    expected_model_first_policy = (
+        MODEL_FIRST_EXECUTION_POLICY_2_14
+        if requires_dual_quality_routes
+        else MODEL_FIRST_EXECUTION_POLICY_2_6
+    )
+    if requires_model_first_execution_policy and cfg.get("model_first_execution_policy") != expected_model_first_policy:
         errors.append("schema 2.6+ model-first execution policy is missing or changed")
     expected_research_integrity_policy = (
         RESEARCH_INTEGRITY_POLICY_2_11
@@ -3815,13 +4388,16 @@ def check(workspace: Path) -> int:
     if orchestration.get("visible_task_record_required") is not True: errors.append("visible task records must be required")
     if orchestration.get("invisible_cli_agent_sessions") != "PROHIBITED": errors.append("invisible CLI agent sessions must be prohibited")
     expected_pair_mode = (
-        "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION"
+        "REUSABLE_WQ_WR_WITH_ARTICLE_ARTIFACT_ISOLATION"
+        if requires_dual_quality_routes
+        else "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION"
         if requires_main_session_path_isolation else "ONE_REUSABLE_PAIR_PER_ARTICLE"
     )
     if orchestration.get("writer_reviewer_pair_mode") != expected_pair_mode:
-        errors.append("main-session campaigns must allow reusable W/R roles with per-article artifact isolation" if requires_main_session_path_isolation else "each article must have one reusable writer-reviewer pair")
+        errors.append("schema 2.14 main-session campaigns must use reusable WQ/WR roles with per-article artifact isolation" if requires_dual_quality_routes else "main-session campaigns must allow reusable W/R roles with per-article artifact isolation" if requires_main_session_path_isolation else "each article must have one reusable writer-reviewer pair")
     expected_cross_article_reuse = (
-        "CAMPAIGN_W_R_G_REUSE_ALLOWED" if requires_main_session_path_isolation
+        "CAMPAIGN_WQ_WR_G_REUSE_ALLOWED" if requires_dual_quality_routes
+        else "CAMPAIGN_W_R_G_REUSE_ALLOWED" if requires_main_session_path_isolation
         else "CAMPAIGN_GATEKEEPER_ONLY" if uses_batch_control_plane else "PROHIBITED"
     )
     if orchestration.get("cross_article_agent_reuse") != expected_cross_article_reuse:
@@ -3831,14 +4407,14 @@ def check(workspace: Path) -> int:
     if orchestration.get("fresh_agent_roles") != []: errors.append("public QA must not create a fresh agent")
     if orchestration.get("pair_activation") != "G_QUEUE_SUBJECT_TO_RUNTIME_CAPACITY": errors.append("article pairs must be scheduled by the G queue and runtime capacity")
     if requires_main_session_path_isolation:
-        if orchestration.get("execution_session") != "CONTINUOUS_CAMPAIGN_MAIN_SESSION": errors.append("schema 2.13 requires a continuous campaign main session")
-        if orchestration.get("execution_isolation") != MAIN_SESSION_PATH_ISOLATION: errors.append("schema 2.13 execution isolation must be MAIN_SESSION_PATH_ISOLATED")
-        if orchestration.get("article_artifact_root_template") != ARTICLE_ARTIFACT_ROOT_TEMPLATE: errors.append("schema 2.13 article artifact root template must be articles/{article_id}")
-        if orchestration.get("article_artifact_roots") != "REQUIRED_DISJOINT": errors.append("schema 2.13 article artifact roots must be required and disjoint")
-        if orchestration.get("worktree_autospawn") != WORKTREE_AUTOSPAWN_POLICY: errors.append("schema 2.13 worktree autospawn must be EXPLICIT_EXCEPTION_ONLY")
-        if orchestration.get("worktree_dispatch_decision") != "REQUIRED_FOR_GIT_WORKTREE_ONLY": errors.append("schema 2.13 Git worktrees require a recorded exception decision")
-        if orchestration.get("worktree_allowed_reasons") != ["TRUE_CONCURRENT_WRITE", "HIGH_RISK_REWRITE_OR_ROLLBACK", "OWNER_REQUESTED_GIT_ISOLATION"]: errors.append("schema 2.13 worktree reasons are invalid")
-        if orchestration.get("worktree_fallback") != "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED": errors.append("schema 2.13 must not use a worktree fallback as its normal path")
+        if orchestration.get("execution_session") != "CONTINUOUS_CAMPAIGN_MAIN_SESSION": errors.append("main-session campaigns require a continuous campaign main session")
+        if orchestration.get("execution_isolation") != MAIN_SESSION_PATH_ISOLATION: errors.append("main-session execution isolation must be MAIN_SESSION_PATH_ISOLATED")
+        if orchestration.get("article_artifact_root_template") != ARTICLE_ARTIFACT_ROOT_TEMPLATE: errors.append("main-session article artifact root template must be articles/{article_id}")
+        if orchestration.get("article_artifact_roots") != "REQUIRED_DISJOINT": errors.append("main-session article artifact roots must be required and disjoint")
+        if orchestration.get("worktree_autospawn") != WORKTREE_AUTOSPAWN_POLICY: errors.append("main-session worktree autospawn must be EXPLICIT_EXCEPTION_ONLY")
+        if orchestration.get("worktree_dispatch_decision") != "REQUIRED_FOR_GIT_WORKTREE_ONLY": errors.append("main-session Git worktrees require a recorded exception decision")
+        if orchestration.get("worktree_allowed_reasons") != ["TRUE_CONCURRENT_WRITE", "HIGH_RISK_REWRITE_OR_ROLLBACK", "OWNER_REQUESTED_GIT_ISOLATION"]: errors.append("main-session worktree reasons are invalid")
+        if orchestration.get("worktree_fallback") != "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED": errors.append("main-session execution must not use a worktree fallback as its normal path")
         if orchestration.get("silent_worktree_fallback") is not False: errors.append("worktree decisions must never be silent")
     elif requires_worktree_policy:
         if orchestration.get("execution_isolation") != "WORKTREE_FIRST_PER_ARTICLE": errors.append("execution isolation must be WORKTREE_FIRST_PER_ARTICLE")
@@ -3849,13 +4425,16 @@ def check(workspace: Path) -> int:
     if requires_lane_bundle:
         public_qa = orchestration.get("public_qa_policy")
         if uses_batch_control_plane:
-            expected_role_bundle = "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G" if requires_main_session_path_isolation else "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G"
+            expected_role_bundle = "REUSABLE_WQ_WR_PLUS_SHARED_CAMPAIGN_G" if requires_dual_quality_routes else "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G" if requires_main_session_path_isolation else "ONE_REUSABLE_W_R_PAIR_PLUS_SHARED_CAMPAIGN_G"
             expected_root_role = "ARTICLE_ARTIFACT_ROOT" if requires_main_session_path_isolation else "ARTICLE_WRITER_REVIEWER_PAIR"
-            if orchestration.get("article_worktree_role_bundle") != expected_role_bundle: errors.append("main-session article execution must use reusable W/R plus the shared campaign G" if requires_main_session_path_isolation else "each article worktree must carry one reusable W-R pair plus the shared campaign G")
+            if orchestration.get("article_worktree_role_bundle") != expected_role_bundle: errors.append("schema 2.14 main-session article execution must use reusable WQ/WR plus the shared campaign G" if requires_dual_quality_routes else "main-session article execution must use reusable W/R plus the shared campaign G" if requires_main_session_path_isolation else "each article worktree must carry one reusable W-R pair plus the shared campaign G")
             if orchestration.get("project_worktree_root_role") != expected_root_role: errors.append("main-session articles must root artifacts at ARTICLE_ARTIFACT_ROOT" if requires_main_session_path_isolation else "the project worktree root must be the article writer-reviewer pair")
             if orchestration.get("campaign_gatekeeper_scope") != "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA": errors.append("campaign G must own pre-write, batch contract acceptance and batch public QA")
             if orchestration.get("article_public_gate_mode") != "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY": errors.append("public QA must reuse the registered campaign gatekeeper in batch read-only mode")
-            errors.extend(batch_gate_policy_errors(orchestration.get("batch_gate_policy")))
+            errors.extend(batch_gate_policy_errors(
+                orchestration.get("batch_gate_policy"),
+                expected=GATE_BATCH_POLICY_2_14 if requires_dual_quality_routes else GATE_BATCH_POLICY_2_7,
+            ))
             errors.extend(public_qa_policy_errors(public_qa, expected=PUBLIC_QA_POLICY_2_7))
         else:
             if orchestration.get("article_worktree_role_bundle") != "ONE_REUSABLE_W_R_G_LANE_PER_ARTICLE": errors.append("each article worktree must carry one reusable W-R-G lane")
@@ -3917,19 +4496,51 @@ def check(workspace: Path) -> int:
                 errors.append(f"article workspace {article_id}: record must be an object"); continue
             bundle = workspace_record.get("role_bundle")
             if uses_batch_control_plane:
-                if workspace_record.get("root_role") != "ARTICLE_WRITER_REVIEWER_PAIR": errors.append(f"article workspace {article_id}: root role must be ARTICLE_WRITER_REVIEWER_PAIR")
+                expected_workspace_root_role = (
+                    "ARTICLE_WRITER_QUALITY_ROUTE"
+                    if requires_dual_quality_routes else "ARTICLE_WRITER_REVIEWER_PAIR"
+                )
+                if workspace_record.get("root_role") != expected_workspace_root_role:
+                    errors.append(f"article workspace {article_id}: root role must be {expected_workspace_root_role}")
                 if not isinstance(bundle, dict): errors.append(f"article workspace {article_id}: role_bundle must be an object")
-                elif set(("campaign_gatekeeper_agent", "writer_agent", "reviewer_agent")) - set(bundle): errors.append(f"article workspace {article_id}: role_bundle must declare shared campaign G, W and R")
-                elif any(not non_empty_string(bundle.get(field)) for field in ("campaign_gatekeeper_agent", "writer_agent", "reviewer_agent")):
-                    errors.append(f"article workspace {article_id}: role_bundle agent IDs must be non-empty")
                 else:
-                    if bundle.get("campaign_gatekeeper_agent") != campaign_gatekeeper_id:
-                        errors.append(f"article workspace {article_id}: campaign G must match the registered campaign gatekeeper")
-                    writer_id = bundle.get("writer_agent")
-                    reviewer_id = bundle.get("reviewer_agent")
-                    if not requires_main_session_path_isolation and writer_id in seen_writers: errors.append(f"article workspace {article_id}: writer may not be reused across articles")
-                    if not requires_main_session_path_isolation and reviewer_id in seen_reviewers: errors.append(f"article workspace {article_id}: reviewer may not be reused across articles")
-                    seen_writers.add(writer_id); seen_reviewers.add(reviewer_id)
+                    if requires_dual_quality_routes:
+                        if set(("campaign_gatekeeper_agent", "writer_agent")) - set(bundle):
+                            errors.append(f"article workspace {article_id}: WQ/WR role_bundle must declare shared campaign G and W")
+                            continue
+                        if any(not non_empty_string(bundle.get(field)) for field in ("campaign_gatekeeper_agent", "writer_agent")):
+                            errors.append(f"article workspace {article_id}: WQ/WR campaign G and W IDs must be non-empty")
+                            continue
+                        if bundle.get("campaign_gatekeeper_agent") != campaign_gatekeeper_id:
+                            errors.append(f"article workspace {article_id}: campaign G must match the registered campaign gatekeeper")
+                        plan = article_plan_record(prewrite_manifest, article_id) if isinstance(prewrite_manifest, dict) else None
+                        effort = plan.get("review_effort") if isinstance(plan, dict) else None
+                        reviewer_required = route_requires_independent_reviewer(
+                            workspace, cfg, article_id, effort,
+                        )
+                        reviewer_id = bundle.get("reviewer_agent")
+                        if reviewer_required:
+                            if not non_empty_string(reviewer_id):
+                                errors.append(f"article workspace {article_id}: WR route requires an independent reviewer_agent")
+                            elif reviewer_id == bundle.get("writer_agent"):
+                                errors.append(f"article workspace {article_id}: WR reviewer_agent must differ from writer_agent")
+                        elif reviewer_id not in {None, ""}:
+                            errors.append(f"article workspace {article_id}: un-escalated WQ route must not register an idle reviewer_agent")
+                        seen_writers.add(bundle.get("writer_agent"))
+                        if non_empty_string(reviewer_id):
+                            seen_reviewers.add(reviewer_id)
+                    elif set(("campaign_gatekeeper_agent", "writer_agent", "reviewer_agent")) - set(bundle):
+                        errors.append(f"article workspace {article_id}: role_bundle must declare shared campaign G, W and R")
+                    elif any(not non_empty_string(bundle.get(field)) for field in ("campaign_gatekeeper_agent", "writer_agent", "reviewer_agent")):
+                        errors.append(f"article workspace {article_id}: role_bundle agent IDs must be non-empty")
+                    else:
+                        if bundle.get("campaign_gatekeeper_agent") != campaign_gatekeeper_id:
+                            errors.append(f"article workspace {article_id}: campaign G must match the registered campaign gatekeeper")
+                        writer_id = bundle.get("writer_agent")
+                        reviewer_id = bundle.get("reviewer_agent")
+                        if not requires_main_session_path_isolation and writer_id in seen_writers: errors.append(f"article workspace {article_id}: writer may not be reused across articles")
+                        if not requires_main_session_path_isolation and reviewer_id in seen_reviewers: errors.append(f"article workspace {article_id}: reviewer may not be reused across articles")
+                        seen_writers.add(writer_id); seen_reviewers.add(reviewer_id)
             else:
                 if workspace_record.get("root_role") != "ARTICLE_LANE_GATEKEEPER": errors.append(f"article workspace {article_id}: root role must be ARTICLE_LANE_GATEKEEPER")
                 if not isinstance(bundle, dict): errors.append(f"article workspace {article_id}: role_bundle must be an object")
@@ -3967,7 +4578,7 @@ def check(workspace: Path) -> int:
             if prewrite_manifest.get("status") != prewrite_status:
                 errors.append("pre-write manifest status does not match state")
             expected_manifest_schema = (
-                CURRENT_PREWRITE_PLAN_SCHEMA if requires_topic_governance
+                prewrite_plan_schema_for_campaign(cfg) if requires_topic_governance
                 else RESEARCH_INTEGRITY_PREWRITE_PLAN_SCHEMA if requires_research_integrity
                 else "1.5" if requires_live_execution_profile
                 else "1.4" if requires_model_first_execution_policy
@@ -4052,7 +4663,7 @@ def check(workspace: Path) -> int:
                             if not isinstance(plan.get(section), str) or not plan[section].strip():
                                 errors.append(f"pre-write manifest article {plan.get('article_id')}: missing {section}")
                         if requires_model_first_execution_policy:
-                            for error in model_first_review_effort_errors(plan.get("review_effort")):
+                            for error in model_first_review_effort_errors(plan.get("review_effort"), cfg_or_version=cfg):
                                 errors.append(f"pre-write manifest article {plan.get('article_id')}: {error}")
             report_text = report_path.read_text(encoding="utf-8")
             report_ids = csv_values(markdown_field(report_text, "Article IDs"))
@@ -4628,8 +5239,14 @@ def summarize_efficiency(workspace: Path, output: Path | None) -> int:
             "by_workflow_stage": dict(sorted(by_stage.items())),
         },
         "review_rework_signals": {
+            "author_qa_turns": review_stages.get("AUTHOR_QA", 0),
+            "independent_full_review_turns": review_stages.get("FULL_REVIEW", 0),
             "full_review_turns": review_stages.get("FULL_REVIEW", 0),
             "research_review_turns": review_stages.get("RESEARCH_REVIEW", 0),
+            "wq_to_wr_escalation_count": (
+                review_stages.get("WR_ESCALATION", 0)
+                + review_stages.get("WR_ESCALATION_DECISION", 0)
+            ),
             "targeted_delta_turns": review_stages.get("REVIEW_DELTA", 0),
             "visual_delta_turns": review_stages.get("VISUAL_PAYLOAD_DELTA", 0),
             "canonical_reopen_turns": canonical_reopen_turns,
@@ -4872,6 +5489,9 @@ def check_handoff_manifest(workspace: Path, manifest_path: Path, package_path: P
         provenance = manifest.get("review_provenance")
         if not isinstance(provenance, dict):
             errors.append("current handoff requires review_provenance")
+        elif review_mode == "AUTHOR_QA_COVERS_FINAL_PAYLOAD":
+            if provenance.get("source") != "reviews/review-index.json#/latest_author_qa" or provenance.get("mode") != review_mode:
+                errors.append("current handoff review_provenance is invalid")
         elif review_mode == "FULL_REVIEW_COVERS_FINAL_PAYLOAD":
             if provenance.get("source") != "reviews/review-index.json#/latest_full_review" or provenance.get("mode") != review_mode:
                 errors.append("current handoff review_provenance is invalid")
@@ -4983,7 +5603,10 @@ def check_batch_gate(workspace: Path, report_path: Path, article_root_values: li
     if not isinstance(orchestration, dict):
         errors.append("campaign requires orchestration_policy")
     else:
-        errors.extend(batch_gate_policy_errors(orchestration.get("batch_gate_policy")))
+        errors.extend(batch_gate_policy_errors(
+            orchestration.get("batch_gate_policy"),
+            expected=GATE_BATCH_POLICY_2_14 if schema_2_14_or_newer(cfg) else GATE_BATCH_POLICY_2_7,
+        ))
     report_resolved = report_path if report_path.is_absolute() else workspace / report_path
     report, report_error = json_object_file(report_resolved, label="batch gate report")
     if report_error or report is None:
@@ -5093,16 +5716,17 @@ def check_batch_gate(workspace: Path, report_path: Path, article_root_values: li
                     package_schema=OPTIMIZED_ARTICLE_PACKAGE_SCHEMAS,
                 ))
                 errors.extend(f"{prefix}: {error}" for error in package_artifact_source_errors(package))
-        full_review = row.get("full_review")
-        current_full = review_index.get("latest_full_review") if isinstance(review_index, dict) else None
-        if not isinstance(full_review, dict) or not isinstance(current_full, dict):
-            errors.append(f"{prefix}: requires full_review bound to the current review index")
-        else:
-            for field in ("status", "reviewer_agent_id", "report_path", "report_sha256"):
-                if full_review.get(field) != current_full.get(field):
-                    errors.append(f"{prefix}: full_review {field} does not match the review index")
-            if full_review.get("status") != "APPROVED":
-                errors.append(f"{prefix}: full_review must be APPROVED before G batch acceptance")
+        effort = review_index.get("review_effort") if isinstance(review_index, dict) else None
+        uses_new_quality_receipt = (
+            schema_2_14_or_newer(cfg)
+            and isinstance(effort, dict)
+            and effort.get("tier") in {"AUTHOR_QA_INTEGRATED", "INDEPENDENT_R_ESCALATION"}
+        )
+        errors.extend(quality_receipt_row_errors(
+            row, review_index,
+            require_generic_receipt=uses_new_quality_receipt,
+            prefix=prefix,
+        ))
         finding_ids = row.get("requirement_finding_ids")
         if not isinstance(finding_ids, list) or any(not non_empty_string(value) for value in finding_ids):
             errors.append(f"{prefix}: requirement_finding_ids must be a list of non-empty IDs")
@@ -5144,7 +5768,7 @@ def main() -> int:
     p_invalidate = sub.add_parser("invalidate-prewrite-confirmation"); p_invalidate.add_argument("--workspace", type=Path, required=True); p_invalidate.add_argument("--reason", required=True)
     p_dispatch = sub.add_parser("dispatch-readiness"); p_dispatch.add_argument("--workspace", type=Path, required=True)
     p_render = sub.add_parser("render-prewrite-plan"); p_render.add_argument("--manifest", type=Path, required=True); p_render.add_argument("--output", type=Path, required=True)
-    p_context = sub.add_parser("build-article-context"); p_context.add_argument("--workspace", type=Path, required=True, help="campaign root; schema 2.13 writes each article below articles/<article_id>/"); p_context.add_argument("--article-id", required=True); p_context.add_argument("--output", type=Path, required=True)
+    p_context = sub.add_parser("build-article-context"); p_context.add_argument("--workspace", type=Path, required=True, help="campaign root; current main-session schemas write each article below articles/<article_id>/"); p_context.add_argument("--article-id", required=True); p_context.add_argument("--output", type=Path, required=True)
     p_context_check = sub.add_parser("check-article-context"); p_context_check.add_argument("--workspace", type=Path, required=True); p_context_check.add_argument("--context", type=Path, required=True)
     p_index = sub.add_parser("build-review-index"); p_index.add_argument("--workspace", type=Path, required=True); p_index.add_argument("--article-contract", type=Path, required=True); p_index.add_argument("--output", type=Path, required=True); p_index.add_argument("--canonical", type=Path)
     p_index_check = sub.add_parser("check-review-index"); p_index_check.add_argument("--workspace", type=Path, required=True); p_index_check.add_argument("--index", type=Path, required=True)

@@ -32,14 +32,14 @@ Render one compact card for every `article_plans[]` item. Use its `evidence_refs
 4. **Model-led editorial brief** — one coherent research-and-writing route: long-tail reader problem and localization hypothesis, source boundary, likely title/outline, visual approach, differentiation from sibling articles, and how the article will remain useful without the CTA. This is a reasoned plan, not nine independently gated form fields.
 5. **Research posture** — `METHOD_TEMPLATE_NO_EXECUTION` or `DOCUMENTED_EMPIRICAL_RECORD`, the reader-facing claim boundary, and any required evidence paths. A method template is not an observed test result.
 6. **Risks and owner decisions** — unresolved choices, assumptions requiring confirmation, and non-negotiable exclusions.
-7. **Review route** — `STANDARD_INTEGRATED_REVIEW` uses one independent final R review of evidence, article, visuals, metadata and payload. `ELEVATED_EARLY_CHALLENGE` adds an early R research challenge for recorded risk reasons.
+7. **Quality route** — default `AUTHOR_QA_INTEGRATED / WQ_SHARED_CONTEXT` means the same visible W completes `CANDIDATE_LOCK → ADVERSARIAL_SELF_QA → TARGETED_REPAIR → FINAL_BIND` and records `AUTHOR_QA_READY`; it is not an independent R approval. `INDEPENDENT_R_ESCALATION / WR_INDEPENDENT` requires a separately registered R and a `FULL_REVIEW`; it may add an early research review only when the frozen WR risk requires it. WQ may only escalate to WR with stable trigger IDs; it never silently downgrades.
 
 ## Owner decision
 
-- [ ] OWNER_PREWRITE_PLAN_CONFIRMED — permits G to lock requirements, create the article's isolated artifact path, and dispatch W/R.
+- [ ] OWNER_PREWRITE_PLAN_CONFIRMED — permits G to lock requirements, create the article's isolated artifact path, and dispatch the per-article WQ or WR route.
 - [ ] OWNER_PREWRITE_PLAN_CHANGES_REQUESTED — revise this dossier; do not dispatch article paths, W, or R.
 
-After a confirmation, save its original message/file under `evidence/owner-confirmations/` and run `confirm-prewrite-plan`. Never set the confirmation status or ID by editing JSON; then use `dispatch-readiness` to distinguish a structurally valid workspace from one that may start W/R.
+After a confirmation, save its original message/file under `evidence/owner-confirmations/` and run `confirm-prewrite-plan`. Never set the confirmation status or ID by editing JSON; then use `dispatch-readiness` to distinguish a structurally valid workspace from one that may start WQ or WR.
 
 Git worktree is not the normal dispatch result. Use it only when the recorded `worktree_dispatch_decision` names `TRUE_CONCURRENT_WRITE`, `HIGH_RISK_REWRITE_OR_ROLLBACK`, or `OWNER_REQUESTED_GIT_ISOLATION`; capacity or token-saving alone is never a reason.
 

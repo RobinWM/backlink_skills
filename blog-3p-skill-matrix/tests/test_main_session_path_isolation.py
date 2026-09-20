@@ -187,6 +187,9 @@ class MainSessionPathIsolationTests(unittest.TestCase):
 
         plan_path = workspace / "prewrite-plan.json"
         plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        # This fixture intentionally exercises the retained schema-2.13
+        # compatibility route after downgrading the campaign declaration.
+        plan["schema_version"] = HARNESS.PREVIOUS_PREWRITE_PLAN_SCHEMA
         plan["campaign_summary"] = {
             section: f"confirmed {section}" for section in HARNESS.MODEL_FIRST_PREWRITE_SUMMARY_SECTIONS
         }
@@ -273,13 +276,13 @@ class MainSessionPathIsolationTests(unittest.TestCase):
             article_ids={"A1", "A2"},
         )
 
-    def test_fresh_init_uses_schema_2_13_main_session_default(self) -> None:
+    def test_fresh_init_uses_schema_2_14_main_session_default(self) -> None:
         """A regression to worktree-first defaults must fail at initialization."""
         temp_dir, workspace = self.initialize()
         with temp_dir:
             campaign = json.loads((workspace / "campaign.json").read_text(encoding="utf-8"))
             policy = campaign["orchestration_policy"]
-            self.assertEqual(campaign["schema_version"], "2.13")
+            self.assertEqual(campaign["schema_version"], "2.14")
             self.assertEqual(policy["execution_isolation"], "MAIN_SESSION_PATH_ISOLATED")
             self.assertEqual(policy["worktree_autospawn"], "EXPLICIT_EXCEPTION_ONLY")
 

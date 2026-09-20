@@ -1,6 +1,6 @@
 # In-Scope Platform Style Profiles
 
-This optional, read-only step improves reader fit and hand-off reliability without turning platform samples into SEO evidence or a publication automation. In current schema-2.13 it is `ON_DEMAND_IN_SCOPE_PROFILE`: run it only after the owner has receipt-confirmed G's pre-write plan, the exact `{platform, account}` mapping is owner-confirmed for the required human-release item, **and** there is both no reusable matching profile and a material reader-facing transport risk. It is never a default pre-draft task or a second execution mode.
+This optional, read-only step improves reader fit and hand-off reliability without turning platform samples into SEO evidence or a publication automation. In current schema-2.14 it is `ON_DEMAND_IN_SCOPE_PROFILE`: run it only after the owner has receipt-confirmed G's pre-write plan, the exact `{platform, account}` mapping is owner-confirmed for the required human-release item, **and** there is both no reusable matching profile and a material reader-facing transport risk. It is never a default pre-draft task or a second execution mode.
 
 Read the [shared-evidence cache contract](../skills/blog-3p-harness/references/shared-evidence-cache.md) before reusing an observation. A profile cache reduces repeated public inspection; it does not select a platform, create an account alias, prove account eligibility, replace owner confirmation, or alter the article's locale, reader intent, CTA, or scope.
 

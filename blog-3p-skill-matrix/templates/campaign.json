@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.13",
+  "schema_version": "2.14",
   "campaign_id": "REPLACE_ME",
   "scope_lock": {
     "status": "DRAFT",
@@ -200,7 +200,7 @@
   },
   "artifact_optimization_policy": {
     "mode": "CANONICAL_MANIFESTS_AND_DELTA_CONTEXT",
-    "prewrite_manifest_schema": "1.7",
+    "prewrite_manifest_schema": "1.8",
     "prewrite_manifest_canonical_source": true,
     "prewrite_owner_view": "HARNESS_DETERMINISTIC_RENDER_ONLY",
     "manual_duplicate_entry": "PROHIBITED",
@@ -241,9 +241,10 @@
       "duplicate_metadata_links_images": "PROHIBITED"
     },
     "final_artifact_review": {
-      "default": "FULL_REVIEW_COVERS_FINAL_PAYLOAD",
-      "post_full_visual_delta": "ONLY_AFTER_VISUAL_OR_PAYLOAD_CHANGE",
-      "semantic_change": "TARGETED_R_DELTA_UNLESS_SCOPE_OR_LINEAGE_ESCALATION"
+      "default": "AUTHOR_QA_COVERS_FINAL_PAYLOAD",
+      "independent_escalation": "FULL_REVIEW_COVERS_FINAL_PAYLOAD",
+      "post_full_visual_delta": "ONLY_AFTER_WR_FULL_REVIEW",
+      "semantic_change": "RERUN_AUTHOR_QA_OR_WR_DELTA_AFTER_INDEPENDENT_REVIEW"
     },
     "handoff_manifest": {
       "path": "articles/{article_id}/handoff/handoff-manifest.json",
@@ -258,17 +259,25 @@
     "payload_semantic_auditor": "ARTICLE_LANGUAGE_REVIEWER_HTML_PRIMARY",
     "gate_payload_acceptance": "MANIFEST_HASH_AND_REQUIREMENTS_ONLY",
     "model_owned_research_record": "ONE_EVIDENCE_PACK_WITH_DERIVED_VIEWS",
-    "review_route": "STANDARD_INTEGRATED_REVIEW_UNLESS_ELEVATED",
+    "review_route": "AUTHOR_QA_INTEGRATED_UNLESS_WR_ESCALATED",
     "owner_confirmation_receipt": "HASH_BOUND_OWNER_ORIGINATED_ARTIFACT",
-    "article_artifact_root_template": "articles/{article_id}"
+    "article_artifact_root_template": "articles/{article_id}",
+    "quality_routes": {
+      "default": "AUTHOR_QA_INTEGRATED",
+      "author_qa_receipt": "reviews/author-qa-N.json",
+      "independent_r_escalation": "INDEPENDENT_R_ESCALATION",
+      "wq_late_change": "RERUN_AUTHOR_QA_OR_ESCALATE_WR"
+    }
   },
   "model_first_execution_policy": {
-    "mode": "MODEL_CONTINUOUS_CREATION_WITH_RISK_ESCALATION",
-    "default_review_tier": "STANDARD_INTEGRATED_REVIEW",
-    "writer_continuous_sequence": ["RESEARCH", "DRAFT", "VISUALS", "PAYLOAD"],
-    "separate_research_review": "RISK_TRIGGERED_ONLY",
-    "independent_final_review": "REQUIRED",
-    "reviewer_may_elevate_not_downgrade": true,
+    "mode": "MODEL_CONTINUOUS_CREATION_WITH_DUAL_QUALITY_ROUTES",
+    "default_review_tier": "AUTHOR_QA_INTEGRATED",
+    "writer_continuous_sequence": ["RESEARCH", "DRAFT", "VISUALS", "PAYLOAD", "AUTHOR_QA"],
+    "author_qa_protocol": "CANDIDATE_LOCK_ADVERSARIAL_SELF_QA_TARGETED_REPAIR_FINAL_BIND",
+    "independent_r_escalation": "RISK_OR_OWNER_TRIGGERED_ONLY",
+    "separate_research_review": "WR_RISK_TRIGGERED_ONLY",
+    "independent_final_review": "REQUIRED_ONLY_FOR_WR",
+    "wq_to_wr_downgrade": "PROHIBITED",
     "gatekeeper_binds_tier_and_reason": true,
     "mechanical_checks": "POSTHOC_INTEGRITY_AND_SCOPE_ONLY"
   },
@@ -276,20 +285,21 @@
     "mode": "HUMAN_RELEASE_ONLY_V1",
     "purpose": "HUMAN_NATIVE_RELEASE_REQUIRED_WITH_READONLY_EVIDENCE",
     "owner_confirmation": "RECEIPT_BOUND_LOCAL_COMMAND_REQUIRED",
-    "article_flow": "ONE_CONTINUOUS_W_THEN_ONE_INDEPENDENT_FULL_R",
+    "article_flow": "WQ_DEFAULT_OR_WR_INDEPENDENT_ESCALATION",
     "gate_flow": "ONE_SHARED_CAMPAIGN_G_BATCH",
     "public_flow": "HUMAN_NATIVE_RELEASE_THEN_SAME_G_BATCH_READONLY",
     "automatic_model_routing": "PROHIBITED",
     "extra_debate_agents": "PROHIBITED",
     "global_content_cache": "PROHIBITED",
-    "telemetry": "OPTIONAL_OBSERVE_ONLY"
+    "telemetry": "OPTIONAL_OBSERVE_ONLY",
+    "quality_routes": "AUTHOR_QA_INTEGRATED_DEFAULT_WITH_ONE_WAY_WR_ESCALATION"
   },
   "orchestration_policy": {
     "delegation_default": "VISIBLE_SUBAGENTS",
     "visible_task_record_required": true,
     "invisible_cli_agent_sessions": "PROHIBITED",
-    "writer_reviewer_pair_mode": "REUSABLE_W_R_WITH_ARTICLE_ARTIFACT_ISOLATION",
-    "cross_article_agent_reuse": "CAMPAIGN_W_R_G_REUSE_ALLOWED",
+    "writer_reviewer_pair_mode": "REUSABLE_WQ_WR_WITH_ARTICLE_ARTIFACT_ISOLATION",
+    "cross_article_agent_reuse": "CAMPAIGN_WQ_WR_G_REUSE_ALLOWED",
     "operations_steward_mode": "ONE_REUSABLE_CAMPAIGN_OPERATIONS_STEWARD",
     "persistent_requirements_gatekeeper": true,
     "fresh_agent_roles": [],
@@ -307,17 +317,18 @@
     ],
     "worktree_fallback": "NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED",
     "silent_worktree_fallback": false,
-    "article_worktree_role_bundle": "REUSABLE_W_R_PLUS_SHARED_CAMPAIGN_G",
+    "article_worktree_role_bundle": "REUSABLE_WQ_WR_PLUS_SHARED_CAMPAIGN_G",
     "project_worktree_root_role": "ARTICLE_ARTIFACT_ROOT",
     "campaign_gatekeeper_scope": "PREWRITE_BATCH_CONTRACT_AND_BATCH_PUBLIC_QA",
     "batch_gate_policy": {
       "mode": "CAMPAIGN_G_BATCH_CONTRACT_ACCEPTANCE",
-      "input": "CURRENT_R_APPROVED_ARTICLE_ROWS_ONLY",
+      "input": "CURRENT_FINAL_QUALITY_READY_ARTICLE_ROWS_ONLY",
       "scheduling": "ALL_CURRENTLY_READY_ROWS_PER_G_TURN",
       "decision_scope": "REQUIREMENTS_HASH_AND_EXCEPTION_ONLY",
       "article_quality_rereview": "PROHIBITED",
       "per_article_traceability": "BATCH_REPORT_ROW_REQUIRED",
-      "machine_external_writes_allowed": false
+      "machine_external_writes_allowed": false,
+      "quality_credential": "ROUTE_TRUTHFUL_WQ_OR_WR_RECEIPT"
     },
     "article_public_gate_mode": "REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY",
     "public_qa_policy": {
