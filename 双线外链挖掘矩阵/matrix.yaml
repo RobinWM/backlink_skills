@@ -1,5 +1,9 @@
-version: "1.0.0"
+version: "1.1.0"
 name: "双线外链挖掘矩阵"
+documentation:
+  default: "README.md"
+  zh_CN: "README.zh-CN.md"
+  tutorial: "embedded-in-readmes"
 minimum_runtime:
   python: "3.9"
   dependencies: "standard-library-only"

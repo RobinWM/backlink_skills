@@ -1,61 +1,80 @@
-# 双线外链挖掘矩阵
+# Dual-Track Backlink Prospecting Matrix
 
-这是一个面向 Codex 的开源外链研究 Skill 套件。它把“大规模候选发现”和“高质量文章投稿”分成两条独立筛选线，再用统一的源表、去重和工作簿规则完成交付。
+English · [简体中文](README.zh-CN.md) · Version 1.1.0 · [MIT License](LICENSE)
 
-本项目解决的是候选获取、筛选、去重和制表问题，不是自动群发工具，也不承诺收录、链接属性、流量或排名。
+This open-source Codex skill suite separates backlink prospecting into two independent tracks: high-volume submission candidates and higher-investment editorial opportunities. A shared source, deduplication, batching, and workbook contract connects both tracks.
 
-## 两条线路
+The matrix helps acquire, compress, screen, deduplicate, and package prospects. It is not an automated link-blasting tool and does not promise acceptance, link attributes, traffic, or rankings.
 
-| 线路 | 主要目标 | 筛选方式 |
+## Two tracks
+
+| Track | Primary objective | Screening approach |
 |---|---|---|
-| 批量提交线 | 尽可能扩大合法、相关、可执行的产品收录候选 | 条件宽松，允许登录、验证码、人工审核和 `nofollow`；排除正式文章、强制回链、强制徽章和明确删除风险 |
-| 质量投稿线 | 寻找值得投入内容和沟通成本的编辑型机会 | 综合主题适配、准入难度和预期回报；费用不明不能视为免费 |
+| Batch submission | Expand the pool of lawful, relevant, executable product-listing prospects | Permissive: login, CAPTCHA, manual review, and `nofollow` are allowed; formal articles, mandatory reciprocal links or badges, and clear deletion risk are excluded |
+| Quality editorial | Find opportunities worth content and outreach effort | Balance topic fit, admission difficulty, and expected return; an undisclosed fee is not treated as free |
 
-## Skill 矩阵
+## Skill matrix
 
-| Skill | 职责 | 主要产物 |
+| Skill | Responsibility | Main outputs |
 |---|---|---|
-| `backlink-expansion-matrix` | 冻结范围、路由阶段、检查交接和验收状态 | 项目路线、阶段边界、验收结论 |
-| `backlink-source-prep` | 整理自然搜索竞品、反向链接差异、引荐域名和公开清单 | 源文件登记、合并候选、排除表、优先候选、统计报告 |
-| `backlink-batch-expansion` | 筛选工具目录、产品导航、创业项目库、社区资料页和资源推荐页 | 批量线可执行池、备用池、排除表 |
-| `backlink-quality-expansion` | 筛选文章投稿、行业媒体、专家贡献和编辑型资源页 | 质量线免费候选、付费或待确认候选、排除表 |
-| `backlink-workbook-delivery` | 历史去重、跨线路去重、批次冻结、制表和质量检查 | 免费/付费工作簿、去重记录、质量检查报告 |
+| `backlink-expansion-matrix` | Freeze scope, route stages, inspect handoffs, and enforce status boundaries | Project route, stage boundaries, acceptance result |
+| `backlink-source-prep` | Prepare organic competitors, Backlink Gap exports, referring domains, and public lists | Source register, consolidated pool, exclusions, priority pool, summary |
+| `backlink-batch-expansion` | Screen directories, product listings, startup databases, community profiles, and resource pages | Executable batch pool, reserve pool, exclusions |
+| `backlink-quality-expansion` | Screen guest articles, industry publications, expert contributions, and editorial resource pages | Free editorial prospects, paid or fee-unknown prospects, exclusions |
+| `backlink-workbook-delivery` | Deduplicate history and tracks, freeze batches, build workbooks, and run QA | Free/paid workbooks, dedup log, QA report |
 
-## 工作流
+## Workflow
 
 ```text
-目标品牌与交付要求
+Target brands and delivery requirements
         │
         ▼
-自然搜索竞品与其他参考来源
+Organic competitors and other reference sources
         │
         ▼
-竞品反向链接差异／引荐域名／历史表／公开资源
+Backlink Gap / referring domains / history / public resources
         │
         ▼
-标准化、合并、排除噪声、生成优先候选
+Normalize, consolidate, remove noise, create priority pool
         │
         ├───────────────┐
         ▼               ▼
-批量提交线          质量投稿线
+Batch track        Quality track
         │               │
         └───────┬───────┘
                 ▼
-      历史去重与跨线路去重
+ Historical and cross-track deduplication
                 │
                 ▼
-      免费／付费执行工作簿
+       Free / paid execution workbooks
 ```
 
-## 安装
+## Real project example
 
-将 `skills/` 下需要的技能目录复制到 Codex 可发现的技能目录。完整流程建议安装全部五个：
+The matrix was derived from a real multi-brand expansion project:
+
+| Stage | Volume |
+|---|---:|
+| Target sites | 4 |
+| Selected target–reference-competitor pairs | 257 |
+| Semrush Backlink Gap exports | 66 CSV files |
+| Raw nonblank rows | 1,576,317 |
+| Eligible target–referring-domain pairs after initial exclusions | 784,364 |
+| Unique referring domains across targets | 321,900 |
+| Priority candidate pairs | 340,575 |
+| Unique priority domains | 130,027 |
+
+These figures demonstrate why large exports should be compressed before site-level screening. They are not universal thresholds, and the underlying business data is not included in this repository.
+
+## Installation
+
+Run from the repository root:
 
 ```sh
 cp -R 双线外链挖掘矩阵/skills/* ~/.codex/skills/
 ```
 
-安装后可直接调用：
+The installed skills can then be invoked directly:
 
 ```text
 $backlink-expansion-matrix
@@ -65,35 +84,270 @@ $backlink-quality-expansion
 $backlink-workbook-delivery
 ```
 
-## 校验
+## Complete practical tutorial
 
-每个 Skill 都可以使用 Codex 的 `quick_validate.py` 校验。随包脚本仅使用 Python 标准库：
+### Step 0: Freeze the scope
+
+Provide Codex with:
+
+- canonical brand names and websites;
+- whether the batch track, quality track, or both are required;
+- existing prospect workbooks, historical submissions, and frozen batches;
+- whether the target means “top up to N” or “create a new batch of N”;
+- batch size;
+- whether Semrush browser export is authorized;
+- whether subagent parallelism is explicitly authorized;
+- final visible columns and output location.
+
+“Top up 158 existing rows to 200” means adding 42 rows, not producing another 200.
+
+Suggested starting prompt:
+
+```text
+Use $backlink-expansion-matrix to start a dual-track backlink expansion project.
+The target brands are ...; top up the batch track to ... rows and the quality track to ... rows.
+Historical submissions are located at ...; each final workbook needs Free and Paid sheets.
+Freeze the scope and report missing inputs first. Do not perform real submissions.
+```
+
+### Step 1: Create a working directory
+
+A practical layout is:
+
+```text
+workspace/
+├── 01-source-materials/
+│   ├── organic-competitors/
+│   ├── semrush-backlink-gap-raw/
+│   ├── historical-prospects/
+│   └── historical-submissions/
+├── 02-candidate-pools/
+│   ├── batch-track/
+│   └── quality-track/
+├── 03-deliverables/
+└── 04-process-and-qa/
+```
+
+Copy and register source files without overwriting them. Keep intermediate pools, exclusions, QA reports, and final workbooks separate.
+
+### Step 2: Obtain organic competitors
+
+Export the complete Semrush organic-competitor report for every target site. Select reference competitors using a combination of:
+
+- competitor relevance;
+- shared keywords;
+- organic keywords and estimated organic traffic;
+- product and audience fit;
+- whether the competitor’s link sources can plausibly inform the target brand.
+
+Do not restrict the entire project to four competitors. Four was the number of competitor slots available per comparison in the real working interface. Build a broader reference pool first, then split it into Backlink Gap batches.
+
+### Step 3: Export Backlink Gap batches
+
+The real project used one target plus four competitors per batch. Record the target, competitors, batch number, and export date. A useful naming convention is:
+
+```text
+gap-target-domain-batch01-2026-09-23.csv
+gap-target-domain-batch02-2026-09-23.csv
+```
+
+During browser work:
+
+- never open two Semrush account-center tabs at the same time;
+- do not click unrelated account-center tabs;
+- if a device-limit false positive appears, close every other Semrush tab and reopen the report from the single account-center tab;
+- stop at CAPTCHA or security verification instead of bypassing it;
+- register each export immediately to avoid missing or repeating batches.
+
+Organic competitors and competitor backlinks are independent sources. The first answers “who is worth studying”; the second answers “where those competitors obtained links.”
+
+### Step 4: Audit raw exports
+
+Run:
 
 ```sh
 python3 skills/backlink-source-prep/scripts/audit_semrush_exports.py \
   --input-dir /path/to/semrush-exports \
   --report /path/to/source-audit.json
-
-python3 skills/backlink-batch-expansion/scripts/validate_candidate_pool.py \
-  --input /path/to/candidate-pool.csv
-
-python3 skills/backlink-workbook-delivery/scripts/validate_delivery_csv.py \
-  --input /path/to/delivery.csv
 ```
 
-## 数据边界
+This script inventories CSV count, nonblank rows, empty files, read errors, and header variants. It does not determine whether a domain is a valid submission platform and does not replace business screening.
 
-- 仓库只包含工作流、规则、模板和校验脚本，不包含公司的 Semrush 原始导出、历史投递数据或账号信息。
-- Semrush、竞品外链和公开清单只是候选来源，不证明站点可投递。
-- 候选表、执行表、表单页面和 HTTP 200 均不证明已经提交或收录。
-- 未经明确授权，Skill 不注册、不登录、不付款、不提交，也不联系站方。
-- 费用未说明不等于免费；“已导出”不等于“已提交”。
+### Step 5: Consolidate and compress source data
 
-## 目录结构
+Invoke:
+
+```text
+Use $backlink-source-prep to process these Semrush exports.
+Preserve source files and provenance, normalize domains, and output a consolidated pool,
+an exclusion table, a priority pool, and a statistical report.
+Do not describe source candidates as verified submission platforms.
+```
+
+Recommended compression order:
+
+1. Remove blank and unparseable records.
+2. Merge identical target–referring-domain pairs.
+3. Mark owned domains and competitor-owned domains.
+4. Exclude obvious shorteners, gambling, malware, mirrors, and spam patterns.
+5. Calculate target coverage, competitor coverage, and cross-target unique domains.
+6. Prioritize with coverage, authority, traffic, and topic signals.
+
+Include data volume in filenames, for example:
+
+```text
+backlink-gap-raw-1576317-rows-66-files/
+consolidated-candidates-784364-rows.csv
+priority-candidates-340575-rows.csv
+excluded-records-58587-rows.csv
+```
+
+A high-authority generic site is not automatically a submission platform. A small vertical directory should not be discarded solely because its authority is low.
+
+### Step 6: Screen the batch track
+
+Invoke:
+
+```text
+Use $backlink-batch-expansion to expand the batch-submission track from the priority pool.
+Favor scale. Allow registration, login, CAPTCHA, manual review, and nofollow.
+Exclude opportunities requiring a formal article, mandatory reciprocal link or badge,
+or carrying a clear deletion risk. Output executable, reserve, and excluded pools.
+Do not build the final workbook yet.
+```
+
+If an explicit entry cannot be found but the domain remains useful, place it in the reserve pool instead of inventing `/submit`. Different real submission objects on the same domain may be retained; paths resolving to the same form should be consolidated.
+
+Validate the pool:
+
+```sh
+python3 skills/backlink-batch-expansion/scripts/validate_candidate_pool.py \
+  --input /path/to/candidate-pool.csv \
+  --report /path/to/candidate-pool-qa.json
+```
+
+### Step 7: Screen the quality track
+
+Invoke:
+
+```text
+Use $backlink-quality-expansion to expand the editorial quality track.
+Evaluate topic fit, admission difficulty, and expected return separately.
+Prefer official contribution guidelines and editorial policies as evidence.
+Output free, paid or fee-unknown, reserve, and excluded pools.
+Do not write the article, contact editors, or pay.
+```
+
+If the same publication offers both free editorial contribution and paid branded content, both can be retained as separate opportunities with separate URLs, conditions, and fees. An unknown fee must not be classified as free.
+
+### Step 8: Deduplicate history and freeze batches
+
+Invoke:
+
+```text
+Use $backlink-workbook-delivery to deduplicate both tracks against historical submissions,
+cross-track entries, and frozen exported batches. If the historical file has no brand field,
+state that only platform-level deduplication is possible; do not claim a specific brand was submitted.
+Keep exported batches frozen.
+```
+
+Deduplication has three layers:
+
+1. normalized URL;
+2. entry-level judgment within the same platform domain;
+3. historical submissions, earlier batches, and cross-track conflicts.
+
+The same entry cannot appear in both tracks. A real tool-submission route and a separate editorial-contribution route on the same domain may both remain.
+
+### Step 9: Build execution workbooks
+
+The default is one workbook per track with `Free` and `Paid` sheets. Visible columns are:
+
+```text
+Domain | URL | Submission conditions | Suitable brand websites
+```
+
+Confirmed-free routes go to `Free`. Confirmed-paid routes go to `Paid`. Fee-unknown routes also go to `Paid`, with “fee to be confirmed” stated in the conditions and counted separately in QA. Provenance, evidence, status, and internal IDs remain in the internal candidate pool.
+
+Validate the delivery CSV before creating XLSX:
+
+```sh
+python3 skills/backlink-workbook-delivery/scripts/validate_delivery_csv.py \
+  --input /path/to/delivery.csv \
+  --report /path/to/delivery-qa.json
+```
+
+After creating XLSX, reimport it to check sheet names, columns, row counts, and formula errors. Visually inspect the top, bottom, and newly appended region of every sheet. Visual inspection does not replace data validation.
+
+### Step 10: Feed execution results into the next batch
+
+After real execution begins, collect feedback for `min(50, newly added rows in the batch)` first. Record:
+
+- whether the route still works;
+- actual free or paid status;
+- login or CAPTCHA requirements;
+- mandatory reciprocal-link or badge requirements;
+- brand fit;
+- submitted, awaiting review, published, rejected, or outcome unknown.
+
+If route failure, forced payment, or brand mismatch rises materially, adjust ordering and screening before generating the next batch. Candidate count, actual submissions, and public placements must remain separate metrics.
+
+## Common invocation patterns
+
+### Source preparation only
+
+```text
+Use $backlink-source-prep to inventory and prepare these exports. Deliver only the source register,
+consolidated pool, exclusions, priority pool, and statistical report. Stop before site screening.
+```
+
+### Top up the batch track
+
+```text
+Use $backlink-batch-expansion to top up the existing batch workbook from 158 to 200 rows.
+Add only 42 rows and preserve existing batch membership.
+```
+
+### Create a new quality batch
+
+```text
+Use $backlink-quality-expansion to create 100 new editorial prospects.
+Balance topic fit, admission difficulty, and expected return. Do not classify unknown fees as free.
+```
+
+### Deduplication and workbook delivery only
+
+```text
+Use $backlink-workbook-delivery with the screened pools and historical submissions.
+Only deduplicate, freeze batches, split Free/Paid sheets, and run QA. Do not research new sites.
+```
+
+## Acceptance checklist
+
+- Source files were not overwritten.
+- Every prospect retains traceable provenance.
+- Batch and quality tracks did not use the same screening threshold.
+- Fee-unknown prospects were not reported as free.
+- Normalized URLs, platform domains, historical files, and frozen batches were checked.
+- Exported batches were not reassigned.
+- Workbooks expose only requested columns.
+- Workbooks were reimported and visually inspected.
+- Deliverables are labeled as execution candidates.
+- A reachable page, existing form, or HTTP 200 was not reported as a completed submission or placement.
+
+## Data and execution boundaries
+
+- The repository contains workflows, rules, templates, and validators—not company Semrush exports, submission history, or account information.
+- Semrush, competitor backlinks, and public lists are prospect sources, not proof of eligibility.
+- Without separate authorization, the skills do not register, log in, pay, submit, or contact site owners.
+- CAPTCHA and security verification must be completed through the site’s native flow or by the user, never bypassed.
+
+## Directory structure
 
 ```text
 双线外链挖掘矩阵/
 ├── README.md
+├── README.zh-CN.md
 ├── LICENSE
 ├── matrix.yaml
 └── skills/

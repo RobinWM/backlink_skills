@@ -21,6 +21,7 @@ This is not a one-click link-spam tool. It does not promise acceptance, dofollow
 
 | Component | Best for | Main capabilities |
 |---|---|---|
+| [Dual-Track Backlink Prospecting Matrix](双线外链挖掘矩阵/README.md) | Expanding and screening prospects from Semrush, competitor backlinks, historical workbooks, and public sources | Source compression, batch and editorial tracks, historical deduplication, frozen batches, Free/Paid workbooks, mechanical and visual QA |
 | [`SPD V1 Batch`](submit-product-directories-v1-batch/SKILL.md) | Large, prequalified URL lists | Normalize, deduplicate, shard, verification-first queues, sequential form execution, recovery, throughput records |
 | [`SPD V2 Quality`](submit-product-directories-v2-quality/SKILL.md) | Small quality-first campaigns | Up to 10 sites per batch, audience and SEO quality gates, action-level authorization, evidence and durability checks |
 | [`writer`](writer/SKILL.md) | General website SEO articles | Brief, outline, fact-checking, SEO audit, rewrite, humanization, images, file packaging |
@@ -86,6 +87,11 @@ and local image plan. Save the article package and do not publish it.
 ├── README_*.md
 ├── Free-backlink-list.md
 ├── assets/                           # README hero and Star trend chart
+├── 双线外链挖掘矩阵/                 # Bilingual tutorial and five coordinated Codex skills
+│   ├── README.md
+│   ├── README.zh-CN.md
+│   ├── matrix.yaml
+│   └── skills/
 ├── submit-product-directories-v1-batch/
 ├── submit-product-directories-v2-quality/
 └── writer/
