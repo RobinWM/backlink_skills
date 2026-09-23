@@ -1,4 +1,4 @@
-version: "1.1.0"
+version: "1.1.1"
 name: "双线外链挖掘矩阵"
 documentation:
   default: "README.md"
@@ -45,6 +45,14 @@ status_boundaries:
     - "已发布"
     - "已收录"
     - "保证获得外链"
+public_release:
+  generic_methods_only: true
+  prohibit:
+    - "real_brand_names_or_domains"
+    - "business_datasets_or_project_statistics"
+    - "private_paths_or_internal_filenames"
+    - "account_or_session_details"
+    - "submission_history_or_source_excerpts"
 forbidden_capabilities_without_separate_authorization:
   - "registration"
   - "login"

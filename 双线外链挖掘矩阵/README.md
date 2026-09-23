@@ -1,6 +1,6 @@
 # Dual-Track Backlink Prospecting Matrix
 
-English · [简体中文](README.zh-CN.md) · Version 1.1.0 · [MIT License](LICENSE)
+English · [简体中文](README.zh-CN.md) · Version 1.1.1 · [MIT License](LICENSE)
 
 This open-source Codex skill suite separates backlink prospecting into two independent tracks: high-volume submission candidates and higher-investment editorial opportunities. A shared source, deduplication, batching, and workbook contract connects both tracks.
 
@@ -49,22 +49,9 @@ Batch track        Quality track
        Free / paid execution workbooks
 ```
 
-## Real project example
+## Why compress before screening
 
-The matrix was derived from a real multi-brand expansion project:
-
-| Stage | Volume |
-|---|---:|
-| Target sites | 4 |
-| Selected target–reference-competitor pairs | 257 |
-| Semrush Backlink Gap exports | 66 CSV files |
-| Raw nonblank rows | 1,576,317 |
-| Eligible target–referring-domain pairs after initial exclusions | 784,364 |
-| Unique referring domains across targets | 321,900 |
-| Priority candidate pairs | 340,575 |
-| Unique priority domains | 130,027 |
-
-These figures demonstrate why large exports should be compressed before site-level screening. They are not universal thresholds, and the underlying business data is not included in this repository.
+Backlink exports can contain repeated referring domains, repeated target–domain pairs, irrelevant networks, and multiple URLs pointing to the same submission route. Normalize and consolidate the raw files first, then prioritize domains for site-level review. The repository intentionally contains no real brand list, business dataset, account detail, historical submission record, or project-specific threshold.
 
 ## Installation
 
@@ -99,7 +86,7 @@ Provide Codex with:
 - whether subagent parallelism is explicitly authorized;
 - final visible columns and output location.
 
-“Top up 158 existing rows to 200” means adding 42 rows, not producing another 200.
+“Top up A existing rows to B” means adding `B-A` rows, not producing another B rows.
 
 Suggested starting prompt:
 
@@ -140,22 +127,21 @@ Export the complete Semrush organic-competitor report for every target site. Sel
 - product and audience fit;
 - whether the competitor’s link sources can plausibly inform the target brand.
 
-Do not restrict the entire project to four competitors. Four was the number of competitor slots available per comparison in the real working interface. Build a broader reference pool first, then split it into Backlink Gap batches.
+Do not restrict the entire project to a single comparison batch. Build a broader reference pool first, then split it according to the comparison slots supported by the current product interface.
 
 ### Step 3: Export Backlink Gap batches
 
-The real project used one target plus four competitors per batch. Record the target, competitors, batch number, and export date. A useful naming convention is:
+Use the batch size supported by the current product interface. Record the target, competitors, batch number, and export date. A useful naming convention is:
 
 ```text
-gap-target-domain-batch01-2026-09-23.csv
-gap-target-domain-batch02-2026-09-23.csv
+gap-target-domain-batch01-YYYY-MM-DD.csv
+gap-target-domain-batch02-YYYY-MM-DD.csv
 ```
 
 During browser work:
 
-- never open two Semrush account-center tabs at the same time;
-- do not click unrelated account-center tabs;
-- if a device-limit false positive appears, close every other Semrush tab and reopen the report from the single account-center tab;
+- use only the account and browser session authorized by the user;
+- do not access unrelated pages or change account, security, or subscription settings;
 - stop at CAPTCHA or security verification instead of bypassing it;
 - register each export immediately to avoid missing or repeating batches.
 
@@ -196,10 +182,10 @@ Recommended compression order:
 Include data volume in filenames, for example:
 
 ```text
-backlink-gap-raw-1576317-rows-66-files/
-consolidated-candidates-784364-rows.csv
-priority-candidates-340575-rows.csv
-excluded-records-58587-rows.csv
+backlink-gap-raw-<rows>-rows-<files>-files/
+consolidated-candidates-<rows>-rows.csv
+priority-candidates-<rows>-rows.csv
+excluded-records-<rows>-rows.csv
 ```
 
 A high-authority generic site is not automatically a submission platform. A small vertical directory should not be discarded solely because its authority is low.
@@ -281,7 +267,7 @@ After creating XLSX, reimport it to check sheet names, columns, row counts, and 
 
 ### Step 10: Feed execution results into the next batch
 
-After real execution begins, collect feedback for `min(50, newly added rows in the batch)` first. Record:
+After real execution begins, collect a user-approved feedback sample from the first batch. Record:
 
 - whether the route still works;
 - actual free or paid status;
@@ -304,14 +290,14 @@ consolidated pool, exclusions, priority pool, and statistical report. Stop befor
 ### Top up the batch track
 
 ```text
-Use $backlink-batch-expansion to top up the existing batch workbook from 158 to 200 rows.
-Add only 42 rows and preserve existing batch membership.
+Use $backlink-batch-expansion to top up the existing batch workbook from A to B rows.
+Add only B-A rows and preserve existing batch membership.
 ```
 
 ### Create a new quality batch
 
 ```text
-Use $backlink-quality-expansion to create 100 new editorial prospects.
+Use $backlink-quality-expansion to create N new editorial prospects.
 Balance topic fit, admission difficulty, and expected return. Do not classify unknown fees as free.
 ```
 
@@ -337,7 +323,7 @@ Only deduplicate, freeze batches, split Free/Paid sheets, and run QA. Do not res
 
 ## Data and execution boundaries
 
-- The repository contains workflows, rules, templates, and validators—not company Semrush exports, submission history, or account information.
+- The repository contains only generic workflows, rules, templates, and validators. It contains no proprietary brand configuration, business dataset, project statistics, submission history, or account information.
 - Semrush, competitor backlinks, and public lists are prospect sources, not proof of eligibility.
 - Without separate authorization, the skills do not register, log in, pay, submit, or contact site owners.
 - CAPTCHA and security verification must be completed through the site’s native flow or by the user, never bypassed.
