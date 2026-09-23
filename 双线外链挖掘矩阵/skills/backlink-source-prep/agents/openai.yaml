@@ -1,0 +1,4 @@
+interface:
+  display_name: "外链源表整理"
+  short_description: "整理 Semrush 竞品与反向链接导出并生成可追溯候选源表"
+  default_prompt: "使用 $backlink-source-prep 整理这些 Semrush 外链源表并输出可追溯候选池。"

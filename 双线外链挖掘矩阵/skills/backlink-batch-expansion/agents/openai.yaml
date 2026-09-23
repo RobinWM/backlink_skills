@@ -1,0 +1,4 @@
+interface:
+  display_name: "外链批量扩量"
+  short_description: "统一候选库、全局查重、自动分批的外链扩量标准执行流程"
+  default_prompt: "使用 $backlink-batch-expansion 整理批量外链候选库并按指定数量分批交付。"

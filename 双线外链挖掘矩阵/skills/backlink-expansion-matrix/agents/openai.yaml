@@ -1,0 +1,4 @@
+interface:
+  display_name: "外链扩量总控"
+  short_description: "统筹外链源表获取、批量筛选、质量投稿、历史去重和表格交付"
+  default_prompt: "使用 $backlink-expansion-matrix 规划并验收一次端到端外链扩量任务。"
