@@ -72,6 +72,42 @@ Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Produ
 | 有意义表单操作前发生浏览器/后端故障 | `failed` | 保留当前真实状态，通常为 `not_attempted` | 必须提供 `lastError` |
 | 已填写字段但最终动作前发生故障 | `failed` | `form_in_progress` 或真实保存后的 `draft_saved` | 不得标记为 submitted |
 
+## 内容编辑器 no-action
+
+以下入口只记录观察结果，不得填写、预填、保存草稿、提交、发布或自动交给人工继续写作：
+
+```text
+short note — no action
+long post — no action
+unknown — no action
+```
+
+只有内容编辑器的站点使用：
+
+```text
+Run Item status  = completed
+submissionStatus = ineligible
+exactResult      = content surface classified as no-action
+```
+
+页面显示 `Post`、`Publish` 或 `Submit` 不会改变该规则。不要将内容编辑器误分类为 `unavailable` 或 `submission_failed`。
+
+## 站内去重证据
+
+执行表单、Claim 或任何最终动作前，必须在现有 `evidenceReference` 中保存站内去重证据。最低内容包括：
+
+```text
+规范 URL查询
+裸域名查询
+品牌/产品名查询
+标题变体查询
+候选数量
+候选实际出站 URL核验结果
+检查时间
+```
+
+命中规范 URL 或规范域名时，使用 `duplicate_no_action`，停止该站，不得继续登录、填写或提交。只有当前批次明确授权时，才允许使用未完成检查的直接尝试结果；这种结果最多允许一次最终提交尝试，并且必须在 evidence 中记录缺口和授权引用。
+
 ## 预检优先级
 
 多个条件同时存在时，按以下顺序使用第一个决定性条件：

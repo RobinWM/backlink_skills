@@ -28,6 +28,8 @@ SUBMISSION_STATUSES = [
     'submission_outcome_unknown',
     'awaiting_approval',
     'awaiting_email_verification',
+    'email_sent_awaiting_reply',
+    'email_send_outcome_unknown',
     'published',
     'blocked_manual_verification',
     'blocked_missing_verified_data',
@@ -49,6 +51,18 @@ VERIFICATION_STATUSES = [
     'verification_expired_reset',
     'no_verification_presented',
     'deferred_by_user',
+]
+
+ACTION_CHANNELS = ['web_form', 'official_contact_email']
+CONTENT_SURFACES = [
+    'not_applicable',
+    'directory_listing',
+    'product_profile',
+    'claim_listing',
+    'short_note_no_action',
+    'long_post_no_action',
+    'unknown_no_action',
+    'official_contact_email',
 ]
 
 
@@ -373,6 +387,15 @@ class ShipmoreQueueClient:
                 'workerId': self.require_worker_id(),
                 'status': args.status,
                 'submissionStatus': args.submission_status,
+                'actionChannel': getattr(args, 'action_channel', None),
+                'contentSurface': getattr(args, 'content_surface', None),
+                'contentSurfaceEvidence': getattr(args, 'content_surface_evidence', None),
+                'recipientContactAlias': getattr(args, 'recipient_contact_alias', None),
+                'contactSourceEvidence': getattr(args, 'contact_source_evidence', None),
+                'mailboxPreSendCheck': getattr(args, 'mailbox_pre_send_check', None),
+                'mailboxPreSendEvidence': getattr(args, 'mailbox_pre_send_evidence', None),
+                'emailSendAttempts': getattr(args, 'email_send_attempts', None),
+                'gmailSendReceipt': getattr(args, 'gmail_send_receipt', None),
                 'verificationStatus': args.verification_status,
                 'lastError': args.last_error,
                 'exactResult': args.exact_result,
@@ -461,6 +484,15 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument(
         '--submission-status', required=True, choices=SUBMISSION_STATUSES
     )
+    complete.add_argument('--action-channel', choices=ACTION_CHANNELS)
+    complete.add_argument('--content-surface', choices=CONTENT_SURFACES)
+    complete.add_argument('--content-surface-evidence')
+    complete.add_argument('--recipient-contact-alias')
+    complete.add_argument('--contact-source-evidence')
+    complete.add_argument('--mailbox-pre-send-check')
+    complete.add_argument('--mailbox-pre-send-evidence')
+    complete.add_argument('--email-send-attempts', type=int, choices=[0, 1])
+    complete.add_argument('--gmail-send-receipt')
     complete.add_argument('--verification-status', choices=VERIFICATION_STATUSES)
     complete.add_argument('--last-error')
     complete.add_argument('--exact-result')

@@ -42,6 +42,8 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 3. [references/worker-loop.md](references/worker-loop.md)
 4. [references/browser-control-routing.md](references/browser-control-routing.md)
 5. [references/account-authentication.md](references/account-authentication.md)
+6. [references/entry-and-content-routing.md](references/entry-and-content-routing.md)
+7. [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
 
 ## 事实来源规则
 
@@ -66,16 +68,20 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 3. 在浏览器操作前检查返回的既有 Submission 快照。
 4. 如果快照已经证明不应进行新的表单操作，则将 Run Item 以 `skipped` 完成，同时保留当前 submission status。
 5. 在任何可变浏览器操作前发送 heartbeat；在重要导航、验证、用户交接或长时间推理后再次发送。300 秒租约通常应每 60–120 秒发送一次 heartbeat；较长的浏览器操作可在 API 限制内申请更长租约。
-6. 按 [references/worker-loop.md](references/worker-loop.md) 的强制预检顺序执行：不可用 → 仅付费 → 必需 backlink 注册与验证 → 其他不符合资格 → 既有生命周期/重复项 → 已授权的账号登录/注册/邮箱验证 → 缺少已验证资料 → 其他验证 → 可变表单操作。
+6. 按 [references/worker-loop.md](references/worker-loop.md) 的强制预检顺序执行：不可用 → 仅付费 → 必需 backlink 注册与验证 → 其他不符合资格 → 既有生命周期/重复项 → 入口和内容面分类 → 已授权的账号登录/注册/邮箱验证 → 缺少已验证资料 → 其他验证 → 可变表单操作。
 7. 只执行真实且已授权的表单操作。可选的未知字段保持为空；只有在前置的终止性资格/政策检查通过后，才因必填未知字段阻塞任务。
-8. 记录准确的页面/服务器结果，并在有证据时记录不透明的 evidence reference。
-9. 使用 [references/status-mapping.md](references/status-mapping.md) 对结果分类。
-10. 第一次尝试 `complete` 前选择一个稳定的 `eventId`。如果 HTTP 响应丢失或请求需要重试，重复使用同一个 event ID。
-11. 完成该任务。同一个逻辑完成操作绝不能生成新的 event ID。
-12. 只有在前一个任务得到终止性 Run Item 结果后，才能 claim 下一个任务。
+8. 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前执行检查单；有未通过项目时不得执行 Submit、Publish、Claim 或其他不可逆动作。
+9. 记录准确的页面/服务器结果，并在有证据时记录不透明的 evidence reference。
+10. 使用 [references/status-mapping.md](references/status-mapping.md) 对结果分类。
+11. 结果分类后再次执行检查单；未通过时不得把结果标记为成功。
+12. 第一次尝试 `complete` 前选择一个稳定的 `eventId`。如果 HTTP 响应丢失或请求需要重试，重复使用同一个 event ID。
+13. 完成该任务。同一个逻辑完成操作绝不能生成新的 event ID。
+14. 只有在前一个任务得到终止性 Run Item 结果后，才能 claim 下一个任务。
 
 ## 浏览器执行规则
 
+- 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
+- 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。
 - 有可用的已授权会话时优先复用。不要检查 Cookie、已保存密码、本地存储、恢复码或隐藏的身份验证材料。
 - 目录需要身份验证时，遵循 [references/account-authentication.md](references/account-authentication.md)。使用 claim 载荷中的有效 `productContactEmail` 作为账号邮箱，并按以下顺序尝试已授权方式：已有 Google 会话、已有 GitHub 会话、站点原生邮箱验证码或 magic link（对于 Google 托管邮箱，优先使用已授权的 `gws`；仅当 `gws` 不可用时，才使用 `https://mail.google.com` 上现有且匹配的 Gmail 会话），最后才使用邮箱/密码。只有站点明确报告该邮箱没有账号时，才创建一个普通免费账号；身份验证成功后继续原始提交。
@@ -162,4 +168,6 @@ python3 scripts/shipmore_queue_client.py complete \
 - [references/worker-loop.md](references/worker-loop.md)：确定性的 worker 流程、Product 字段映射、预检顺序和重试规则。
 - [references/browser-control-routing.md](references/browser-control-routing.md)：与后端无关的浏览器选择和验证规则。
 - [references/account-authentication.md](references/account-authentication.md)：默认账号的授权登录、免费注册、安全运行时凭据，以及优先使用 `gws`、不可用时回退 Gmail 的验证流程。
+- [references/entry-and-content-routing.md](references/entry-and-content-routing.md)：入口发现、站内去重和内容面 no-action 分类。
+- [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)：最终动作前后的执行检查单。
 - `scripts/shipmore_queue_client.py`：无第三方依赖的 Queue/outbound-link API 客户端和首页 backlink 验证器。

@@ -8,6 +8,8 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 
 目标是让 Shipmore worker 在执行前更早发现错误入口，在最终动作前降低重复提交风险，并在 Contact 邮件和结果不明场景下保留可恢复证据。
 
+当前进度：阶段一至五已实施。阶段一至三接入浏览器规则、检查单和去重证据；阶段四、五已在 Shipmore 后端增加内容面字段、no-action 校验、官方 Contact 邮件渠道字段、邮件专用状态和 Queue API/Server Action 传递；迁移与类型测试已完成。
+
 ## 2. 现有能力与缺口
 
 ### Shipmore 已有能力
@@ -77,6 +79,8 @@ claim
 
 ### 阶段二：增加统一的执行检查单
 
+实施状态：已完成文档和 worker 流程接入，使用现有 `exactResult`、`evidenceReference` 和稳定 `eventId`，未新增后端字段。
+
 新增或扩展 Shipmore worker 的执行检查单，在最终动作前和结果判断后各运行一次。
 
 #### 最终动作前
@@ -101,6 +105,8 @@ claim
 - Complete 使用的 `eventId` 是否稳定。
 
 ### 阶段三：扩展站内去重证据
+
+实施状态：已完成证据格式和结果约定，使用现有 `evidenceReference` 保存详细证据，未新增后端字段。
 
 建议在 Shipmore evidence store 中保存结构化但不含敏感信息的去重证据：
 
@@ -133,6 +139,8 @@ inconclusive_user_authorized_direct_attempt
 
 ### 阶段四：增加内容面 no-action 分类
 
+实施状态：已完成后端字段和校验。`product_directory.content_surface` 默认 `not_applicable`；no-action 内容面只能以 `ineligible` 完成，不能进入表单或发布流程。
+
 在 Directory 观察结果或 evidence 中增加内容面分类：
 
 ```text
@@ -164,6 +172,8 @@ exactResult: content surface classified as no-action
 如果业务需要统计这类入口，再增加单独的 `contentSurfaceOutcome` 字段；不要把它伪装成 `unavailable` 或 `submission_failed`。
 
 ### 阶段五：增加官方 Contact 邮件渠道
+
+实施状态：已完成第一版后端契约。已增加 `actionChannel`、官方联系人证据、Gmail 发送次数/回执和两个邮件专用状态；发送动作仍由授权 worker 执行，Shipmore 只保存状态和受控证据引用。
 
 这是唯一需要明显扩展 Shipmore 状态和 API 契约的阶段。
 
