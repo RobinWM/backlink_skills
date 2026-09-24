@@ -94,6 +94,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 - 绝不要绕过 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或站点访问控制。允许使用已授权邮箱完成站点正常的邮箱验证；不允许绕过或削弱验证。
 - 不得订阅 newsletter、接受可选推广、支付费用、手动修改 Product 网站、修改 DNS 或创建无关公开内容。必需的 backlink/badge 只能通过 Shipmore 已授权的 outbound-link endpoint 及下方验证流程处理。
 - 当目录要求 backlink 或 badge 时，先发送 heartbeat，再使用租约中的 `runItemId` 和同一个 `workerId` 调用 `POST /api/outbound-links`，然后在执行任何目录表单操作前验证 Product 首页。不要立即将其分类为 `ineligible`。
+- Badge 与反链验证可等价处理：如果站点的原生 Badge 校验实际只检查 Product 首页是否存在指向该站的链接，则 Shipmore outbound-link 的精确 hostname/path 验证即可作为 Badge 验证依据；只有页面明确要求特定 Badge 图片、HTML 属性或精确 listing URL 时，才需要额外的站点原生检查。
 - 每 20 秒轮询一次 `productUrl` 首页 HTML，最多 6 次。注册前和每次尝试前都发送 heartbeat；一旦失去租约所有权立即停止。只有在首页 HTML（或客户端渲染 HTML 时的最终浏览器 DOM）中看到与 `directoryUrl` 完全匹配的已解析 `<a href>` 后，才能继续原始目录提交。
 - 链接比较使用解析后的 hostname 和 path：scheme 以及 query/fragment 不参与身份判断，开头的 `www.` 和结尾斜杠会被规范化；除此之外 hostname 和 path 必须完全匹配。绝不能使用子字符串匹配。不要绕过 CAPTCHA、WAF 或访问控制来验证页面。
 - 如果 6 次检查全部失败，不得提交。使用最接近事实的 blocked/ineligible 状态完成任务，并在 exact result/error 中包含 `backlink verification timeout`。

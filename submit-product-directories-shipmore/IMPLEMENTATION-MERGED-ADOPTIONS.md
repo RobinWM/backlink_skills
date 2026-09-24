@@ -14,6 +14,8 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 
 认证流程补充：`Login Required` 只触发账号认证阶段，worker 必须先尝试当前 ego-browser 会话、Google/GitHub OAuth、邮箱验证码或 magic link 等已授权路径；不能看到登录墙就直接写入 `blocked_account_or_email_policy`。
 
+Badge 验证补充：当站点的 Badge 校验实际等价于检查 Product 首页反链时，`backlink_verified` 可直接作为 Badge 验证结果；只有站点明确要求图片、HTML 属性或精确 listing URL 时，才增加原生 Badge 检查。
+
 ## 2. 现有能力与缺口
 
 ### Shipmore 已有能力

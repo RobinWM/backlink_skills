@@ -93,6 +93,10 @@ while true:
 6. 只有命令返回 `success=true` 且 `reason=backlink_verified`，或在租约有效期间取得等价的最终 DOM 证据，才能继续原始目录表单。
 7. 注册失败、租约丢失或 6 次检查都找不到链接时，在提交前停止。6 次超时记录 `backlink verification timeout`，并使用最接近事实的 blocked/ineligible 状态。
 
+### Badge 与反链的等价判断
+
+如果目录页面把 Badge 作为反链存在性的可视化入口，且其验证只检查 Product 首页是否存在指向该站的链接，则 `reason=backlink_verified` 可以直接满足 Badge 验证，不需要额外插入图片或复制 Badge HTML。只有当页面明确要求特定 Badge 图片、HTML 属性、脚本或精确 listing URL 时，才执行额外的原生 Badge 检查。
+
 ## Product 字段映射
 
 目录表单优先使用明确的 claim 字段：

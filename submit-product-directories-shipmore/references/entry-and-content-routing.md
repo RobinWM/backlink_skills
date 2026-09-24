@@ -79,6 +79,8 @@ duplicate confirmed: existing listing points to the canonical product URL
 
 ## 结果与执行边界
 
+目录把 Badge 作为反链验证时，先使用 Shipmore 的精确出站链接结果判断。链接已经通过且站点没有额外的图片、属性或 listing URL 要求时，Badge 与链接视为等价；不要仅因没有看到图片 Badge 就阻塞。
+
 入口发现和站内去重必须发生在以下动作之前：
 
 - 登录或注册（仅为目录认证而必需的登录除外）；
