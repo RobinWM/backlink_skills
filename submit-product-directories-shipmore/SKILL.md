@@ -84,7 +84,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 
 - 所有浏览器操作必须调用 `ego-browser` skill；使用其 TaskSpace/Page API 读取页面、点击、填写、上传、截图、处理弹窗和完成 Gmail 操作。不要把浏览器操作交给 Queue CLI，也不要绕过 ego-browser 直接操作 CDP。
 - 登录状态必须以当前 ego-browser TaskSpace/Page 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和提交页面是否可用。claim 返回的历史 `exactResult`、其他浏览器的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
-- 如果当前 ego-browser 页面已经显示与有效提交身份匹配的已登录账号，可以复用该会话继续执行；如果提交入口重定向到登录页、只显示登录/注册按钮，或无法确认账号身份，则视为未确认登录，不得猜测或复制 Cookie/会话。
+- 如果当前 ego-browser 页面已经显示与有效提交身份匹配的已登录账号，可以复用该会话继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测或复制 Cookie/会话。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。

@@ -12,6 +12,8 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 
 登录状态判断补充：以当前 ego-browser TaskSpace/Page 的实时可见身份和受保护页面访问结果为准，不使用 claim 历史阻塞文案或其他浏览器会话推断当前登录状态。
 
+认证流程补充：`Login Required` 只触发账号认证阶段，worker 必须先尝试当前 ego-browser 会话、Google/GitHub OAuth、邮箱验证码或 magic link 等已授权路径；不能看到登录墙就直接写入 `blocked_account_or_email_policy`。
+
 ## 2. 现有能力与缺口
 
 ### Shipmore 已有能力

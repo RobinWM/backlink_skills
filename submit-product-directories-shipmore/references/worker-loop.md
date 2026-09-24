@@ -67,7 +67,7 @@ while true:
 4. **其他不符合资格**：不支持的资格、禁止的非 backlink 站点修改或无关商业/社区动作分类为 `ineligible`。
 5. **重复项/既有生命周期保护**：检查既有 Shipmore 状态和明确的现有列表。绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。
 6. **入口和内容面分类**：按照 [entry-and-content-routing.md](entry-and-content-routing.md) 从首页、导航、页脚、站内搜索和真实控件确认当前入口；在填写字段前完成站内重复查询，并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方 Contact 邮件必须分别分类。`short note — no action`、`long post — no action` 和 `unknown — no action` 立即停止该站的内容动作；只有内容编辑器的站点使用 `ineligible`。
-7. **账号认证**：使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md`：现有 Google OAuth、现有 GitHub OAuth、原生邮箱验证码/magic link；Google 托管邮箱优先从已授权 `gws` 获取，只有不可用时才使用匹配 Gmail 浏览器会话；之后才使用邮箱/密码。只有站点明确报告该邮箱没有账号时才允许注册一个免费账号。认证成功后继续，只有超出授权范围时才使用 `blocked_account_or_email_policy`。
+7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前 ego-browser 中匹配的现有会话、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交。
 8. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
 9. **验证挑战**：暴露 CAPTCHA、Turnstile、邮箱挑战等原生验证。未解决的人工验证使用 `blocked_manual_verification`。
 10. **表单执行**：只有现在才能填写可变的产品目录字段并走向最终动作。
