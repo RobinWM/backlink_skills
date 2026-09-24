@@ -1,8 +1,8 @@
-# Shipmore worker loop
+# Shipmore worker 流程
 
-## Deterministic loop
+## 确定性循环
 
-For one Shipmore Run, use the same stable worker ID for every claim and heartbeat from the same worker instance.
+同一个 Shipmore Run 中，同一个 worker 实例的所有 claim 和 heartbeat 都使用稳定的 worker ID。
 
 ```text
 while true:
@@ -42,197 +42,189 @@ while true:
   complete(stable eventId)
 ```
 
-## Before opening the browser
+## 打开浏览器前
 
-Validate:
+确认：
 
-- `runItemId = claim.data.id`;
-- `claimedBy` matches this worker;
-- lease has not expired;
-- Product and Directory data are present enough for the next read-only step;
-- previous `submissionStatus` does not prohibit blind resubmission.
+- `runItemId = claim.data.id`；
+- `claimedBy` 与当前 worker 一致；
+- 租约尚未过期；
+- Product 和 Directory 数据足以支持下一步只读检查；
+- 既有 `submissionStatus` 不禁止盲目重投。
 
-Use `submitUrl` as the preferred route. If it is a homepage or redirects to a different official submission route, inspect the destination before any form mutation.
+优先使用 `submitUrl`。如果它是首页或重定向到其他官方提交路由，必须在任何表单修改前检查目标地址。
 
-## Mandatory preflight decision order
+## 强制预检顺序
 
-Run read-only checks in this order so an earlier terminal policy result is not hidden by a later, less important missing field.
+按以下顺序执行只读检查，避免后续较弱的缺失字段掩盖更早的终止性政策结果：
 
-1. **Unavailable route/site** — if the official submission route is gone, closed, or unavailable, classify `unavailable`.
-2. **Paid-only** — if the route requires payment that is not authorized, classify `paid_only` and stop.
-3. **Mandatory backlink/badge** — do not immediately classify as ineligible. Use the authorized Shipmore outbound-link registration and homepage verification procedure below. Continue only if verification passes; timeout stops the item before form submission.
-4. **Other ineligibility** — unsupported eligibility, prohibited non-backlink site changes, or unrelated commercial/community actions remain `ineligible`.
-5. **Duplicate / existing lifecycle guard** — inspect previous Shipmore state and any clear existing listing. Never blindly resubmit `submitted`, `submission_outcome_unknown`, `awaiting_approval`, `awaiting_email_verification`, or `published`.
-6. **Account authentication** — use the claim payload's effective `productContactEmail` and follow `account-authentication.md`: existing Google OAuth session, existing GitHub OAuth session, then native email code/magic link. For a Google-hosted mailbox, retrieve the matching message through authorized `gws` first; only if `gws` is unavailable, use an existing matching Gmail web session. Then use email/password. One free account registration is allowed only when the site explicitly reports that this email has no account. Execute the authorized flow and continue after success. Use `blocked_account_or_email_policy` only when the required action falls outside that standing authorization.
-7. **Required verified product data** — only after the route remains eligible, compare required form fields with the explicit Shipmore Product fields. Missing required independent facts become `blocked_missing_verified_data`.
-8. **Verification challenge** — expose CAPTCHA, Turnstile, email challenge, or similar native verification. Unresolved manual verification becomes `blocked_manual_verification`.
-9. **Form execution** — only now enter mutable product-listing fields and proceed toward a final action.
+1. **路由/站点不可用**：官方提交路由消失、关闭或不可用时，分类为 `unavailable`。
+2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。
+3. **必需 backlink/badge**：不要立即分类为不符合资格。使用下方已授权的 Shipmore outbound-link 注册和首页验证流程；只有验证成功才继续，超时则在提交前停止。
+4. **其他不符合资格**：不支持的资格、禁止的非 backlink 站点修改或无关商业/社区动作分类为 `ineligible`。
+5. **重复项/既有生命周期保护**：检查既有 Shipmore 状态和明确的现有列表。绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。
+6. **账号认证**：使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md`：现有 Google OAuth、现有 GitHub OAuth、原生邮箱验证码/magic link；Google 托管邮箱优先从已授权 `gws` 获取，只有不可用时才使用匹配 Gmail 浏览器会话；之后才使用邮箱/密码。只有站点明确报告该邮箱没有账号时才允许注册一个免费账号。认证成功后继续，只有超出授权范围时才使用 `blocked_account_or_email_policy`。
+7. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
+8. **验证挑战**：暴露 CAPTCHA、Turnstile、邮箱挑战等原生验证。未解决的人工验证使用 `blocked_manual_verification`。
+9. **表单执行**：只有现在才能填写可变的产品目录字段并走向最终动作。
 
-Example: if a directory both requires a contact email and mandates a reciprocal badge, register and verify the badge first. If verification times out, stop with a truthful blocked/ineligible result containing `backlink verification timeout`; do not relabel it as missing email and do not submit.
+例如，目录同时要求联系邮箱和 reciprocal badge 时，先注册并验证 badge。验证超时则停止并记录包含 `backlink verification timeout` 的真实 blocked/ineligible 结果，不要改写成缺少邮箱，也不要提交。
 
-## Mandatory backlink registration and verification
+## 必需 backlink 注册与验证
 
-After confirming that the live directory truly mandates a backlink or badge:
+确认线上目录确实要求 backlink 或 badge 后：
 
-1. Confirm the claim's `runItemId`, `workerId`, `productUrl`, and `directoryUrl`; heartbeat and stop immediately on lease failure.
-2. Run `python3 scripts/shipmore_queue_client.py add-outbound-link --run-item-id <id> --product-url <productUrl> --directory-url <directoryUrl>`.
-3. The command posts `{runItemId, workerId}` to `POST {BACKLINK_APP_URL}/api/outbound-links`, then fetches only the Product homepage every 20 seconds for up to 6 attempts. It heartbeats before every fetch.
-4. Accept success only when parsed homepage `<a href>` hostname and path exactly match parsed `directoryUrl`. Scheme, leading `www.`, and trailing slash may differ. Reject substring/suffix hosts and different paths.
-5. The standard CLI checks server-returned HTML after normal redirects. If the link is client-rendered, inspect the final homepage DOM with an authorized browser using the same parsed-anchor rule. Do not inspect inner pages or bypass CAPTCHA/WAF/access controls.
-6. Continue the original directory form only when the command returns JSON with `success=true` and `reason=backlink_verified` (or equivalent final-DOM evidence is established while the lease remains valid).
-7. If registration fails, lease ownership is lost, or all 6 checks miss the link, stop before submission. Record `backlink verification timeout` for the six-attempt case and use the closest truthful blocked/ineligible state.
+1. 确认 claim 的 `runItemId`、`workerId`、`productUrl` 和 `directoryUrl`；发送 heartbeat，租约失败立即停止。
+2. 运行：
 
-## Product-field mapping
+   ```bash
+   python3 scripts/shipmore_queue_client.py add-outbound-link --run-item-id <id> --product-url <productUrl> --directory-url <directoryUrl>
+   ```
 
-Prefer explicit claim fields for directory forms:
+3. 命令向 `POST {BACKLINK_APP_URL}/api/outbound-links` 发送 `{runItemId, workerId}`，然后每 20 秒只抓取 Product 首页，最多 6 次，每次抓取前发送 heartbeat。
+4. 只有首页解析出的 `<a href>` hostname/path 与解析后的 `directoryUrl` 完全匹配才算成功。scheme、开头 `www.` 和结尾斜杠可以不同；拒绝子字符串、伪后缀域名和不同路径。
+5. 标准 CLI 检查普通重定向后的服务器 HTML。若链接仅由客户端渲染，授权浏览器可检查最终首页 DOM，但必须使用相同的解析锚点规则。不要检查内页，也不要绕过 CAPTCHA/WAF/访问控制。
+6. 只有命令返回 `success=true` 且 `reason=backlink_verified`，或在租约有效期间取得等价的最终 DOM 证据，才能继续原始目录表单。
+7. 注册失败、租约丢失或 6 次检查都找不到链接时，在提交前停止。6 次超时记录 `backlink verification timeout`，并使用最接近事实的 blocked/ineligible 状态。
 
-| Directory field | Shipmore source |
+## Product 字段映射
+
+目录表单优先使用明确的 claim 字段：
+
+| 目录字段 | Shipmore 来源 |
 | --- | --- |
-| Product / tool name | `productName` |
-| Website | `productUrl` |
-| Tagline | `productTagline`; if blank, a truthful short derivation from `productDescription`/`productMarkdown` is allowed |
-| Description | `productDescription`; length-constrained truthful rewrites may use `productMarkdown` |
-| Category | `productCategoryId` plus directory-specific category choices; map semantically, do not invent a category claim |
-| Pricing model | `productPricingModel`; otherwise verify from a current official product surface before using a pricing claim |
-| Product Twitter / X | `productTwitterUrl` |
-| GitHub repository / source code / repository URL | `productGithubRepoUrl` |
-| Contact email | `productContactEmail` only, unless a current official product page explicitly verifies another authorized address |
-| Company | `productCompanyName` |
-| Founder | `productFounderName` |
+| 产品/工具名称 | `productName` |
+| 网站 | `productUrl` |
+| 标语 | `productTagline`；为空时可从 `productDescription`/`productMarkdown` 真实短化 |
+| 描述 | `productDescription`；可用 `productMarkdown` 做长度受限的真实改写 |
+| 类别 | `productCategoryId` 加目录自身类别；按语义映射，不得虚构类别 |
+| 定价模式 | `productPricingModel`；为空时先从当前官方产品页面验证 |
+| 产品 Twitter/X | `productTwitterUrl` |
+| GitHub 仓库/源码/仓库 URL | `productGithubRepoUrl` |
+| 联系邮箱 | 仅 `productContactEmail`，除非当前官方产品页明确验证了另一个获授权地址 |
+| 公司 | `productCompanyName` |
+| 创始人 | `productFounderName` |
 | LinkedIn | `productLinkedinUrl` |
-| Founder / your GitHub profile | `productFounderGithubUrl` |
+| 创始人/你的 GitHub 资料 | `productFounderGithubUrl` |
 | Logo | `productLogo` |
-| Primary image | `productOgImage` |
+| 主图 | `productOgImage` |
 
-Do not use the deprecated `productGithubUrl` alias for new field mapping. It exists only for backward compatibility and represents the founder GitHub value, not a repository.
+不要在新逻辑中使用已废弃的 `productGithubUrl` 别名；它只为兼容存在，表示创始人 GitHub，不是仓库。
 
-Repository semantics are strict: `productGithubRepoUrl` may fill fields such as GitHub Repository, Source Code, Source URL, Repository URL, or Open Source URL. `productFounderGithubUrl` may fill fields such as Your GitHub, Founder GitHub, or GitHub Profile. Never swap these merely because both URLs use github.com.
+`productGithubRepoUrl` 可填写 GitHub Repository、Source Code、Source URL、Repository URL 或 Open Source URL；`productFounderGithubUrl` 可填写 Your GitHub、Founder GitHub 或 GitHub Profile。不要因为两个地址都使用 github.com 就互换。
 
-A repository URL alone does not prove that a Product is open source. If a directory asks whether the Product is open source, requires an OSS license, or has OSS-only eligibility, verify that fact independently from an authorized current source. If it cannot be verified, do not answer `yes` based only on `productGithubRepoUrl`.
+仅凭仓库 URL 不能证明 Product 开源。目录询问开源、OSS 许可证或 OSS 资格时，必须从获授权的当前来源独立验证；无法验证时不要仅凭 `productGithubRepoUrl` 回答 yes。
 
-Do not derive independent identity/contact facts from marketing prose. In particular, never guess email addresses, founder names, company names, social accounts, launch dates, legal identity, or open-source status.
+不得从营销文案推导独立的身份/联系方式事实，尤其不要猜邮箱、创始人、公司、社交账号、上线日期、法律身份或开源状态。符合资格的路由完成预检后，如果必填字段仍缺少且无法从官方来源只读验证，使用 `blocked_missing_verified_data`；可选未知字段保持为空。
 
-If a required field is absent after the eligible-route preflight and cannot be verified read-only from an official source, use `blocked_missing_verified_data`. Optional unknowns remain blank.
+## 既有状态处理
 
-## Existing-state decisions
+### 已发布
 
-### Already published
+不要重投。只有 Run 明确要求跟进时才验证公开列表；否则以 `skipped` 完成并保留 `published`。
 
-Do not resubmit. Verify the public listing only when follow-up work is actually intended by the Run. Otherwise complete the Run Item as `skipped` and preserve `published`.
+### 已提交/等待审核
 
-### Submitted / awaiting approval
+不要重投。只有 Run 明确要求跟进时才检查授权的跟进界面；否则跳过并保留状态。
 
-Do not resubmit. Check only the available authorized follow-up surfaces when the Run is intended for follow-up. Otherwise skip and preserve the status.
+### 等待邮箱验证
 
-### Awaiting email verification
+不要创建新的提交。使用 `account-authentication.md` 中的授权 Gmail 流程查找触发后的匹配验证码/链接：优先 `gws`，不可用时才使用匹配 Gmail 会话。在同一目录浏览器会话中完成原生验证并继续跟进。限定轮询窗口内没有可信匹配邮件时，保留生命周期状态并留下跟进。
 
-Do not create another submission. Use the authorized Gmail mailbox workflow in `account-authentication.md` to find the matching post-trigger code/link: prefer `gws`; only when it is unavailable, use an existing matching Gmail web session. Complete the site's native verification in the same directory browser session, and continue the appropriate follow-up. If no confident match arrives within the bounded poll window, preserve the lifecycle state and leave a follow-up.
+## 默认账号认证
 
-## Default account authentication
+目录需要账号时，遵循 `account-authentication.md`，不要直接停止并输出 `account_strategy_required`：
 
-When the directory requires an account, follow `account-authentication.md` instead of stopping with `account_strategy_required`:
+1. 复用已授权会话，否则使用运行时秘密变量尝试一次登录；
+2. 只有明确报告没有账号时注册一个普通免费账号；
+3. 必填身份字段只使用已验证 Shipmore 字段，绝不虚构；
+4. 只通过 `gws`，或在 `gws` 不可用时通过匹配 Gmail 会话获取验证邮件；OTP/magic link 只临时使用，不写入日志/证据；
+5. 登录/注册导航和等待邮件期间发送 heartbeat；
+6. 认证成功后继续当前 Run Item 和原始目录提交，不要标记为 blocked；
+7. CAPTCHA、手机/KYC/passkey/人工审批、付费注册、邮箱匹配不明、缺少必需身份、凭据拒绝且无安全注册路径或租约丢失时停止。
 
-1. Reuse an authorized existing session, otherwise attempt one login with runtime-secret variables.
-2. Register one ordinary free account only after an explicit no-account/not-registered signal.
-3. Use verified Shipmore fields for any required identity fields; never invent missing identity/contact data.
-4. Retrieve only the matching verification message through `gws`, or only when `gws` is unavailable, an existing matching Gmail web session; keep OTPs/magic links ephemeral and out of logs/evidence.
-5. Heartbeat after login/registration navigation and while waiting for email.
-6. After authentication succeeds, continue the same Run Item and original directory submission rather than completing it as blocked.
-7. Stop on CAPTCHA, phone/KYC/passkey/manual approval, paid registration, ambiguous mailbox matches, missing required identity, rejected credentials without a safe registration path, or lease loss.
+### 最终提交结果不明
 
-### Submission outcome unknown
+不要把再次点击 Submit 作为第一反应。按可用性依次检查：
 
-Never press Submit again as the first response. Check, in order when available:
+1. 账号/后端提交历史；
+2. 已授权邮箱回执；
+3. 公开列表/搜索页面。
 
-1. account/backend submission history;
-2. authorized mailbox receipt;
-3. public listing/search page.
+仍不明确时保留 `submission_outcome_unknown` 并安排跟进。
 
-If still unresolved, preserve `submission_outcome_unknown` and schedule follow-up.
+## Heartbeat 规则
 
-## Heartbeat discipline
+任何可能修改站点的步骤前，以及任何耗时步骤后，都要发送 heartbeat。300 秒租约目标是每 60–120 秒一次。
 
-Heartbeat before any step that may mutate the site and after any step that consumes meaningful time.
+以下情况还要发送 heartbeat：
 
-For a 300-second lease, target 60–120 second heartbeat spacing.
+- 登录或账号导航后；
+- 改变表单状态的页面刷新/重定向后；
+- 人工验证交接后；
+- 素材上传后；
+- 长文案准备后；
+- 用户操作返回后；
+- 最终提交前，如果上次 heartbeat 已不够新；
+- outbound-link 注册前及每次首页验证前。
 
-Heartbeat again after:
+heartbeat 返回 409 时停止，不得假装仍拥有租约而执行最终提交或 Complete。
 
-- login or account navigation;
-- page reload/redirect that changes the form state;
-- manual verification handoff;
-- asset upload;
-- long content preparation;
-- returning from user interaction;
-- immediately before final submit if the previous heartbeat is no longer comfortably fresh.
-- before outbound-link registration and before every homepage verification attempt.
+## 最终动作协议
 
-If heartbeat returns 409, stop. Do not make a final submission or Complete request as if ownership were still valid.
+最终动作前立即：
 
-## Final-action protocol
+1. 确认当前 Directory 和提交路由；
+2. 确认 Product 身份和规范 URL；
+3. 检查必填字段是否真实；
+4. 确认未选择未授权的 newsletter、推广、付款、法律协议或无关动作，且必需 backlink 已通过授权验证；
+5. 重新检查验证/挑战有效性；
+6. 必要时发送 heartbeat；
+7. 执行一次最终动作；
+8. 重新读取结果状态。
 
-Immediately before final action:
+不得仅凭点击推断成功。
 
-1. Confirm the active Directory and submission route.
-2. Confirm Product identity and canonical URL.
-3. Review required fields for truthful values.
-4. Ensure no unauthorized newsletter, promotion, payment, legal agreement, or unrelated action is selected; any mandatory backlink has already passed the authorized verification flow.
-5. Recheck verification/challenge validity.
-6. Heartbeat if needed.
-7. Perform one final action.
-8. Read the resulting state fresh.
+## 证据
 
-Never infer success merely from the click itself.
+优先使用当前 runtime/evidence 系统管理的不透明证据引用。不要保存秘密或会话材料。
 
-## Evidence
+有效证据包括：准确确认文案、安全可保存的服务器回执标识、公开列表 URL、显示不符合资格/仅付费的政策页、明确拒绝文案、授权用户完成人工步骤的确认。
 
-Prefer an opaque evidence reference managed by the active runtime/evidence system. Do not store secrets or session material.
+不得仅因为表单使用过 `productContactEmail` 就把它复制到证据标签、exact-result 摘要或可分享日志。
 
-Useful evidence includes:
+## 稳定完成事件 ID
 
-- exact confirmation message;
-- server receipt identifier that is safe to retain;
-- public listing URL;
-- policy page showing ineligibility/paid-only state;
-- explicit rejection message;
-- authorized user confirmation for a manual step.
+一个逻辑 Complete 操作必须使用稳定的 event ID。
 
-Do not duplicate `productContactEmail` or other private contact details into evidence labels, exact-result summaries, or shareable logs merely because they were used in the form.
-
-## Stable completion event ID
-
-The event ID must be stable for one logical Complete operation.
-
-Recommended shape:
+建议格式：
 
 ```text
 shipmore:<runItemId>:complete:<opaque-random-id>
 ```
 
-Generate it once before the first Complete attempt and retain it until a definite response is received.
+第一次 Complete 前生成一次，并保留到收到确定响应。如果发送后 Complete 超时或连接中断，用同一个 event ID 和相同逻辑完成字段重试。
 
-If Complete times out or the connection drops after sending, retry with the same event ID and same logical completion fields.
+不要在不同 Run Item 或不同结果之间复用 event ID。
 
-Do not reuse that event ID for another Run Item or a different result.
+## Complete 结果构造
 
-## Complete result construction
+根据观察到的事实构造 Complete 载荷，不要根据期望指标构造。
 
-Build the Complete payload from observed facts, not desired metrics.
+示例：
 
-Examples:
-
-### Accepted for review
+### 接受审核
 
 ```json
 {
   "status": "completed",
   "submissionStatus": "awaiting_approval",
   "verificationStatus": "no_verification_presented",
-  "exactResult": "Your product has been submitted for review"
+  "exactResult": "Submission accepted and queued for review"
 }
 ```
 
-### Manual challenge
+### 人工挑战
 
 ```json
 {
@@ -243,7 +235,7 @@ Examples:
 }
 ```
 
-### Missing verified data
+### 缺少已验证资料
 
 ```json
 {
@@ -253,9 +245,9 @@ Examples:
 }
 ```
 
-Use this only after paid-only, mandatory-backlink verification, other ineligibility, existing-state, and account-policy checks have already passed.
+只有在仅付费、必需 backlink 验证、其他资格、既有状态和账号政策检查都完成后才使用。
 
-### Ambiguous final action
+### 最终动作结果不明
 
 ```json
 {
@@ -266,7 +258,7 @@ Use this only after paid-only, mandatory-backlink verification, other ineligibil
 }
 ```
 
-### Browser/runtime failure before form work
+### 表单操作前浏览器/运行时故障
 
 ```json
 {
@@ -276,12 +268,12 @@ Use this only after paid-only, mandatory-backlink verification, other ineligibil
 }
 ```
 
-Use the prior lifecycle status instead of `not_attempted` when stronger truthful state already exists.
+已有更强的真实生命周期状态时，使用原状态，不要改成 `not_attempted`。
 
-## Recovery
+## 恢复
 
-Recovery is infrastructure-level queue repair, not evidence that a site action failed.
+恢复是基础设施层面的队列修复，不代表站点动作失败。
 
-An expired lease may be recovered to `queued`. A later worker must re-read the claim payload and browser/site state before continuing. Never assume the previous worker did nothing merely because its lease expired.
+过期租约可以恢复为 `queued`。后续 worker 必须重新读取 claim 载荷和浏览器/站点状态后再继续。不要仅因前一个 worker 租约过期就假设它没有执行任何操作。
 
-If the previous worker may have performed a final action before lease loss, treat the site outcome as potentially ambiguous and inspect account/mailbox/public evidence before retrying.
+如果前一个 worker 可能在租约丢失前执行了最终动作，将站点结果视为可能不明确；重试前检查账号、邮箱和公开页面证据。

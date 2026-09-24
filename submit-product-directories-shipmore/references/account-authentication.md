@@ -1,92 +1,92 @@
-# Directory account authentication
+# 目录账号身份验证
 
-## Account identity source
+## 账号身份来源
 
-Use `productContactEmail` from the Shipmore claim payload as the directory-account email. It is the effective submission identity resolved by Shipmore:
+使用 Shipmore claim 载荷中的 `productContactEmail` 作为目录账号邮箱。它是 Shipmore 解析出的有效提交身份：
 
-1. `productSubmissionOverride.contactEmail` for this Product, when present;
-2. otherwise the Product owner's `userSubmissionProfile.contactEmail`.
+1. Product 存在 `productSubmissionOverride.contactEmail` 时使用它；
+2. 否则使用 Product 所有者的 `userSubmissionProfile.contactEmail`。
 
-Do not derive, guess, or replace this email from Product prose, the site domain, a founder profile, or a browser account. Do not copy it into evidence, exact results, screenshots, or logs. A site account visibly signed in under a different email is not interchangeable; use it only if Shipmore later returns that email as the effective identity.
+不得从产品文案、站点域名、创始人资料或浏览器账号推导、猜测或替换邮箱。不要把它写入证据、exact result、截图或日志。站点显示的其他邮箱账号不能视为同一身份，除非 Shipmore 后续明确返回该邮箱。
 
-## Authorization scope
+## 授权范围
 
-Brennan has authorized this worker to use the effective directory-account email above to authenticate and create an ordinary free account when needed for a legitimate Product listing. The permitted authentication order is:
+当前授权允许 worker 使用上述有效目录账号邮箱，为合法产品收录完成身份验证，并在确实需要时创建一个普通免费账号。认证顺序如下：
 
-1. Google OAuth through an already-authorized existing browser session;
-2. GitHub OAuth through an already-authorized existing browser session;
-3. the directory's native email code or magic-link flow, retrieving only the matching message through authorized `gws` for a Google-hosted mailbox, or an existing matching Gmail web session only when `gws` is unavailable;
-4. ordinary email/password login.
+1. 已授权浏览器会话中的 Google OAuth；
+2. 已授权浏览器会话中的 GitHub OAuth；
+3. 站点原生邮箱验证码或 magic link；Google 托管邮箱优先使用已授权 `gws`，不可用时才使用匹配的 Gmail 浏览器会话；
+4. 普通邮箱/密码登录。
 
-The worker may continue the original submission after successful authentication. It may create one ordinary free account only after the site explicitly reports that the effective email has no account.
+认证成功后可以继续原始提交。只有站点明确报告该邮箱没有账号时，才允许创建一个普通免费账号。
 
-It does not authorize payment, paid trials, phone verification, identity/KYC checks, passkeys/security keys, linking a different Google/GitHub identity, optional newsletters/promotions, unrelated public posts, multiple-account creation, or bypassing CAPTCHA/Turnstile/access controls.
+授权不包括付费、付费试用、手机验证、身份/KYC、passkey/安全密钥、绑定其他 Google/GitHub 身份、可选 newsletter/推广、无关公开发帖、多账号创建或绕过 CAPTCHA、Turnstile、访问控制。
 
-## Runtime credentials
+## 运行时凭据
 
-The claim payload supplies the email; it is not read from a local secret file. The optional password is a runtime secret, never repository content, and may be loaded from:
+邮箱来自 claim 载荷，不从本地秘密文件读取。可选密码是运行时秘密，不能写入仓库，可从以下位置读取：
 
 ```text
 /root/.config/backlink-skills/directory-account.env
 ```
 
-Expected optional variable:
+可选变量：
 
 ```text
 DIRECTORY_ACCOUNT_PASSWORD
 ```
 
-Load it only when the fourth authentication method is necessary, without printing it. Never run `env`, `set`, `printenv`, shell tracing (`set -x`), or commands that echo it. Do not put the effective email or password in command arguments, notes, screenshots, Shipmore payloads, or evidence. Do not commit the runtime file.
+只有第四种认证方式确实需要密码时才读取，且不得打印。不要运行 `env`、`set`、`printenv`、`set -x` 或任何会回显密码的命令。不得把有效邮箱或密码放入命令参数、备注、截图、Shipmore 载荷或证据。不要提交运行时文件。
 
-## Login and registration decision tree
+## 登录与注册决策树
 
-1. Reuse a clearly authorized existing directory session when available.
-2. If the directory offers Google sign-in, use it only when an existing browser Google session visibly corresponds to the effective email. Do not enter Google credentials, choose a different account, grant extra permissions, or create/link a new Google identity. On success, heartbeat and continue the original submission.
-3. Otherwise, if it offers GitHub sign-in, use it only when an existing browser GitHub session visibly corresponds to the effective email. Do not enter GitHub credentials, choose a different account, authorize scopes beyond ordinary sign-in, or create/link a new GitHub identity. On success, heartbeat and continue.
-4. Otherwise, if the directory offers an ordinary email code or magic link, enter the effective email, trigger one verification message, then use the bounded Gmail retrieval workflow below. For a Google-hosted mailbox, prefer `gws`; only if it is unavailable in the current environment, use an existing matching Gmail web session. On success, continue in the same browser session.
-5. Otherwise, if the directory supports email/password and `DIRECTORY_ACCOUNT_PASSWORD` is available, attempt one normal login with the effective email and runtime password. On success, heartbeat and continue.
-6. If the site explicitly says this email has no account, register one ordinary free account using the effective email and the available method. Fill required name/company fields only from verified Shipmore Product identity fields. Keep optional unknown fields blank; do not invent a person, company, phone number, address, or username.
-7. Accept only agreements strictly required to create the ordinary free account and use the directory submission feature. Leave newsletters, promotions, partner offers, trials, and unrelated consent unchecked.
-8. Do not infer non-registration from a generic login failure. Do not retry a failed provider, email send, password attempt, or registration cycle unless the site explicitly reports that the preceding attempt expired or did not complete.
-9. Do not create a second account if registration says the email already exists. Return to a supported sign-in method once; if that fails, classify the exact blocker truthfully.
-10. Limit the whole cycle to one attempt per offered provider, one email-verification send, one password login, one registration, and one post-registration authentication attempt unless the site performs its own normal redirect/retry without duplicating actions.
+1. 有明确授权的现有目录会话时优先复用。
+2. 站点提供 Google 登录时，仅当现有 Google 会话明确对应有效邮箱才使用；不要输入 Google 凭据、选择其他账号、授予额外权限或创建/绑定新身份。成功后发送 heartbeat 并继续提交。
+3. 否则，站点提供 GitHub 登录时，仅当现有 GitHub 会话对应有效邮箱才使用；不要输入凭据、选择其他账号或授权超出普通登录的权限。成功后发送 heartbeat 并继续。
+4. 否则，站点提供邮箱验证码或 magic link 时，输入有效邮箱并只触发一次验证消息，然后使用下方 Gmail 流程。
+5. 否则，站点支持邮箱/密码且存在 `DIRECTORY_ACCOUNT_PASSWORD` 时，用有效邮箱和运行时密码尝试一次普通登录。
+6. 只有站点明确表示该邮箱没有账号时，才用有效邮箱和可用方式注册一个普通免费账号；姓名、公司等字段只能使用已验证的 Shipmore Product 字段，未知可选字段留空。
+7. 只接受创建普通免费账号和目录提交必需的协议；不要勾选 newsletter、推广、合作方、试用或无关同意项。
+8. 不得因一般登录失败推断“没有账号”。除非站点明确报告前一次已过期或未完成，否则不要重试认证、邮件、密码或注册流程。
+9. 注册提示邮箱已存在时，不得创建第二个账号；返回一次受支持的登录方式，仍失败则如实记录阻塞原因。
+10. 每个提供商最多一次尝试、邮箱验证邮件最多发送一次、密码登录一次、注册一次、注册后认证一次；站点自身的正常重定向不算重复动作。
 
-## Gmail verification (`gws` first, Gmail web fallback)
+## Gmail 验证（优先 `gws`，否则 Gmail 网页）
 
-For a Google-hosted effective email, use only `gws` against the already-authorized Gmail account when `gws` is available. If `gws` is unavailable in the current environment, the permitted fallback is an already-signed-in Gmail browser session at `https://mail.google.com` that visibly corresponds to `productContactEmail`. Reading a matching verification email is authorized; sending, replying, deleting, archiving, changing mailbox settings, or using a different account is not needed.
+Google 托管邮箱只能使用已经授权的 Gmail 账号。`gws` 可用时优先使用它；不可用时才可使用 `https://mail.google.com` 上现有且明确匹配 `productContactEmail` 的 Gmail 会话。只读取匹配验证邮件，不发送、回复、删除、归档、修改邮箱设置或使用其他账号。
 
-1. Determine whether `gws` is available. If it is, confirm that its authorized mailbox corresponds to `productContactEmail`; otherwise do not request a code/link. If `gws` is unavailable, open `https://mail.google.com` and confirm that an existing signed-in Gmail session visibly corresponds to `productContactEmail`. Do not enter Google credentials, select a different account, grant permissions, or create/link an account. If neither permitted mailbox surface can be confirmed, stop before requesting a code/link. Record the UTC time immediately before triggering the verification email. Heartbeat first if a Shipmore lease is active.
-2. Trigger the site's ordinary email verification once. Do not repeatedly request codes unless the site explicitly reports that the first code expired or was not sent.
-3. If using `gws`, search for recent candidate messages, narrowing by the directory's visible brand/domain and common verification terms. Example shape:
+1. 先确认授权邮箱与 `productContactEmail` 一致；无法确认时，不要触发验证码。触发前记录 UTC 时间；租约存在时先 heartbeat。
+2. 只触发一次站点原生邮箱验证。除非站点明确报告验证码已过期或未发送，否则不要重复请求。
+3. 使用 `gws` 时，只搜索该站品牌/域名和常见验证词的近期邮件，例如：
 
    ```bash
    gws gmail users messages list --params '{"userId":"me","q":"newer_than:1d (verification OR verify OR code OR OTP)","maxResults":20}'
    ```
 
-4. Read only candidate messages with:
+4. 只读取候选邮件：
 
    ```bash
    gws gmail +read --id <message-id> --headers --format json
    ```
 
-5. If using the Gmail web fallback, search the existing matching mailbox for recent candidate messages by the directory's visible brand/domain and common verification terms, then read only candidates needed to identify the newest matching message. Do not search or read unrelated mail.
-6. Select the newest message received after the trigger time whose sender, subject, and body clearly match the active directory. Never consume a code or magic link from an unrelated service.
-7. Extract only the required one-time code or verification URL. Do not print it, persist it, include it in evidence, or copy the rest of the mailbox content into logs.
-8. Enter the code or open the verification URL in the same authorized directory browser session, then re-read the page to confirm verification succeeded. Do not use the message to authenticate a different email identity.
-9. Poll every 10 seconds for at most 2 minutes, heartbeating as needed. If no matching mail arrives, preserve `awaiting_email_verification` or use the closest truthful blocker/follow-up state rather than registering again.
-10. Treat OTPs and magic links as ephemeral secrets. Never save them to Shipmore, repository files, screenshots, durable notes, or command history.
+5. Gmail 网页回退时，只搜索匹配邮箱中该站近期候选邮件，不要读取无关邮件。
+6. 选择触发时间之后、发件人/主题/正文都明确匹配当前目录的最新邮件，不得使用其他服务的验证码或链接。
+7. 只提取所需的一次性验证码或验证 URL；不得打印、持久化、写入证据或日志，也不得复制其他邮箱内容。
+8. 在同一个已授权目录浏览器会话中输入验证码或打开验证 URL，再重新读取页面确认成功。
+9. 每 10 秒轮询一次，最多 2 分钟，并按需 heartbeat。未收到匹配邮件时，保留 `awaiting_email_verification` 或最接近事实的阻塞/跟进状态，不要重新注册。
+10. OTP 和 magic link 都是临时秘密，绝不能保存到 Shipmore、仓库文件、截图、持久备注或命令历史。
 
-## Stop and classify
+## 停止和分类
 
-Stop automatic authentication and classify truthfully when:
+出现以下情况时停止自动认证并如实分类：
 
-- CAPTCHA, Turnstile, phone verification, KYC, security-key/passkey approval, or manual approval is required;
-- the only registration route requires payment or a paid trial;
-- the offered Google/GitHub session is absent, uses a different identity, or asks for credentials/account linking beyond ordinary sign-in;
-- required registration identity data is unavailable from verified Product fields;
-- the mailbox message cannot be confidently matched to the active directory;
-- credentials are rejected without an explicit safe registration path;
-- the site forbids or technically blocks the available automation surface;
-- the lease is lost or expires.
+- 需要 CAPTCHA、Turnstile、手机验证、KYC、安全密钥/passkey 或人工审批；
+- 唯一注册方式需要付费或付费试用；
+- Google/GitHub 会话不存在、身份不匹配，或要求超出普通登录的凭据/绑定；
+- 已验证 Product 字段缺少注册所需身份资料；
+- 无法有把握地把邮箱消息匹配到当前目录；
+- 凭据被拒绝且没有明确安全的注册路径；
+- 站点禁止或技术上阻止可用自动化界面；
+- 租约丢失或过期。
 
-`blocked_account_or_email_policy` remains valid for authentication steps outside the authorization above. Do not emit `account_strategy_required` merely because ordinary email/password login or free registration is required; execute this authorized flow first.
+超出上述授权范围的认证步骤使用 `blocked_account_or_email_policy`。不要因为普通邮箱/密码登录或免费注册是必需步骤就直接输出 `account_strategy_required`，应先执行本授权流程。

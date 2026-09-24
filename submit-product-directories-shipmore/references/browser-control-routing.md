@@ -1,153 +1,107 @@
-# Browser control routing for the Shipmore worker
+# Shipmore worker 的浏览器控制路由
 
-Select a control surface from runtime capabilities instead of hard-coding a browser, operating system, executable path, extension, automation library, keyboard shortcut, or display geometry.
+根据运行时能力选择控制面，不要把浏览器、操作系统、可执行路径、扩展、自动化库、快捷键或显示尺寸写死。
 
-Shipmore owns durable submission state. Browser/backend diagnostics are runtime details unless they are captured through an opaque evidence reference or another explicitly supported Shipmore field. Do not recreate the old Markdown campaign record solely to persist browser state.
+Shipmore 负责持久化提交状态。浏览器/后端诊断属于运行时信息，只有通过不透明 evidence reference 或明确支持的 Shipmore 字段保存。不要为了记录浏览器状态重新创建旧版 Markdown campaign record。
 
-## Capability preflight
+## 能力预检
 
-Before mutable browser work, determine:
+在任何可变浏览器操作前确认：
 
-- normalized host platform: `windows`, `macos`, `linux`, or `other`;
-- UI environment: desktop, remote desktop, headless, or unknown;
-- user-requested browser/app constraint, if any;
-- whether an authorized authenticated browser/app binding already exists;
-- available connector, API, CLI, browser-runtime, connected-extension, and desktop-control capabilities;
-- whether each candidate backend actually supports the current platform and required interaction scope.
+- 规范化主机平台：`windows`、`macos`、`linux` 或 `other`；
+- UI 环境：desktop、remote desktop、headless 或 unknown；
+- 用户指定的浏览器/应用约束；
+- 是否已经存在已授权的认证浏览器/应用绑定；
+- 可用的 connector、API、CLI、浏览器 runtime、连接扩展和桌面控制能力；
+- 每个候选后端是否支持当前平台和所需交互范围。
 
-Select by demonstrated capability. Never infer platform support from a backend name.
+## 路由顺序
 
-## Routing order
+1. 用户明确指定浏览器/应用时必须遵守，不能静默切换。
+2. 如果专用 connector/API/CLI 能完成语义操作，且用户没有明确要求可见浏览器交互，优先使用该能力。
+3. 否则优先使用能够保留认证会话的已安装浏览器 runtime 或连接浏览器扩展。
+4. 只有更具体的浏览器 runtime 无法处理目标页面，且适配器明确支持当前平台时，才使用桌面 UI 控制。
+5. 没有安全兼容的后端时，保留 Shipmore 任务状态并交接，不得替换成不可控浏览器/会话。
 
-1. Honor a browser/app explicitly named by the user. Do not silently switch surfaces.
-2. If a purpose-built connector/API/CLI can perform the semantic operation and visible browser interaction was not explicitly required, prefer that supported capability.
-3. Otherwise prefer an installed browser runtime or connected browser extension that can preserve the intended authenticated session.
-4. Use desktop UI control only when a more specific supported browser runtime cannot address the requested surface and the adapter explicitly supports the current platform.
-5. If no safe compatible backend exists, preserve the Shipmore task state and hand off rather than substituting an uncontrolled browser/session.
+具体工具的选择器、确认规则、键盘行为、截图处理和支持平台，以当前 runtime/Skill 文档为准。
 
-The active runtime/Skill documentation is authoritative for tool-specific selectors, confirmation rules, keyboard behavior, screenshot handling, and supported platforms.
+## 会话规则
 
-## Session rules
+- 创建重复账号前，优先复用已授权现有会话。
+- 站点要求连续性时，登录、验证、填写和最终结果检查必须在同一控制面/会话完成。
+- 浏览器绑定和标签页绑定是分开的；可行时从现有浏览器绑定恢复失效标签页，不要重建整个 runtime。
+- 绝不要检查 Cookie、本地存储、已保存密码、profile store、恢复码、原始 session ID、magic link 或隐藏认证材料。
+- 不要把浏览器/profile 的不透明标识复制到另一台机器当作可移植凭据。
 
-- Reuse an authorized existing session before creating a duplicate account.
-- Keep login, verification, form work, and final result inspection on the same surface/session when the site requires continuity.
-- Treat browser and tab bindings as separate. Recover a stale tab from the existing browser binding when possible rather than recreating the whole runtime.
-- Never inspect cookies, local storage, saved passwords, profile stores, recovery codes, raw session IDs, magic links, or hidden authentication material.
-- Do not copy opaque browser/profile identifiers between machines as if they were portable.
+## 优先使用结构化交互
 
-## Structured interaction first
+当前浏览器 runtime 支持时：
 
-When the active browser runtime supports it:
+1. 读取最新页面/DOM/可访问性状态；
+2. 优先使用语义化、结构化控件；
+3. 导航、刷新、弹窗、用户介入或意外结果后重新获取控件；
+4. 只有 runtime 文档允许且结构化控制不足时，才使用键盘或坐标回退。
 
-1. read fresh page/DOM/accessibility state;
-2. prefer semantic/structured controls;
-3. reacquire controls after navigation, reload, modal changes, user intervention, or unexpected results;
-4. use keyboard or coordinate fallback only when the runtime documentation permits it and structured control is insufficient.
+状态变化后绝不能复用旧 DOM handle、可访问性索引、菜单项或坐标。
 
-Never reuse stale DOM handles, accessibility indices, menu items, or coordinates after state changes.
+## 桌面控制回退
 
-## Desktop-control fallback
+只有必要且明确支持时才使用桌面 UI 控制。每次回退操作前：
 
-Use desktop UI control only when necessary and explicitly supported.
+- 确认焦点应用/窗口；
+- 通过非敏感可见身份确认目标 profile/workspace/session；
+- 读取最新 UI 状态；
+- 坐标操作前重新确认布局、显示缩放和缩放比例。
 
-Before each fallback action:
+不要假设 macOS、Windows、Linux 快捷键可以互换。除非用户明确要求且当前 runtime 政策允许，不要引入 AppleScript、PowerShell UI 自动化、xdotool、独立自动化服务器或其他 UI 技术。
 
-- verify the focused app/window;
-- verify the intended profile/workspace/session through non-secret visible identity;
-- read fresh UI state;
-- recheck layout/display scaling/zoom before coordinate interaction.
+## 身份验证和挑战
 
-Do not assume macOS, Windows, or Linux shortcuts are interchangeable.
+- 绝不绕过、外包、削弱或规避 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或访问控制。
+- 本 Shipmore worker 可按 `account-authentication.md` 使用现有 Google/GitHub OAuth 会话、原生邮箱验证、普通邮箱/密码登录和一次必要的免费注册。使用 claim 载荷中的有效账号邮箱；密码只能从运行时秘密文件读取。
+- Google 托管邮箱优先通过已授权 `gws` 完成普通验证；仅当 `gws` 不可用时使用匹配 Gmail 会话。这不是绕过。验证码/链接只能临时使用，并在同一目录浏览器会话中完成。
+- 认证成功后继续原始目录任务，不要仅因需要账号就停止。
+- 需要用户操作时，租约有效则交接前 heartbeat，并如实保留 Shipmore 状态。
+- 用户操作后重新读取页面并检查挑战有效性。交接期间租约过期时，不得继续以原所有者身份操作；按 Queue 协议重新 claim/recover，并在重试前检查站点状态。
 
-Do not introduce AppleScript, PowerShell UI automation, xdotool, standalone automation servers, or other UI technologies unless the user explicitly requests them and the active runtime policy permits them.
+## 租约感知的浏览器操作
 
-## Authentication and verification
+浏览器执行从属于 Shipmore 租约。每个可变步骤前：
 
-- Never bypass, outsource, weaken, or evade CAPTCHA, Turnstile, email verification, browser security warnings, or access controls.
-- For this Shipmore worker, existing Google or GitHub OAuth sessions, native email verification, ordinary email/password login, and one explicitly-needed free registration are authorized as defined in `account-authentication.md`. Use the claim payload's effective account email; load only an optional password from the runtime secret file, never from repository content.
-- Expose and complete the site's ordinary native email verification flow through authorized `gws` for a Google-hosted mailbox. Only when `gws` is unavailable, use an existing matching Gmail session at `https://mail.google.com`; this is not a bypass. Keep the code/link ephemeral and use the same directory browser session.
-- After successful authentication, continue the original directory task. Do not stop solely because an account was required.
-- If manual user action is required, heartbeat before handoff when the lease is valid and preserve the current Shipmore state truthfully.
-- After user intervention, re-read the page and recheck challenge validity before continuing.
-- If the lease expires during handoff, do not continue acting as owner. Reclaim/recover according to the Queue protocol and inspect site state before retrying any action.
+1. 确认当前 Run Item 仍归本 worker 所有；
+2. 剩余租约不足以覆盖下一步时先 heartbeat；
+3. 收到租约冲突/过期响应后立即停止。
 
-## Lease-aware browser work
+页面仍然打开不代表租约过期后仍有执行权。
 
-Browser execution is subordinate to the Shipmore lease.
+## 最终动作安全
 
-Before a mutable step:
+以下任一情况都不能单独证明提交成功：点击 Submit、按钮禁用、表单清空、导航、普通感谢页或传输超时/错误。
 
-1. ensure the current Run Item is still owned by this worker;
-2. heartbeat when the remaining lease margin is not comfortably larger than the next action;
-3. stop immediately on lease-conflict/expiry response.
+最终动作后重新读取页面/状态，只报告证据支持的结果。若可能已到达服务器但无法确定：
 
-A browser page remaining open does not grant execution ownership after the lease expires.
+1. 不要再次点击 Submit；
+2. 检查已授权账号/后端历史；
+3. 检查已授权邮箱；
+4. 适用时检查公开列表/页面；
+5. 仍不明确时以 `submission_outcome_unknown` 完成 Shipmore item 并安排跟进。
 
-## Final-action safety
+## Product 数据规则
 
-Never infer submission success from any one of these alone:
+以 Shipmore claim 载荷返回的 Product 数据作为主要已验证输入。可以按字段长度/类别真实改写 `productDescription` 或 `productMarkdown`，但不得虚构：创始人/公司身份、地址、上线日期、价格或套餐、联系方式、所有权/法律事实，或返回数据及独立验证来源未支持的产品能力。
 
-- clicking Submit;
-- a disabled button;
-- form fields clearing;
-- navigation;
-- a generic thank-you URL;
-- a transport timeout/error.
+可选未知字段保持为空；必填未知字段应使用 `blocked_missing_verified_data`。
 
-After the final action, read the resulting page/state fresh and classify only what can be supported.
+## 协议、付款、互链和推广
 
-If the final action may have reached the server but the outcome cannot be determined:
+不得自动：支付目录费用、购买链接/排名套餐、直接修改 Product 网站添加互链、修改 DNS/网站内容、接受可选 newsletter/推广、发布无关文章/帖子、请求 dofollow 或精确匹配商业锚文本。
 
-1. do not press Submit again;
-2. check available authorized account/backend history;
-3. check an authorized mailbox when available;
-4. check the public listing/page when appropriate;
-5. if unresolved, complete the Shipmore item as `submission_outcome_unknown` with follow-up rather than retrying blindly.
+唯一窄范围例外是 Shipmore 的必需 backlink 流程：调用 `POST /api/outbound-links` 并验证 Product 首页，但绝不直接编辑 Product 代码/内容。链接可以出现在 SSR HTML 或首页最终 DOM 中；必须按 `worker-loop.md` 使用精确的 hostname/path 匹配、租约和超时规则，不得绕过 CAPTCHA/WAF。
 
-## Product data rules
+## 证据和诊断
 
-Use the Product data returned by the Shipmore claim payload as the primary verified input.
+只持久化 Shipmore API 契约支持的信息：准确结果文本、不透明证据引用、公开列表 URL、后端/邮箱/公开页检查时间、跟进时间/备注，以及规范提交/验证状态。
 
-You may summarize or adapt `productDescription` / `productMarkdown` to an honest field-length/category requirement, but do not invent:
+运行时本地诊断可以临时包含非敏感浏览器/后端别名，但不要为了保存它创建第二个持久队列/状态记录。
 
-- founder/company identity;
-- address/location;
-- launch date;
-- pricing or plan claims;
-- contact details;
-- ownership/legal facts;
-- product capabilities not supported by the returned data or a separately verified source.
-
-Keep optional unknowns blank. Required unknowns should become `blocked_missing_verified_data`.
-
-## Agreements, payments, reciprocal links, and promotions
-
-Do not automatically:
-
-- pay a listing fee;
-- buy a link or ranking package;
-- add a reciprocal backlink by directly editing the Product site (the
-  lease-bound Shipmore outbound-link flow below is the only exception);
-- change DNS/site content;
-- accept optional newsletters/promotions;
-- publish unrelated articles/posts;
-- request dofollow treatment or exact-match commercial anchor text.
-
-These are separate actions requiring their own authorization when they are legitimate at all.
-
-The Shipmore mandatory-backlink flow is the narrow authorized exception: the worker calls `POST /api/outbound-links` and verifies the Product homepage, but never edits Product code/content directly. A verified link may be present in returned SSR HTML or the final homepage DOM. Apply exact parsed hostname/path matching and the lease/timeout rules in `worker-loop.md`; do not bypass CAPTCHA/WAF.
-
-## Evidence and diagnostics
-
-Persist only information supported by the Shipmore API contract:
-
-- exact result text;
-- opaque evidence reference;
-- public listing URL;
-- backend/mailbox/public-page checked timestamps;
-- follow-up time/note;
-- canonical submission and verification status.
-
-Runtime-local diagnostics may temporarily include a non-secret browser/backend alias when useful for recovery, but do not create a second durable queue/state record just to store it.
-
-Never persist passwords, tokens, OTPs, cookies, raw email addresses, phone numbers, authentication URLs, local application paths, process arguments, or session secrets in Shipmore evidence/result fields. The configured account email may be used as browser form input but must not be copied into evidence or exact-result text.
+绝不能在 Shipmore evidence/result 字段保存密码、token、OTP、Cookie、原始邮箱、电话、认证 URL、本机应用路径、进程参数或 session secret。配置的账号邮箱可作为浏览器表单输入，但不得复制到证据或 exact-result 文本。

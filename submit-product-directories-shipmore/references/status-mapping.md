@@ -1,8 +1,8 @@
-# Shipmore status mapping
+# Shipmore 状态映射
 
-This reference maps browser-observed outcomes to the current Shipmore canonical submission state and terminal Run Item result.
+本文件把浏览器观察到的结果映射为 Shipmore 的规范提交状态和本次 Run Item 的终止结果。
 
-## Canonical submission statuses
+## 规范提交状态
 
 ```text
 not_attempted
@@ -24,7 +24,7 @@ terminated_by_user
 rejected
 ```
 
-## Verification statuses
+## 验证状态
 
 ```text
 not_checked
@@ -37,7 +37,7 @@ no_verification_presented
 deferred_by_user
 ```
 
-## Run Item statuses
+## Run Item 状态
 
 ```text
 completed
@@ -46,58 +46,55 @@ failed
 skipped
 ```
 
-The Run Item status describes the result of this execution attempt. The Submission status describes the Product × Directory lifecycle. Do not conflate them.
+Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Product × Directory 的生命周期。两者不能混用。
 
-## Mapping guidance
+## 映射规则
 
-| Browser / site outcome | Run Item | Submission status | Notes |
+| 浏览器/站点结果 | Run Item | Submission 状态 | 说明 |
 | --- | --- | --- | --- |
-| Form accepted; no publication yet | `completed` | `submitted` | Requires concrete acceptance evidence, not just a click |
-| Site says queued/pending review | `completed` | `awaiting_approval` | Record exact queue/review message |
-| Site requires post-submit email verification | `blocked` | `awaiting_email_verification` | Set appropriate verification state and follow-up |
-| Public listing verified | `completed` | `published` | `publicListingUrl` is mandatory |
-| Final submit action happened but result cannot be determined | `blocked` | `submission_outcome_unknown` | Never blindly resubmit; schedule follow-up/checks |
-| CAPTCHA/Turnstile/manual challenge blocks progress | `blocked` | `blocked_manual_verification` | Usually `awaiting_manual_verification` |
-| Required truthful product field is unavailable | `blocked` | `blocked_missing_verified_data` | Do not invent data; use only after earlier terminal eligibility/policy checks pass |
-| Ordinary account login/free registration/email verification succeeds under `account-authentication.md` | continue current Run Item | preserve current lifecycle until directory outcome | Continue the original directory submission; account-required alone is not a blocker |
-| Account/email policy prevents authorized execution | `blocked` | `blocked_account_or_email_policy` | Preserve exact policy/result |
-| Route/site unavailable | `completed` | `unavailable` | Use structured evidence when possible |
-| Only paid placement is available and payment is not authorized | `completed` | `paid_only` | Do not pay |
-| Mandatory backlink/badge is registered and verified on Product homepage | continue current Run Item | preserve current lifecycle until directory outcome | Do not Complete yet; proceed with original directory submission |
-| Mandatory backlink/badge is still absent after 6 homepage checks | `blocked` | `ineligible` | Do not submit; set exact result/error to include `backlink verification timeout` |
-| Prohibited site modification other than the authorized outbound-link flow | `completed` | `ineligible` | Do not perform the modification |
-| Product is not eligible for this directory | `completed` | `ineligible` | Record reason |
-| Directory detects an existing listing and no action is needed | `completed` or `skipped` | `duplicate_no_action` | Use only when duplicate is actually established |
-| User explicitly stops this item | `skipped` | `terminated_by_user` | Do not continue later without a new Run/action |
-| Directory explicitly rejects the submission | `completed` | `rejected` | Preserve exact rejection reason |
-| Operational browser/backend failure before meaningful form progress | `failed` | preserve current truthful status, often `not_attempted` | `lastError` required |
-| Operational failure after fields were entered but before final action | `failed` | `form_in_progress` or `draft_saved` if truly saved | Do not label submitted |
+| 表单接受但尚未发布 | `completed` | `submitted` | 必须有具体接受证据，不能只凭点击 |
+| 站点显示排队/等待审核 | `completed` | `awaiting_approval` | 记录准确的排队/审核文案 |
+| 站点要求提交后邮箱验证 | `blocked` | `awaiting_email_verification` | 设置对应验证状态和跟进 |
+| 已验证公开列表 | `completed` | `published` | 必须提供 `publicListingUrl` |
+| 已执行最终提交但无法确定结果 | `blocked` | `submission_outcome_unknown` | 不得盲目重投，安排检查/跟进 |
+| CAPTCHA/Turnstile/人工挑战阻塞 | `blocked` | `blocked_manual_verification` | 通常验证状态为 `awaiting_manual_verification` |
+| 缺少必需且真实的 Product 字段 | `blocked` | `blocked_missing_verified_data` | 不能虚构资料 |
+| 账号/邮箱政策阻止授权执行 | `blocked` | `blocked_account_or_email_policy` | 保留准确政策/结果 |
+| 路由或站点不可用 | `completed` | `unavailable` | 尽可能保留结构化证据 |
+| 只有未获授权的付费入口 | `completed` | `paid_only` | 不得付款 |
+| 必需 backlink/badge 已注册且 Product 首页验证通过 | 继续当前任务 | 保留当前生命周期 | 不要提前 Complete，继续原始目录提交 |
+| 6 次首页检查仍找不到 backlink | `blocked` | `ineligible` | exact result/error 必须包含 `backlink verification timeout` |
+| 除已授权 outbound-link 流程外还要求修改站点 | `completed` | `ineligible` | 不执行该修改 |
+| Product 不符合目录资格 | `completed` | `ineligible` | 记录原因 |
+| 目录确认已有列表且无需操作 | `completed` 或 `skipped` | `duplicate_no_action` | 只有实际确认重复时使用 |
+| 用户明确停止该任务 | `skipped` | `terminated_by_user` | 没有新 Run/action 不得继续 |
+| 目录明确拒绝提交 | `completed` | `rejected` | 保留准确拒绝原因 |
+| 有意义表单操作前发生浏览器/后端故障 | `failed` | 保留当前真实状态，通常为 `not_attempted` | 必须提供 `lastError` |
+| 已填写字段但最终动作前发生故障 | `failed` | `form_in_progress` 或真实保存后的 `draft_saved` | 不得标记为 submitted |
 
-## Preflight precedence
+## 预检优先级
 
-When multiple conditions are present, classify the first decisive condition in this order:
+多个条件同时存在时，按以下顺序使用第一个决定性条件：
 
 ```text
 unavailable
 → paid_only
-→ mandatory backlink registration + verification (continue only on success)
-→ other ineligible
-→ duplicate or existing lifecycle guard
+→ 必需 backlink 注册与验证（成功后继续）
+→ 其他不符合资格
+→ 重复项或既有生命周期保护
 → blocked_account_or_email_policy
 → blocked_missing_verified_data
 → blocked_manual_verification
-→ form execution
+→ 表单执行
 ```
 
-This avoids false attention work without prematurely rejecting a mandatory badge. Register and verify the badge first. If the link is absent after 6 attempts, use `blocked / ineligible`, record `backlink verification timeout`, and stop before checking unrelated missing form fields or submitting.
+## 必需 backlink 结果
 
-## Mandatory backlink outcomes
+注册 API 成功不等于验证成功。只有 Product 首页 HTML 或最终 DOM 中的 `<a href>` 解析后 hostname/path 与目录 URL 完全匹配，才允许继续表单。允许 scheme、开头 `www.` 和结尾斜杠不同；不允许子字符串、伪后缀域名或不同路径。
 
-The registration POST is not verification. Only an exact parsed anchor hostname/path match on the `productUrl` homepage HTML or final DOM allows form work to continue. Scheme, leading `www.`, and trailing slash differences are acceptable; substring/suffix-host and different-path matches are not.
+轮询期间每次检查前都发送 heartbeat。若收到 409 或证明租约已过期/归属他人，立即停止，不得继续提交或 Complete。
 
-During polling, heartbeat before every check. A 409 or any evidence that the lease is expired/foreign ends the worker attempt immediately; never submit or Complete as the former owner. Do not bypass CAPTCHA/WAF or crawl other Product pages.
-
-On six-attempt timeout, the recommended mapping is:
+6 次超时的标准结果：
 
 ```text
 Run Item status     = blocked
@@ -105,51 +102,23 @@ submissionStatus    = ineligible
 exactResult         = backlink verification timeout: directory link not found on product homepage after 6 attempts
 ```
 
-This is a truthful terminal result for the current attempt, not evidence that the registration API failed or that the directory rejected the Product. If the registration call itself or runtime fails before verification, preserve the strongest prior lifecycle state and select `blocked` or `failed` based on the observed failure; never continue the directory submission.
+这只表示本次执行被阻塞，不代表注册 API 失败或目录拒绝 Product。如果注册或运行时在验证前失败，应保留最强的既有生命周期状态，并根据事实使用 `blocked` 或 `failed`。
 
-## Preserve prior lifecycle state when skipping
+## 跳过时保留既有生命周期
 
-A Run may contain an item whose previous submission snapshot already has meaningful state.
+当前 Run Item 没有新动作时，`status=skipped` 不代表 `submissionStatus=not_attempted`。例如，既有 `published` 或 `awaiting_approval` 状态都必须原样保留。
 
-If no new action is appropriate, `status=skipped` does not imply `submissionStatus=not_attempted`.
+## submitted 不等于 published
 
-Examples:
+只有验证公开列表 URL 后才能使用 `published`。表单接受、审核队列、邮箱回执、后台记录或待审核状态都不代表发布。
 
-```text
-previous submissionStatus = published
-current Run Item result   = skipped
-complete submissionStatus = published
-```
+## 最终动作结果不明
 
-```text
-previous submissionStatus = awaiting_approval
-current Run Item result   = skipped
-complete submissionStatus = awaiting_approval
-```
+最终动作可能已到达站点、worker 无法证明成功或失败、重试可能造成重复申请时，使用 `submission_outcome_unknown`。设置 Run Item 为 `blocked`，保留准确结果/错误，记录后端、邮箱和公开页检查，并安排跟进。不要把结果不明改成 `failed` 来美化队列。
 
-This prevents the execution queue from destroying the lifecycle snapshot.
+## 手动验证
 
-## Submitted is not published
-
-Never use `published` unless a public listing URL has been verified. Shipmore enforces a nonblank `publicListingUrl` for the `published` state.
-
-A form acceptance, review queue, email receipt, dashboard record, or pending moderation state is not publication.
-
-## Ambiguous final action
-
-Use `submission_outcome_unknown` when all of the following are true:
-
-1. a final action may have reached the site;
-2. the worker cannot prove acceptance or failure;
-3. retrying Submit could create a duplicate or repeated application.
-
-Set the Run Item to `blocked`, preserve the exact result/error, record backend/mailbox/public-page checks when performed, and schedule follow-up when appropriate.
-
-Do not convert ambiguity to `failed` merely to make the queue look cleaner.
-
-## Manual verification
-
-Typical mapping:
+通常映射为：
 
 ```text
 Run Item status     = blocked
@@ -157,27 +126,19 @@ submissionStatus    = blocked_manual_verification
 verificationStatus  = awaiting_manual_verification
 ```
 
-After a user legitimately completes the challenge, a later authorized execution may continue through a new/recovered Run Item. Recheck challenge validity before form submission.
+用户完成正常挑战后，后续授权执行可以继续；提交前必须重新检查挑战有效期。
 
-## Missing product data
+## 缺少 Product 资料
 
-Use:
+使用：
 
 ```text
-Run Item status    = blocked
-submissionStatus   = blocked_missing_verified_data
+Run Item status     = blocked
+submissionStatus    = blocked_missing_verified_data
 ```
 
-Only use this after the route remains eligible and account-policy checks have passed.
+只有在资格、政策、backlink、既有状态和账号检查完成后才能使用。可选未知字段留空，不要因此阻塞。
 
-Prefer explicit Shipmore Product fields such as `productContactEmail`, `productCompanyName`, `productFounderName`, `productPricingModel`, and the verified social URLs. Examples of legitimate missing-data blockers include a required founder name, company identity, contact email, legal identity, pricing fact, or other independent fact that is absent from verified Product data and cannot be established read-only from an official source.
+## 运行时故障
 
-Optional unknown fields should remain blank instead of causing a block.
-
-## Operational failures
-
-A browser crash, unsupported control backend, transient network failure, or tool/runtime exception is not automatically a directory rejection.
-
-Use `failed` for the Run Item and keep the closest truthful Submission state. Always send `lastError`.
-
-Do not overwrite a known `published`, `awaiting_approval`, or other stronger existing lifecycle state with `not_attempted` because the current worker failed.
+浏览器崩溃、不支持的控制后端、临时网络故障或工具异常不等于目录拒绝。Run Item 使用 `failed`，Submission 保留最接近事实的状态，并始终发送 `lastError`。已知 `published`、`awaiting_approval` 等强状态不能因本次 worker 失败被覆盖为 `not_attempted`。
