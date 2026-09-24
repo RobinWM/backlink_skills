@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shipmore 目录提交流程</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5d6b82;
+      --line: #a9b6c9;
+      --bg: #f4f7fb;
+      --shipmore: #e7f0ff;
+      --codex: #e8f8ef;
+      --decision: #fff4d6;
+      --stop: #ffe9e7;
+      --done: #eee9ff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+
+    header {
+      padding: 34px 28px 24px;
+      background: linear-gradient(135deg, #102747, #1f4779);
+      color: white;
+    }
+
+    header p { margin: 8px 0 0; color: #dbe8fb; }
+    h1 { margin: 0; font-size: clamp(26px, 4vw, 42px); }
+
+    main { max-width: 1500px; margin: auto; padding: 24px; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border: 1px solid #d5deea;
+      border-radius: 999px;
+      background: white;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.shipmore { background: #4f8eea; }
+    .dot.codex { background: #48a86a; }
+    .dot.decision { background: #d79b18; }
+    .dot.stop { background: #db5d55; }
+    .dot.done { background: #795bd8; }
+
+    .canvas {
+      overflow: auto;
+      padding: 22px;
+      border: 1px solid #dbe3ee;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 18px 50px rgba(32, 60, 98, .10);
+    }
+
+    svg { display: block; width: 1400px; max-width: none; height: auto; }
+    .node { stroke-width: 2; }
+    .node.shipmore { fill: var(--shipmore); stroke: #4f8eea; }
+    .node.codex { fill: var(--codex); stroke: #48a86a; }
+    .node.decision { fill: var(--decision); stroke: #d79b18; }
+    .node.stop { fill: var(--stop); stroke: #db5d55; }
+    .node.done { fill: var(--done); stroke: #795bd8; }
+    .node-title { font-size: 17px; font-weight: 700; fill: var(--ink); }
+    .node-copy { font-size: 13px; fill: var(--muted); }
+    .edge { stroke: var(--line); stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    .edge-label { font-size: 12px; fill: #64748b; font-weight: 600; }
+    .lane { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1.5; stroke-dasharray: 7 7; }
+    .lane-title { font-size: 14px; fill: #60708a; font-weight: 700; letter-spacing: .04em; }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .note {
+      padding: 16px;
+      border: 1px solid #dbe3ee;
+      border-radius: 14px;
+      background: white;
+    }
+
+    .note h2 { margin: 0 0 8px; font-size: 16px; }
+    .note p { margin: 0; color: var(--muted); line-height: 1.65; font-size: 14px; }
+    code { padding: 2px 5px; border-radius: 5px; background: #eef2f7; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Shipmore 目录提交流程</h1>
+    <p>Shipmore 管理任务和生命周期，Codex 执行浏览器与 Gmail 操作。</p>
+  </header>
+
+  <main>
+    <div class="legend" aria-label="流程图图例">
+      <span><i class="dot shipmore"></i>Shipmore 状态与队列</span>
+      <span><i class="dot codex"></i>Codex 浏览器 / Gmail</span>
+      <span><i class="dot decision"></i>判断节点</span>
+      <span><i class="dot stop"></i>阻塞或停止</span>
+      <span><i class="dot done"></i>完成与回写</span>
+    </div>
+
+    <section class="canvas" aria-label="Shipmore 提交流程图">
+      <svg viewBox="0 0 1400 1830" role="img" aria-labelledby="title desc">
+        <title id="title">Shipmore 目录提交流程图</title>
+        <desc id="desc">从创建 Run 到 Codex 执行表单或官方联系邮件，再回写 Shipmore 的完整流程。</desc>
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#a9b6c9" />
+          </marker>
+        </defs>
+
+        <rect class="lane" x="45" y="28" width="1310" height="210" rx="20" />
+        <text class="lane-title" x="70" y="58">SHipmore 队列与租约</text>
+
+        <rect class="node shipmore" x="470" y="78" width="460" height="72" rx="14" />
+        <text class="node-title" x="700" y="108" text-anchor="middle">用户创建提交 Run</text>
+        <text class="node-copy" x="700" y="131" text-anchor="middle">Shipmore 创建 Run Item 和队列顺序</text>
+
+        <path class="edge" d="M700 150 V178" />
+        <rect class="node shipmore" x="470" y="178" width="460" height="72" rx="14" />
+        <text class="node-title" x="700" y="208" text-anchor="middle">Codex claim Run Item</text>
+        <text class="node-copy" x="700" y="231" text-anchor="middle">获得 runItemId、任务快照和租约</text>
+
+        <path class="edge" d="M700 250 V278" />
+        <rect class="node decision" x="515" y="278" width="370" height="70" rx="35" />
+        <text class="node-title" x="700" y="308" text-anchor="middle">租约仍归当前 worker？</text>
+        <text class="node-copy" x="700" y="330" text-anchor="middle">必要时先 heartbeat</text>
+
+        <path class="edge" d="M515 313 H255 V370" />
+        <text class="edge-label" x="330" y="304">否</text>
+        <rect class="node stop" x="70" y="370" width="370" height="78" rx="14" />
+        <text class="node-title" x="255" y="402" text-anchor="middle">停止浏览器操作</text>
+        <text class="node-copy" x="255" y="425" text-anchor="middle">等待 recover 或重新 claim</text>
+
+        <path class="edge" d="M700 348 V390" />
+        <text class="edge-label" x="720" y="374">是</text>
+        <rect class="node codex" x="470" y="390" width="460" height="78" rx="14" />
+        <text class="node-title" x="700" y="422" text-anchor="middle">Codex 读取任务快照</text>
+        <text class="node-copy" x="700" y="445" text-anchor="middle">Product、Directory、既有 Submission 状态</text>
+
+        <path class="edge" d="M700 468 V510" />
+        <rect class="node decision" x="500" y="510" width="400" height="70" rx="35" />
+        <text class="node-title" x="700" y="540" text-anchor="middle">已有发布或待处理状态？</text>
+        <text class="node-copy" x="700" y="562" text-anchor="middle">published / submitted / awaiting</text>
+
+        <path class="edge" d="M500 545 H245 V610" />
+        <text class="edge-label" x="325" y="536">是</text>
+        <rect class="node stop" x="70" y="610" width="350" height="82" rx="14" />
+        <text class="node-title" x="245" y="642" text-anchor="middle">跳过或执行授权跟进</text>
+        <text class="node-copy" x="245" y="666" text-anchor="middle">保留既有生命周期状态</text>
+
+        <path class="edge" d="M700 580 V622" />
+        <text class="edge-label" x="720" y="606">否</text>
+        <rect class="node codex" x="470" y="622" width="460" height="82" rx="14" />
+        <text class="node-title" x="700" y="648" text-anchor="middle">只读预检与反链注册</text>
+        <text class="node-copy" x="700" y="672" text-anchor="middle">可达性、付费、条款、backlink 要求</text>
+        <text class="node-copy" x="700" y="693" text-anchor="middle">调用 POST /api/outbound-links</text>
+
+        <path class="edge" d="M700 704 V746" />
+        <rect class="node codex" x="470" y="746" width="460" height="82" rx="14" />
+        <text class="node-title" x="700" y="778" text-anchor="middle">首页轮询验证反链</text>
+        <text class="node-copy" x="700" y="801" text-anchor="middle">每 20 秒检查，最多 6 次，精确匹配 hostname/path</text>
+
+        <path class="edge" d="M700 828 V870" />
+        <rect class="node decision" x="500" y="870" width="400" height="70" rx="35" />
+        <text class="node-title" x="700" y="900" text-anchor="middle">反链验证通过后，入口类型？</text>
+        <text class="node-copy" x="700" y="922" text-anchor="middle">表单 / 内容编辑器 / Contact 邮件</text>
+
+        <rect class="lane" x="45" y="970" width="1310" height="370" rx="20" />
+        <text class="lane-title" x="70" y="1000">Codex 执行分支</text>
+
+        <path class="edge" d="M500 905 H245 V1025" />
+        <text class="edge-label" x="320" y="897">内容编辑器</text>
+        <rect class="node stop" x="70" y="1025" width="350" height="90" rx="14" />
+        <text class="node-title" x="245" y="1060" text-anchor="middle">no-action 内容入口</text>
+        <text class="node-copy" x="245" y="1084" text-anchor="middle">short note / long post / unknown</text>
+
+        <path class="edge" d="M500 905 H470 V1025" />
+        <text class="edge-label" x="475" y="897">目录表单</text>
+        <rect class="node codex" x="470" y="1025" width="400" height="90" rx="14" />
+        <text class="node-title" x="670" y="1060" text-anchor="middle">认证、验证与字段检查</text>
+        <text class="node-copy" x="670" y="1084" text-anchor="middle">只用已验证 Product 数据</text>
+
+        <path class="edge" d="M900 905 H1155 V1025" />
+        <text class="edge-label" x="1030" y="897">官方 Contact</text>
+        <rect class="node codex" x="980" y="1025" width="350" height="90" rx="14" />
+        <text class="node-title" x="1155" y="1060" text-anchor="middle">Gmail 发送前查重</text>
+        <text class="node-copy" x="1155" y="1084" text-anchor="middle">Sent / Drafts / All Mail</text>
+
+        <path class="edge" d="M670 1115 V1170" />
+        <rect class="node decision" x="490" y="1170" width="360" height="70" rx="35" />
+        <text class="node-title" x="670" y="1200" text-anchor="middle">表单可以安全提交？</text>
+        <text class="node-copy" x="670" y="1222" text-anchor="middle">检查单、租约、去重、验证</text>
+
+        <path class="edge" d="M490 1205 H255 V1270" />
+        <text class="edge-label" x="320" y="1196">否</text>
+        <rect class="node stop" x="70" y="1270" width="350" height="72" rx="14" />
+        <text class="node-title" x="245" y="1300" text-anchor="middle">阻塞并保留证据</text>
+        <text class="node-copy" x="245" y="1323" text-anchor="middle">manual / missing data / ineligible</text>
+
+        <path class="edge" d="M670 1240 V1270" />
+        <text class="edge-label" x="690" y="1260">是</text>
+        <rect class="node codex" x="490" y="1270" width="360" height="72" rx="14" />
+        <text class="node-title" x="670" y="1300" text-anchor="middle">Submit / Publish 只执行一次</text>
+        <text class="node-copy" x="670" y="1323" text-anchor="middle">读取页面、后台、邮箱和公开页</text>
+
+        <path class="edge" d="M1155 1115 V1170" />
+        <rect class="node decision" x="980" y="1170" width="350" height="70" rx="35" />
+        <text class="node-title" x="1155" y="1200" text-anchor="middle">是否已有联系记录？</text>
+        <text class="node-copy" x="1155" y="1222" text-anchor="middle">每个目标域名最多一封</text>
+        <path class="edge" d="M980 1205 H900 V1270" />
+        <text class="edge-label" x="925" y="1196">是</text>
+        <rect class="node stop" x="870" y="1270" width="270" height="72" rx="14" />
+        <text class="node-title" x="1005" y="1300" text-anchor="middle">duplicate_no_action</text>
+        <text class="node-copy" x="1005" y="1323" text-anchor="middle">不重发</text>
+        <path class="edge" d="M1155 1240 V1270" />
+        <text class="edge-label" x="1175" y="1260">否</text>
+        <rect class="node codex" x="1160" y="1270" width="190" height="72" rx="14" />
+        <text class="node-title" x="1255" y="1300" text-anchor="middle">Gmail Send</text>
+        <text class="node-copy" x="1255" y="1323" text-anchor="middle">只发送一次</text>
+
+        <rect class="lane" x="45" y="1400" width="1310" height="365" rx="20" />
+        <text class="lane-title" x="70" y="1430">结果分类与回写</text>
+
+        <path class="edge" d="M670 1342 V1470" />
+        <path class="edge" d="M1255 1342 V1470" />
+        <path class="edge" d="M245 1342 V1470" />
+        <path class="edge" d="M1005 1342 V1470" />
+        <rect class="node decision" x="500" y="1470" width="400" height="72" rx="36" />
+        <text class="node-title" x="700" y="1501" text-anchor="middle">结果是否明确？</text>
+        <text class="node-copy" x="700" y="1525" text-anchor="middle">状态、原生回执和独立证据一致</text>
+
+        <path class="edge" d="M500 1506 H240 V1570" />
+        <text class="edge-label" x="315" y="1498">否</text>
+        <rect class="node stop" x="70" y="1570" width="340" height="78" rx="14" />
+        <text class="node-title" x="240" y="1602" text-anchor="middle">结果不明</text>
+        <text class="node-copy" x="240" y="1625" text-anchor="middle">不重试，记录 follow-up</text>
+
+        <path class="edge" d="M900 1506 H1160 V1570" />
+        <text class="edge-label" x="1030" y="1498">是</text>
+        <rect class="node done" x="990" y="1570" width="340" height="78" rx="14" />
+        <text class="node-title" x="1160" y="1602" text-anchor="middle">分类结果</text>
+        <text class="node-copy" x="1160" y="1625" text-anchor="middle">submitted / awaiting / published</text>
+
+        <path class="edge" d="M700 1542 V1680" />
+        <path class="edge" d="M240 1648 V1680 H700" />
+        <path class="edge" d="M1160 1648 V1680 H700" />
+        <rect class="node shipmore" x="470" y="1680" width="460" height="72" rx="14" />
+        <text class="node-title" x="700" y="1710" text-anchor="middle">Complete 回写 Shipmore</text>
+        <text class="node-copy" x="700" y="1733" text-anchor="middle">稳定 eventId、状态、证据和跟进</text>
+      </svg>
+    </section>
+
+    <section class="notes">
+      <article class="note">
+        <h2>Shipmore 负责什么</h2>
+        <p>Run、Run Item、租约、队列顺序、生命周期、恢复和幂等 Complete。</p>
+      </article>
+      <article class="note">
+        <h2>Codex 负责什么</h2>
+        <p>实际打开网页、识别入口、站内去重、填写表单、操作 Gmail、读取回执和提交证据。</p>
+      </article>
+      <article class="note">
+        <h2>绝不重试的动作</h2>
+        <p><code>Submit</code>、<code>Publish</code>、<code>Claim</code> 和 <code>Gmail Send</code> 都只执行一次。</p>
+      </article>
+      <article class="note">
+        <h2>反链验证顺序</h2>
+        <p>目录要求反链时，先调用 <code>POST /api/outbound-links</code>，再轮询 Product 首页确认精确链接；通过后才进入目录原生验证或提交。</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

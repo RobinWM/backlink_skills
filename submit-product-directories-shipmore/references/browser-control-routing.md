@@ -1,6 +1,16 @@
 # Shipmore worker 的浏览器控制路由
 
-根据运行时能力选择控制面，不要把浏览器、操作系统、可执行路径、扩展、自动化库、快捷键或显示尺寸写死。
+## 唯一浏览器执行通道
+
+所有网页、登录、表单、验证码交接、站点原生验证、截图和 Gmail 操作必须通过指定的 `ego-browser` skill 完成：
+
+```text
+C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser\SKILL.md
+```
+
+先读取该 skill，再使用同一个 ego-browser TaskSpace 和 Page 完成当前站点流程。不得使用 browser-harness、agent-browser、CUA、Playwright、直接启动 Chrome 或其他浏览器自动化通道。Queue API/CLI 只负责 claim、heartbeat、outbound-link 注册、recover 和 complete。
+
+根据 ego-browser skill 的运行时能力执行浏览器操作，不要把浏览器、操作系统、可执行路径、扩展、自动化库、快捷键或显示尺寸写死。
 
 Shipmore 负责持久化提交状态。浏览器/后端诊断属于运行时信息，只有通过不透明 evidence reference 或明确支持的 Shipmore 字段保存。不要为了记录浏览器状态重新创建旧版 Markdown campaign record。
 
@@ -17,18 +27,19 @@ Shipmore 负责持久化提交状态。浏览器/后端诊断属于运行时信�
 
 ## 路由顺序
 
-1. 用户明确指定浏览器/应用时必须遵守，不能静默切换。
-2. 如果专用 connector/API/CLI 能完成语义操作，且用户没有明确要求可见浏览器交互，优先使用该能力。
-3. 否则优先使用能够保留认证会话的已安装浏览器 runtime 或连接浏览器扩展。
-4. 只有更具体的浏览器 runtime 无法处理目标页面，且适配器明确支持当前平台时，才使用桌面 UI 控制。
-5. 没有安全兼容的后端时，保留 Shipmore 任务状态并交接，不得替换成不可控浏览器/会话。
+1. 读取并遵守 ego-browser skill；所有浏览器动作固定路由到 ego-browser。
+2. 使用同一个 TaskSpace 和 Page 完成登录、验证、表单、Gmail 和结果检查；不要为同一站点创建第二个 TaskSpace。
+3. Queue API/CLI 只执行后端任务操作，不代替可见页面交互。
+4. ego-browser 无法安全处理目标页面时，保留 Shipmore 状态并交接，不得切换到其他浏览器自动化工具。
 
 具体工具的选择器、确认规则、键盘行为、截图处理和支持平台，以当前 runtime/Skill 文档为准。
 
 ## 会话规则
 
 - 创建重复账号前，优先复用已授权现有会话。
-- 站点要求连续性时，登录、验证、填写和最终结果检查必须在同一控制面/会话完成。
+- 站点要求连续性时，登录、验证、填写和最终结果检查必须在同一个 ego-browser TaskSpace/Page 会话完成。
+- 登录状态以当前 ego-browser 页面实时证据为准：检查账号菜单、可见用户标识、Dashboard/Logout 入口，以及受保护提交页面是否可访问。claim 快照中的历史阻塞文案、另一个浏览器/TaskSpace 的登录状态、公开页面和 URL 本身都不是登录证明。
+- 只有当前页面显示的账号身份与 Shipmore 有效提交身份匹配，或该账号已获得当前任务授权时，才可复用会话。无法确认身份时停止在登录墙前，不要读取或复制 Cookie、localStorage、session ID 或隐藏认证材料。
 - 浏览器绑定和标签页绑定是分开的；可行时从现有浏览器绑定恢复失效标签页，不要重建整个 runtime。
 - 绝不要检查 Cookie、本地存储、已保存密码、profile store、恢复码、原始 session ID、magic link 或隐藏认证材料。
 - 不要把浏览器/profile 的不透明标识复制到另一台机器当作可移植凭据。

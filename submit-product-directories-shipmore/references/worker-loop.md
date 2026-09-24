@@ -45,6 +45,8 @@ while true:
 
 ## 打开浏览器前
 
+所有浏览器、目录原生验证和 Gmail 操作必须通过 `ego-browser` skill 完成。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete，不代替页面点击或填写。
+
 确认：
 
 - `runItemId = claim.data.id`；

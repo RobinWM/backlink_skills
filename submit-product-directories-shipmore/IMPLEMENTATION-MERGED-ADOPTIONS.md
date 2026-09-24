@@ -10,6 +10,8 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 
 当前进度：阶段一至七已实施。阶段一至三接入浏览器规则、检查单和去重证据；阶段四、五已在 Shipmore 后端增加内容面字段、no-action 校验、官方 Contact 邮件渠道字段、邮件专用状态和 Queue API/Server Action 传递；阶段六增加结构化 CDP 重试诊断；阶段七增加共享字段敏感信息审计和回归测试。
 
+登录状态判断补充：以当前 ego-browser TaskSpace/Page 的实时可见身份和受保护页面访问结果为准，不使用 claim 历史阻塞文案或其他浏览器会话推断当前登录状态。
+
 ## 2. 现有能力与缺口
 
 ### Shipmore 已有能力
@@ -28,7 +30,7 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 - 短贴、长文和未知内容编辑器的 no-action 分类；
 - 官方 Contact 邮件作为独立执行渠道；
 - 最终动作前后检查单；
-- CDP 失败的假设、最小只读诊断和受控重试；
+- ego-browser 页面失败的假设、最小只读诊断和受控重试；
 - Gmail 发送结果与目录收录结果分离；
 - 更细的共享记录隐私检查。
 
@@ -216,9 +218,9 @@ email_send_outcome_unknown
 - 邮件路线的 `Content surface` 必须为 `not applicable`；
 - 不得请求 dofollow、排名承诺、强制互链、Guest Post 或内容发布。
 
-### 阶段六：引入 CDP 失败诊断协议
+### 阶段六：引入 ego-browser 页面失败诊断协议
 
-实施状态：已完成。Queue complete 和 Server Action 接受结构化 `retryDiagnostic`，写入 Complete attempt metadata；最终动作保持零次重试。
+实施状态：已完成。Queue complete 和 Server Action 接受结构化 `retryDiagnostic`，写入 Complete attempt metadata；所有页面操作统一使用 ego-browser，最终动作保持零次重试。
 
 对于超时、空响应、找不到元素和页面状态不明，不能直接重跑。每次受控重试前记录：
 
@@ -317,7 +319,7 @@ Gmail Send
 1. 浏览器入口/内容面分类
 2. 站内去重证据
 3. 最终动作检查单
-4. CDP 失败诊断
+4. ego-browser 页面失败诊断
 5. 邮件字段和状态 API
 6. 官方 Contact 邮件执行
 7. 隐私审计与回归测试

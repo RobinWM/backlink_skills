@@ -19,7 +19,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 - 后续跟进调度；
 - 提供给目录表单使用的已验证 Product 事实和有效提交身份。
 
-本 Skill 只对持有有效租约期间观察和操作浏览器的行为负责。
+本 Skill 只对持有有效租约期间观察和操作浏览器的行为负责。所有涉及网页、登录、表单、验证码、站点原生验证、Gmail 或 Contact 邮件的浏览器操作，必须通过指定的 `ego-browser` skill 完成；Queue API/CLI 只用于 Shipmore 任务领取、heartbeat、outbound-link 注册和状态回写。
 
 绝不要创建并行 Markdown 队列、本地队列游标或第二份规范提交记录。
 
@@ -44,6 +44,8 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 5. [references/account-authentication.md](references/account-authentication.md)
 6. [references/entry-and-content-routing.md](references/entry-and-content-routing.md)
 7. [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
+
+浏览器前置要求：先读取 `C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser\SKILL.md`，使用同一个 ego-browser TaskSpace 和 Page 完成整个站点流程。不得改用 browser-harness、agent-browser、CUA、Playwright、直接启动 Chrome 或其他浏览器自动化通道。
 
 ## 事实来源规则
 
@@ -80,6 +82,9 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 
 ## 浏览器执行规则
 
+- 所有浏览器操作必须调用 `ego-browser` skill；使用其 TaskSpace/Page API 读取页面、点击、填写、上传、截图、处理弹窗和完成 Gmail 操作。不要把浏览器操作交给 Queue CLI，也不要绕过 ego-browser 直接操作 CDP。
+- 登录状态必须以当前 ego-browser TaskSpace/Page 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和提交页面是否可用。claim 返回的历史 `exactResult`、其他浏览器的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
+- 如果当前 ego-browser 页面已经显示与有效提交身份匹配的已登录账号，可以复用该会话继续执行；如果提交入口重定向到登录页、只显示登录/注册按钮，或无法确认账号身份，则视为未确认登录，不得猜测或复制 Cookie/会话。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。
@@ -98,7 +103,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 - 点击、导航、清空表单、按钮禁用或普通感谢页本身都不能证明提交成功。
 - `submitted` 不等于 `published`。
 - 最终动作结果不明时必须改为 `submission_outcome_unknown`；绝不能盲目再次点击 Submit。
-- CDP 超时、空响应或找不到元素时，不得直接重跑；如需一次受控重试，必须提交结构化 `retryDiagnostic`，且下一步与上次实质不同。Submit、Publish、Claim 和 Gmail Send 均不得重试。
+- ego-browser 页面操作超时、空响应或找不到元素时，不得直接重跑；如需一次受控重试，必须提交结构化 `retryDiagnostic`，且下一步与上次实质不同。Submit、Publish、Claim 和 Gmail Send 均不得重试。
 - 不得把原始邮箱、电话、密码、OTP、magic link、Cookie、session ID、token URL、本机路径或进程参数写入 `lastError`、`exactResult`、`evidenceReference`、`followUpNote` 或 retry diagnostic。
 
 ## 既有状态保护
@@ -169,6 +174,7 @@ python3 scripts/shipmore_queue_client.py complete \
 - [references/status-mapping.md](references/status-mapping.md)：规范的 Shipmore 状态映射。
 - [references/worker-loop.md](references/worker-loop.md)：确定性的 worker 流程、Product 字段映射、预检顺序和重试规则。
 - [references/browser-control-routing.md](references/browser-control-routing.md)：与后端无关的浏览器选择和验证规则。
+- [ego-browser skill](C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser\SKILL.md)：所有浏览器和 Gmail 操作的唯一执行规范。
 - [references/account-authentication.md](references/account-authentication.md)：默认账号的授权登录、免费注册、安全运行时凭据，以及优先使用 `gws`、不可用时回退 Gmail 的验证流程。
 - [references/entry-and-content-routing.md](references/entry-and-content-routing.md)：入口发现、站内去重和内容面 no-action 分类。
 - [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)：最终动作前后的执行检查单。

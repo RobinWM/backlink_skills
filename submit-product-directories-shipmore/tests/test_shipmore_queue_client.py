@@ -353,7 +353,7 @@ class ShipmoreQueueClientTests(unittest.TestCase):
             status='failed',
             submission_status='form_in_progress',
             verification_status=None,
-            last_error='CDP timeout after read-only check',
+            last_error='ego-browser timeout after read-only check',
             exact_result='Retry diagnosis recorded',
             evidence_reference='ev-2',
             public_listing_url=None,

@@ -1,5 +1,13 @@
 # 目录账号身份验证
 
+所有登录、OAuth、邮箱验证码、Gmail 读取和目录会话操作必须通过指定的 `ego-browser` skill 完成。先读取：
+
+```text
+C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser\SKILL.md
+```
+
+使用同一个 ego-browser TaskSpace/Page 完成目录认证和原始提交；不要改用其他浏览器自动化工具或直接读取浏览器 Cookie/存储。
+
 ## 账号身份来源
 
 使用 Shipmore claim 载荷中的 `productContactEmail` 作为目录账号邮箱。它是 Shipmore 解析出的有效提交身份：
@@ -8,6 +16,17 @@
 2. 否则使用 Product 所有者的 `userSubmissionProfile.contactEmail`。
 
 不得从产品文案、站点域名、创始人资料或浏览器账号推导、猜测或替换邮箱。不要把它写入证据、exact result、截图或日志。站点显示的其他邮箱账号不能视为同一身份，除非 Shipmore 后续明确返回该邮箱。
+
+## 登录状态判断
+
+登录状态必须在当前 ego-browser TaskSpace/Page 中重新确认。至少检查一项可见身份和一项受保护功能：
+
+- 账号菜单中的可见用户标识、邮箱别名或头像菜单；
+- 页面提供 `Dashboard`、`Logout`、账号设置等已登录入口；
+- 受保护的目录提交页可以直接打开并显示表单，而不是重定向到登录/注册页；
+- 目录账号页面显示与有效提交身份一致的账号信息。
+
+claim 载荷中的历史 `exactResult`、其他浏览器中的登录状态、公开页面或地址栏 URL 不能单独证明当前 ego-browser 已登录。无法确认身份时，不得输入密码、复制会话材料或继续可变提交。
 
 ## 授权范围
 
