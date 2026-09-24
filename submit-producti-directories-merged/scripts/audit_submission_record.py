@@ -59,8 +59,6 @@ REQUIRED_CONTROLS = {
     "Ranking manipulation prohibited",
 }
 
-RECORD_SCOPES = {"shareable", "local-controlled"}
-
 REQUIRED_SITE_FIELDS = {
     "Queue ID",
     "Website",
@@ -238,20 +236,11 @@ def parse_record(text: str) -> tuple[dict[str, str], list[dict[str, object]]]:
     return controls, sites
 
 
-def audit(text: str, record_scope: str = "shareable") -> dict[str, object]:
-    """Audit a record for its declared storage scope.
-
-    ``shareable`` records must not contain raw contact data or credentials.
-    ``local-controlled`` is only for records kept on the user-authorized
-    protected machine; sensitive values remain visible to the operator but
-    are reported as warnings so they cannot be shared accidentally.
-    """
+def audit(text: str) -> dict[str, object]:
+    """Audit a public, shareable record that must not contain sensitive data."""
     errors: list[str] = []
     warnings: list[str] = []
     controls, sites = parse_record(text)
-
-    if record_scope not in RECORD_SCOPES:
-        errors.append(f"invalid requested record scope: {record_scope}")
 
     missing_controls = sorted(REQUIRED_CONTROLS - controls.keys())
     if missing_controls:
@@ -263,13 +252,8 @@ def audit(text: str, record_scope: str = "shareable") -> dict[str, object]:
     declared_scope = controls.get("Record scope", "shareable")
     if "Record scope" not in controls:
         warnings.append("Record scope missing; treating this legacy record as shareable")
-    elif declared_scope not in RECORD_SCOPES:
-        errors.append("Record scope must be shareable or local-controlled")
-    elif declared_scope != record_scope:
-        errors.append(
-            f"Record scope mismatch: record declares {declared_scope}, "
-            f"auditor was run as {record_scope}"
-        )
+    elif declared_scope != "shareable":
+        errors.append("Record scope must be shareable")
     for numeric in ("Execution-shard size", "Maximum active tabs"):
         value = controls.get(numeric, "")
         if not value.isdigit() or int(value) < 1:
@@ -280,28 +264,18 @@ def audit(text: str, record_scope: str = "shareable") -> dict[str, object]:
 
     email_matches = sorted(set(re.findall(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, re.IGNORECASE)))
     if email_matches:
-        message = "raw email address found"
-        if record_scope == "shareable":
-            errors.append(message + "; use a contact alias")
-        else:
-            warnings.append(message + "; local-controlled record must not be shared")
+        errors.append("raw email address found; use a contact alias")
     secret_label = re.search(
         r"^-\s*(?:password|passcode|otp|recovery code|cookie|session id|oauth code|magic link)\s*:\s*(?!not applicable|none|redacted)\S+",
         text,
         re.IGNORECASE | re.MULTILINE,
     )
     if secret_label:
-        if record_scope == "shareable":
-            errors.append("secret-bearing field found in shareable record")
-        else:
-            warnings.append("secret-bearing field found; local-controlled record must not be shared")
+        errors.append("secret-bearing field found in shareable record")
     for url in re.findall(r"https?://[^\s)>]+", text):
         keys = {key.lower() for key, _ in parse_qsl(urlsplit(url).query, keep_blank_values=True)}
         if keys & SENSITIVE_QUERY_KEYS:
-            if record_scope == "shareable":
-                errors.append("URL with sensitive authentication parameter found")
-            else:
-                warnings.append("URL with sensitive authentication parameter found; local-controlled record must not be shared")
+            errors.append("URL with sensitive authentication parameter found")
             break
 
     seen_keys: dict[str, str] = {}
@@ -592,7 +566,7 @@ def audit(text: str, record_scope: str = "shareable") -> dict[str, object]:
         "valid": not errors,
         "errors": errors,
         "warnings": warnings,
-        "record_scope": record_scope,
+        "record_scope": "shareable",
         "total_sites": len(sites),
         "status_counts": dict(sorted(status_counts.items())),
         "verification_counts": dict(sorted(verification_counts.items())),
@@ -604,14 +578,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("record", type=Path)
     parser.add_argument("--json", action="store_true")
-    parser.add_argument(
-        "--record-scope",
-        choices=sorted(RECORD_SCOPES),
-        default="shareable",
-        help="shareable is strict; local-controlled permits sensitive local data with warnings",
-    )
     args = parser.parse_args()
-    result = audit(args.record.read_text(encoding="utf-8"), args.record_scope)
+    result = audit(args.record.read_text(encoding="utf-8"))
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:

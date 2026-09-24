@@ -1,4 +1,4 @@
-# 外链自动提交合并版 — SPD V1 Batch status model
+# 外链自动提交合并版 — 批次状态模型
 
 ## Required campaign controls
 
@@ -90,7 +90,7 @@
 - Keep idempotency keys unique across the campaign.
 - Treat registration, login, draft save, navigation, a click, or a generic thank-you page as insufficient evidence of submission.
 - `short note — no action`, `long post — no action` and `unknown — no action` all prohibit content entry or prefill, draft saving, manual handoff, submission and publication. Record classification evidence only. A content-editor-only site is `ineligible`, not `unavailable`; a generic `Post` label creates no exception.
-- Ordinary registration/login and no-cost, clearly labeled marketing-subscription opt-ins are user-default-authorized for future SPD IDP tasks. This never authorizes a paid plan, auto-renewal, purchase, donation, or added legal/financial commitment.
+- Registration, login and no-cost, clearly labeled marketing-subscription opt-ins require current-batch authorization. They never authorize a paid plan, auto-renewal, purchase, donation, or added legal/financial commitment.
 - Never store secrets, raw contact data, private session IDs, or tokenized authentication URLs in the shareable record.
 
 ## Audit commands

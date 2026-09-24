@@ -124,6 +124,15 @@ class AuditTests(unittest.TestCase):
         result = MODULE.audit(record(site()))
         self.assertTrue(result["valid"], result["errors"])
 
+    def test_non_shareable_record_scope_fails(self) -> None:
+        text = record(site()).replace(
+            "- Ranking manipulation prohibited: yes",
+            "- Ranking manipulation prohibited: yes\n- Record scope: restricted",
+        )
+        result = MODULE.audit(text)
+        self.assertFalse(result["valid"])
+        self.assertIn("Record scope must be shareable", result["errors"])
+
     def test_valid_official_contact_email_send(self) -> None:
         block = site(
             website="https://directory.test/contact",
