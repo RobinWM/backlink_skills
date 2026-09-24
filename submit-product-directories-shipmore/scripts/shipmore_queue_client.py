@@ -379,6 +379,20 @@ class ShipmoreQueueClient:
                 '--public-listing-url is required when --submission-status published'
             )
 
+        retry_diagnostic = None
+        retry_diagnostic_json = getattr(args, 'retry_diagnostic_json', None)
+        if retry_diagnostic_json:
+            try:
+                retry_diagnostic = json.loads(retry_diagnostic_json)
+            except json.JSONDecodeError as exc:
+                raise ShipmoreClientError(
+                    '--retry-diagnostic-json must be valid JSON'
+                ) from exc
+            if not isinstance(retry_diagnostic, dict):
+                raise ShipmoreClientError(
+                    '--retry-diagnostic-json must contain a JSON object'
+                )
+
         payload = compact_optional(
             {
                 'operation': 'complete',
@@ -396,6 +410,7 @@ class ShipmoreQueueClient:
                 'mailboxPreSendEvidence': getattr(args, 'mailbox_pre_send_evidence', None),
                 'emailSendAttempts': getattr(args, 'email_send_attempts', None),
                 'gmailSendReceipt': getattr(args, 'gmail_send_receipt', None),
+                'retryDiagnostic': retry_diagnostic,
                 'verificationStatus': args.verification_status,
                 'lastError': args.last_error,
                 'exactResult': args.exact_result,
@@ -493,6 +508,10 @@ def build_parser() -> argparse.ArgumentParser:
     complete.add_argument('--mailbox-pre-send-evidence')
     complete.add_argument('--email-send-attempts', type=int, choices=[0, 1])
     complete.add_argument('--gmail-send-receipt')
+    complete.add_argument(
+        '--retry-diagnostic-json',
+        help='JSON object describing one controlled retry diagnosis',
+    )
     complete.add_argument('--verification-status', choices=VERIFICATION_STATUSES)
     complete.add_argument('--last-error')
     complete.add_argument('--exact-result')

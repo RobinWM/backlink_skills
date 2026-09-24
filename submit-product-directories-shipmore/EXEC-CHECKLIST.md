@@ -68,6 +68,7 @@ unknown — no action
 - [ ] `exactResult` 和 `evidenceReference` 只记录已观察事实；
 - [ ] 发送 `complete` 前租约仍有效，必要时已 heartbeat；
 - [ ] 记录 `checklist PASS` 或 `checklist FAIL: <reason>`。
+- [ ] 如果发生受控重试，已记录唯一的 `retryDiagnostic`，并且下一步操作与上次实质不同；最终 Submit、Publish、Claim 和 Gmail Send 不得重试。
 
 ## C. 建议记录格式
 

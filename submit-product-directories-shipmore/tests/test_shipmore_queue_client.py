@@ -345,6 +345,42 @@ class ShipmoreQueueClientTests(unittest.TestCase):
         with self.assertRaises(ShipmoreClientError):
             client.complete(args)
 
+    def test_complete_payload_accepts_retry_diagnostic_json(self):
+        client = RecordingClient()
+        args = argparse.Namespace(
+            event_id='evt-2',
+            run_item_id='item-2',
+            status='failed',
+            submission_status='form_in_progress',
+            verification_status=None,
+            last_error='CDP timeout after read-only check',
+            exact_result='Retry diagnosis recorded',
+            evidence_reference='ev-2',
+            public_listing_url=None,
+            backend_checked_at=None,
+            mailbox_checked_at=None,
+            public_page_checked_at=None,
+            follow_up_at=None,
+            follow_up_note=None,
+            retry_diagnostic_json='{"exactError":"timeout","failedAction":"read","targetUrl":"https://example.test","pageState":"form","hypothesisA":"slow load","hypothesisB":"stale tab","minimalReadOnlyCheck":"read page","nextActionDifference":"fresh tab"}',
+        )
+        result = client.complete(args)
+        self.assertEqual(result['retryDiagnostic']['nextActionDifference'], 'fresh tab')
+
+    def test_invalid_retry_diagnostic_json_fails(self):
+        client = RecordingClient()
+        args = argparse.Namespace(
+            event_id='evt-3', run_item_id='item-3', status='failed',
+            submission_status='form_in_progress',
+            verification_status=None, last_error='error', exact_result=None,
+            evidence_reference=None, public_listing_url=None,
+            backend_checked_at=None, mailbox_checked_at=None,
+            public_page_checked_at=None, follow_up_at=None, follow_up_note=None,
+            retry_diagnostic_json='not-json',
+        )
+        with self.assertRaises(ShipmoreClientError):
+            client.complete(args)
+
 
 if __name__ == '__main__':
     unittest.main()

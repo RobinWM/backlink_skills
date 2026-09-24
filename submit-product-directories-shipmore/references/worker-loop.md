@@ -191,6 +191,25 @@ heartbeat 返回 409 时停止，不得假装仍拥有租约而执行最终提�
 
 最终动作前必须完成 [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md) 的检查并记录 `checklist PASS/FAIL`、检查时间和 `evidenceReference`。结果分类后再次执行检查；如果 `published` 没有公开列表 URL、重复检查没有证据或租约已失效，必须按事实降级或阻塞，不能继续 Complete 为成功。
 
+## CDP 失败诊断与受控重试
+
+CDP 超时、空响应、找不到元素或页面状态不明时，不得直接重跑。只有下一步与上次操作实质不同，且已经产生新证据，才允许一次受控重试。将以下结构化对象随 Complete 载荷写入 attempt metadata：
+
+```json
+{
+  "exactError": "精确错误文本",
+  "failedAction": "失败动作",
+  "targetUrl": "https://example.test/submit",
+  "pageState": "页面当前状态",
+  "hypothesisA": "可区分的原因一",
+  "hypothesisB": "可区分的原因二",
+  "minimalReadOnlyCheck": "最小只读判别",
+  "nextActionDifference": "下一步与上次的实质差异"
+}
+```
+
+`Submit`、`Publish`、`Claim` 和 `Gmail Send` 都是零次重试。最终动作可能已经发生时，直接使用 `submission_outcome_unknown` 或对应邮件状态。
+
 ## 证据
 
 优先使用当前 runtime/evidence 系统管理的不透明证据引用。不要保存秘密或会话材料。

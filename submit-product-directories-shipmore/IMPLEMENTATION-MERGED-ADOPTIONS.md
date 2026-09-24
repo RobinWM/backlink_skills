@@ -8,7 +8,7 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 
 目标是让 Shipmore worker 在执行前更早发现错误入口，在最终动作前降低重复提交风险，并在 Contact 邮件和结果不明场景下保留可恢复证据。
 
-当前进度：阶段一至五已实施。阶段一至三接入浏览器规则、检查单和去重证据；阶段四、五已在 Shipmore 后端增加内容面字段、no-action 校验、官方 Contact 邮件渠道字段、邮件专用状态和 Queue API/Server Action 传递；迁移与类型测试已完成。
+当前进度：阶段一至七已实施。阶段一至三接入浏览器规则、检查单和去重证据；阶段四、五已在 Shipmore 后端增加内容面字段、no-action 校验、官方 Contact 邮件渠道字段、邮件专用状态和 Queue API/Server Action 传递；阶段六增加结构化 CDP 重试诊断；阶段七增加共享字段敏感信息审计和回归测试。
 
 ## 2. 现有能力与缺口
 
@@ -218,6 +218,8 @@ email_send_outcome_unknown
 
 ### 阶段六：引入 CDP 失败诊断协议
 
+实施状态：已完成。Queue complete 和 Server Action 接受结构化 `retryDiagnostic`，写入 Complete attempt metadata；最终动作保持零次重试。
+
 对于超时、空响应、找不到元素和页面状态不明，不能直接重跑。每次受控重试前记录：
 
 ```text
@@ -242,6 +244,8 @@ Gmail Send
 如果最终动作可能已经发生，直接使用 `submission_outcome_unknown` 或邮件专用结果，不得为了“确认成功”再次点击。
 
 ### 阶段七：增强隐私审计和测试
+
+实施状态：已完成第一版。Shipmore 拒绝在 `lastError`、`exactResult`、`evidenceReference`、`followUpNote` 和 retry diagnostic 中写入原始邮箱、秘密、会话信息或本机路径，并补充类型、Queue 和 worker 回归测试。
 
 审计必须拒绝以下内容进入 Shipmore evidence、exactResult 或 follow-up note：
 

@@ -98,6 +98,8 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 - 点击、导航、清空表单、按钮禁用或普通感谢页本身都不能证明提交成功。
 - `submitted` 不等于 `published`。
 - 最终动作结果不明时必须改为 `submission_outcome_unknown`；绝不能盲目再次点击 Submit。
+- CDP 超时、空响应或找不到元素时，不得直接重跑；如需一次受控重试，必须提交结构化 `retryDiagnostic`，且下一步与上次实质不同。Submit、Publish、Claim 和 Gmail Send 均不得重试。
+- 不得把原始邮箱、电话、密码、OTP、magic link、Cookie、session ID、token URL、本机路径或进程参数写入 `lastError`、`exactResult`、`evidenceReference`、`followUpNote` 或 retry diagnostic。
 
 ## 既有状态保护
 
