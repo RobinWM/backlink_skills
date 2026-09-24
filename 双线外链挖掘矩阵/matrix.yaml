@@ -1,0 +1,62 @@
+version: "1.1.1"
+name: "双线外链挖掘矩阵"
+documentation:
+  default: "README.md"
+  zh_CN: "README.zh-CN.md"
+  tutorial: "embedded-in-readmes"
+minimum_runtime:
+  python: "3.9"
+  dependencies: "standard-library-only"
+execution_boundary: "RESEARCH_SCREENING_AND_LOCAL_DELIVERY_ONLY"
+tracks:
+  batch:
+    objective: "SCALE_FIRST_WITH_BOUNDED_EXCLUSIONS"
+    skill: "backlink-batch-expansion"
+  quality:
+    objective: "BALANCE_TOPIC_FIT_ADMISSION_DIFFICULTY_AND_EXPECTED_RETURN"
+    skill: "backlink-quality-expansion"
+orchestration:
+  controller: "backlink-expansion-matrix"
+  source_preparation: "backlink-source-prep"
+  final_delivery: "backlink-workbook-delivery"
+  single_writer_for_final_pool: true
+  exported_batches_are_frozen: true
+  subagents_require_explicit_user_request: true
+skills:
+  - id: "backlink-expansion-matrix"
+    role: "orchestrator"
+    requires: []
+  - id: "backlink-source-prep"
+    role: "source_preparation"
+    requires: ["backlink-expansion-matrix"]
+  - id: "backlink-batch-expansion"
+    role: "batch_track_screening"
+    requires: ["backlink-source-prep"]
+  - id: "backlink-quality-expansion"
+    role: "quality_track_screening"
+    requires: ["backlink-source-prep"]
+  - id: "backlink-workbook-delivery"
+    role: "deduplication_batch_freeze_and_delivery"
+    requires: ["backlink-batch-expansion", "backlink-quality-expansion"]
+status_boundaries:
+  highest_local_status: "待执行候选"
+  prohibited_claims_without_external_evidence:
+    - "已提交"
+    - "已发布"
+    - "已收录"
+    - "保证获得外链"
+public_release:
+  generic_methods_only: true
+  prohibit:
+    - "real_brand_names_or_domains"
+    - "business_datasets_or_project_statistics"
+    - "private_paths_or_internal_filenames"
+    - "account_or_session_details"
+    - "submission_history_or_source_excerpts"
+forbidden_capabilities_without_separate_authorization:
+  - "registration"
+  - "login"
+  - "payment"
+  - "submission"
+  - "external_outreach"
+  - "captcha_bypass"

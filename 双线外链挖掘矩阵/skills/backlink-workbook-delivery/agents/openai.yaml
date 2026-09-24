@@ -1,0 +1,4 @@
+interface:
+  display_name: "外链表格交付"
+  short_description: "完成历史数据去重、批次冻结、执行工作簿制作和交付质量检查"
+  default_prompt: "使用 $backlink-workbook-delivery 将候选池整理成免费和付费执行工作簿。"

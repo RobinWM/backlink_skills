@@ -1,0 +1,4 @@
+interface:
+  display_name: "质量外链扩量"
+  short_description: "筛选文章投稿、行业媒体、专家贡献和高质量资源外链机会"
+  default_prompt: "使用 $backlink-quality-expansion 扩充质量投稿候选并平衡质量与数量。"
