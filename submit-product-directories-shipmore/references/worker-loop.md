@@ -29,14 +29,13 @@ while true:
     complete(skipped, preserve current submissionStatus)
     continue
 
-  heartbeat(runItemId)
+  start LeaseKeeper(runItemId)
   browser preflight + legitimacy/authorization checks
   if mandatory backlink/badge:
     register outbound link; poll and verify Product homepage
     if verification fails: complete truthfully; do not submit
   run EXEC-CHECKLIST.md before final action
-  perform one verified final action
-  heartbeat(runItemId)
+  final-click(actionType, selector)  # synchronous heartbeat + durable journal + one click
   inspect exact final result
   classify result
   run EXEC-CHECKLIST.md after result classification
@@ -169,9 +168,13 @@ while true:
 
 仍不明确时保留 `submission_outcome_unknown` 并安排跟进。
 
-## Heartbeat 规则
+## Heartbeat 与 LeaseKeeper
 
-任何可能修改站点的步骤前，以及任何耗时步骤后，都要发送 heartbeat。300 秒租约目标是每 60–120 秒一次。
+生产 managed runtime 使用 `scripts/shipmore_worker.py`：claim 后先同步 heartbeat，再启动 LeaseKeeper；默认 300 秒 lease、每 60 秒 heartbeat。LeaseKeeper 原子更新本地 lease guard。
+
+当 `SHIPMORE_MANAGED_LEASE=1` 时，Browser Adapter 在任何 open/fill/select/check/upload/click/final-click 前都必须读取 guard；guard 缺失、invalid 或超时即拒绝可变浏览器动作。因此 heartbeat 不再只依赖 Codex 记忆。
+
+Direct/manual 调试模式没有 LeaseKeeper 时，仍按下面规则显式 heartbeat：
 
 以下情况还要发送 heartbeat：
 
@@ -195,9 +198,12 @@ heartbeat 返回 409 时停止，不得假装仍拥有租约而执行最终提�
 3. 检查必填字段是否真实；
 4. 确认未选择未授权的 newsletter、推广、付款、法律协议或无关动作，且必需 backlink 已通过授权验证；
 5. 重新检查验证/挑战有效性；
-6. 必要时发送 heartbeat；
-7. 执行一次最终动作；
-8. 重新读取结果状态。
+6. 使用 adapter `final-click --action-type submit|publish|claim|gmail_send`；
+7. final-click 会先同步 heartbeat、验证 lease guard、原子创建 durable journal、标记 attempting，再且仅再执行一次 click；
+8. click 成功返回后 journal 为 dispatched；timeout/error 自动记为 outcome_unknown；
+9. 重新读取结果状态，并用 `final-action-resolve` 标记 confirmed/outcome_unknown/rejected。
+
+Final Action 禁止使用普通 adapter `click` 或裸 agent-browser click。已有同 runItemId + actionType journal 时，第二次 final-click 会直接拒绝。
 
 不得仅凭点击推断成功。
 
@@ -240,7 +246,7 @@ heartbeat 返回 409 时停止，不得假装仍拥有租约而执行最终提�
 shipmore:<runItemId>:complete:<opaque-random-id>
 ```
 
-第一次 Complete 前生成一次，并保留到收到确定响应。如果发送后 Complete 超时或连接中断，用同一个 event ID 和相同逻辑完成字段重试。
+如果当前任务执行过 Final Action，直接使用 final-click journal 中的 `completionEventId`；这保证进程在 final click 后崩溃并恢复时仍能复用同一个 Complete ID。没有 Final Action 的路径才在第一次 Complete 前生成一次稳定 event ID。发送后 Complete 超时或连接中断时，用同一个 ID 和相同逻辑完成字段重试。
 
 不要在不同 Run Item 或不同结果之间复用 event ID。
 
@@ -313,4 +319,4 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 
 过期租约可以恢复为 `queued`。后续 worker 必须重新读取 claim 载荷和浏览器/站点状态后再继续。不要仅因前一个 worker 租约过期就假设它没有执行任何操作。
 
-如果前一个 worker 可能在租约丢失前执行了最终动作，将站点结果视为可能不明确；重试前检查账号、邮箱和公开页面证据。
+如果前一个 worker 可能在租约丢失前执行了最终动作，先读取本机 final-action journal。journal 存在时绝不再次 final-click，只做结果核验。跨主机恢复时本地 journal 不可见，因此必须优先 same-host recovery；无法证明原动作未发生时按 `submission_outcome_unknown` 处理。当前 Queue API 没有服务器侧 final-action fence，详见 [production-hardening.md](production-hardening.md)。

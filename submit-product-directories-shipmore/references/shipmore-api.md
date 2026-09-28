@@ -57,7 +57,7 @@ Content-Type: application/json
 - `queue_empty`：没有排队任务，停止 worker loop；
 - `run_not_found`：Run 无效，视为配置/错误状态。
 
-响应可能丢失时，用相同 `runId` 和 `workerId` 重试 claim，预期返回 `reused`。
+响应可能丢失时，用相同 `runId` 和 `workerId` 重试 claim，预期返回 `reused`。生产 workerId 必须是持久化且跨机器不冲突的 instance/slot ID；不要在多机部署中复用 `shipmore-worker-01` 这类通用名称。
 
 ## Heartbeat
 
@@ -115,7 +115,7 @@ skipped
 同一操作重试：idempotent = true
 ```
 
-不要仅因网络响应丢失就生成新的 event ID。
+不要仅因网络响应丢失就生成新的 event ID。有 Final Action 时，managed runtime 应使用 final-action journal 中预先生成的 `completionEventId`。
 
 ## Recover
 
@@ -222,3 +222,17 @@ productFounderGithubUrl
 如果专用 claim 字段为空，不得从无关文本静默推断。可在运行时清楚验证官方产品站点的当前事实，否则使用 `blocked_missing_verified_data`。`productContactEmail` 只能用于授权表单，不得复制到 exactResult、证据标签、截图或可分享日志。
 
 `directoryDofollow` 只是目录元数据，不能作为操纵排名或索要 followed link 的指令。
+
+
+## Final Action 服务端 fencing 缺口
+
+当前 Queue API 没有 `prepare_final_action` / `finalActionId` / `fenceToken`。客户端 durable journal 可以阻止同一宿主机重复 Submit/Publish/Claim/Gmail Send，但 Host A 在 click 后永久丢失磁盘、Host B 后续 recover 的场景无法由客户端本地文件证明 exactly-once。
+
+在服务端 fencing 加入前：
+
+- final action 必须使用 adapter `final-click`；
+- 优先 same-host recovery；
+- 跨主机无法证明动作未发生时使用 `submission_outcome_unknown`；
+- 不允许把 `recover` 本身当作“前一个 worker 没有执行 final action”的证据。
+
+建议未来增加服务端原子 `prepare_final_action` 操作：校验当前 lease/worker，并为 runItemId + actionType 固化 actionId/fenceToken；重复 prepare 返回已有记录而不是授权第二次动作。

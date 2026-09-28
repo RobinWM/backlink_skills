@@ -8,6 +8,7 @@ import subprocess
 import sys
 from typing import Sequence
 
+from worker_identity import WorkerIdentityError, get_worker_instance_id
 from agent_browser_adapter import (
     AgentBrowserAdapter,
     AgentBrowserError,
@@ -23,16 +24,22 @@ def build_worker_env(
     base_env: dict[str, str],
     *,
     run_id: str,
-    worker_id_prefix: str,
+    worker_id_prefix: str | None,
     slot: int,
     concurrency: int,
 ) -> dict[str, str]:
     env = dict(base_env)
+    resolved_prefix = (
+        (worker_id_prefix or "").strip()
+        or (env.get("SHIPMORE_WORKER_INSTANCE_ID") or "").strip()
+        or get_worker_instance_id()
+    )
     env["SHIPMORE_RUN_ID"] = run_id
     env["SHIPMORE_POOL_SLOT"] = str(slot)
     env["SHIPMORE_POOL_SIZE"] = str(concurrency)
     env["SHIPMORE_CONCURRENCY"] = str(concurrency)
-    env["BACKLINK_WORKER_ID"] = f"{worker_id_prefix}-{slot:02d}"
+    env["SHIPMORE_WORKER_INSTANCE_ID"] = resolved_prefix
+    env["BACKLINK_WORKER_ID"] = f"{resolved_prefix}-{slot:02d}"
     env.setdefault("AGENT_BROWSER_STATE_EXPIRE_DAYS", str(DEFAULT_STATE_EXPIRE_DAYS))
     env.setdefault("AGENT_BROWSER_NAMESPACE", DEFAULT_NAMESPACE)
     return env
@@ -41,7 +48,7 @@ def build_worker_env(
 def run_pool(
     run_id: str,
     concurrency: int,
-    worker_id_prefix: str,
+    worker_id_prefix: str | None,
     worker_command: Sequence[str],
     *,
     skip_preflight: bool = False,
@@ -111,7 +118,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--worker-id-prefix",
-        default=os.environ.get("BACKLINK_WORKER_ID_PREFIX", "shipmore-worker"),
+        default=os.environ.get("BACKLINK_WORKER_ID_PREFIX"),
     )
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("worker_command", nargs=argparse.REMAINDER)
@@ -127,7 +134,7 @@ def main() -> int:
             args.worker_command,
             skip_preflight=args.skip_preflight,
         )
-    except (ValueError, AgentBrowserError) as exc:
+    except (ValueError, AgentBrowserError, WorkerIdentityError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
 

@@ -14,7 +14,7 @@
 ### 所有任务
 
 - [ ] 当前 Run Item 仍由本 worker 持有；
-- [ ] 租约未过期，必要时已发送 heartbeat；
+- [ ] 租约未过期；managed runtime 的 LeaseKeeper 正在运行且 lease guard 为 valid，direct/manual 模式必要时已显式 heartbeat；
 - [ ] agent-browser 0.38.1 / doctor preflight 已通过，当前 deterministic named session 与本 `runItemId` 绑定，并启用了恢复状态；
 - [ ] 当前页面使用最新 snapshot/refs；文本/select/check/upload 等标准写入已通过 adapter safe 方法和 read-back 校验；恢复登录态时已执行可用的 restore validation 或重新验证可见身份 + 受保护功能；
 - [ ] Product、Directory、账号别名和当前提交路由相互匹配；
@@ -27,7 +27,7 @@
 - [ ] 必需 backlink 已注册并通过 Product 首页精确 hostname/path 验证；
 - [ ] CAPTCHA、Turnstile、邮箱验证等挑战已通过，或已按规则保留人工交接；
 - [ ] 表单字段来自已验证 Product 数据，必填字段没有猜测值；
-- [ ] 最终动作只计划执行一次。
+- [ ] 最终动作只计划执行一次，并且将通过 adapter `final-click` 执行；当前 runItemId + actionType 不存在已有 final-action journal。
 
 ### 内容编辑器阻断
 
@@ -65,8 +65,8 @@ unknown — no action
 - [ ] 不把点击、跳转、表单清空、草稿或普通感谢页单独当作成功；
 - [ ] `submitted` 没有被误标为 `published`；
 - [ ] `published` 有公开列表 URL；
-- [ ] 结果不明时使用 `submission_outcome_unknown`，不再次点击最终动作；
-- [ ] Complete 使用第一次生成的稳定 `eventId`；
+- [ ] 结果不明时使用 `submission_outcome_unknown`，并将 final-action journal resolve 为 `outcome_unknown`；不再次点击最终动作；
+- [ ] 有 Final Action 时 Complete 使用 journal 的稳定 `completionEventId`；无 Final Action 时使用第一次生成的稳定 `eventId`；
 - [ ] `exactResult` 和 `evidenceReference` 只记录已观察事实；
 - [ ] 发送 `complete` 前租约仍有效，必要时已 heartbeat；
 - [ ] 记录 `checklist PASS` 或 `checklist FAIL: <reason>`。

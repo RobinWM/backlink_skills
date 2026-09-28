@@ -12,6 +12,13 @@ import subprocess
 import sys
 from typing import Any, Callable, Sequence
 
+from final_action_guard import FinalActionError, FinalActionJournal, FINAL_ACTION_TYPES
+from lease_keeper import (
+    LeaseGuardError,
+    assert_lease_guard_valid,
+    refresh_lease_from_env,
+)
+
 AGENT_BROWSER_VERSION = "0.38.1"
 DEFAULT_STATE_EXPIRE_DAYS = 7
 DEFAULT_NAMESPACE = "shipmore"
@@ -102,6 +109,28 @@ class AgentBrowserAdapter:
             str(DEFAULT_STATE_EXPIRE_DAYS),
         )
         self.env.setdefault("AGENT_BROWSER_NAMESPACE", DEFAULT_NAMESPACE)
+        self.lease_guard_path = self.env.get("SHIPMORE_LEASE_GUARD_PATH")
+        self.managed_lease = self.env.get("SHIPMORE_MANAGED_LEASE") == "1"
+
+    def _assert_mutation_allowed(self) -> None:
+        if self.managed_lease and not self.lease_guard_path:
+            raise AgentBrowserError(
+                "managed Shipmore worker is missing SHIPMORE_LEASE_GUARD_PATH"
+            )
+        if self.lease_guard_path:
+            worker_id = (self.env.get("BACKLINK_WORKER_ID") or "").strip()
+            if self.managed_lease and not worker_id:
+                raise AgentBrowserError(
+                    "managed Shipmore worker is missing BACKLINK_WORKER_ID"
+                )
+            try:
+                assert_lease_guard_valid(
+                    self.lease_guard_path,
+                    expected_worker_id=worker_id or None,
+                    expected_run_item_id=self.run_item_id,
+                )
+            except LeaseGuardError as exc:
+                raise AgentBrowserError(str(exc)) from exc
 
     def _redact(self, text: str) -> str:
         result = text or ""
@@ -221,6 +250,7 @@ class AgentBrowserAdapter:
         restore_check_text: str | None = None,
         restore_check_fn: str | None = None,
     ) -> dict[str, Any]:
+        self._assert_mutation_allowed()
         flags: list[str] = []
         if restore_check_url:
             flags.extend(["--restore-check-url", restore_check_url])
@@ -231,6 +261,7 @@ class AgentBrowserAdapter:
         return self._run_json(["open", url], global_args=flags)
 
     def bootstrap(self, url: str, *, fresh_task: bool, **restore_checks: Any):
+        self._assert_mutation_allowed()
         if fresh_task and self.auth_state_path:
             seed = Path(self.auth_state_path).expanduser().resolve()
             if not seed.is_file() or seed.stat().st_size <= 0:
@@ -265,6 +296,7 @@ class AgentBrowserAdapter:
         return bool(value)
 
     def _assert_writable(self, selector: str, *, require_visible: bool = True) -> None:
+        self._assert_mutation_allowed()
         if require_visible and not self._bool("visible", selector):
             raise AgentBrowserError(f"{selector} is not visible")
         if not self._bool("enabled", selector):
@@ -318,9 +350,76 @@ class AgentBrowserAdapter:
         return actual
 
     def click(self, selector: str) -> None:
+        self._assert_mutation_allowed()
         if not self._bool("visible", selector) or not self._bool("enabled", selector):
             raise AgentBrowserError(f"{selector} is not actionable")
         self._run(["click", selector])
+
+    def final_click(
+        self,
+        action_type: str,
+        selector: str,
+        *,
+        lease_seconds: int = 300,
+    ) -> dict[str, Any]:
+        if action_type not in FINAL_ACTION_TYPES:
+            raise AgentBrowserError(f"unsupported final action type: {action_type}")
+
+        # Managed runtime must already own a valid guard for this exact Run Item
+        # before final-click is allowed to refresh the lease.
+        self._assert_mutation_allowed()
+
+        if not self._bool("visible", selector) or not self._bool("enabled", selector):
+            raise AgentBrowserError(f"{selector} is not actionable")
+
+        try:
+            refresh_lease_from_env(
+                self.run_item_id,
+                lease_seconds=lease_seconds,
+            )
+        except LeaseGuardError as exc:
+            raise AgentBrowserError(
+                f"final action heartbeat failed: {exc}"
+            ) from exc
+
+        self._assert_mutation_allowed()
+        worker_id = (self.env.get("BACKLINK_WORKER_ID") or "").strip()
+        if not worker_id:
+            raise AgentBrowserError("BACKLINK_WORKER_ID is required for final action")
+
+        journal = FinalActionJournal(self.run_item_id, action_type)
+        try:
+            record = journal.prepare(
+                worker_id=worker_id,
+                session_id=self.session_id,
+            )
+            journal.mark_attempting()
+        except FinalActionError as exc:
+            raise AgentBrowserError(str(exc)) from exc
+
+        try:
+            self._run(["click", selector])
+        except AgentBrowserError:
+            try:
+                journal.resolve("outcome_unknown")
+            except FinalActionError:
+                pass
+            raise
+
+        return journal.mark_dispatched()
+
+    def final_action_status(self, action_type: str) -> dict[str, Any] | None:
+        return FinalActionJournal(self.run_item_id, action_type).read()
+
+    def resolve_final_action(
+        self,
+        action_type: str,
+        outcome: str,
+    ) -> dict[str, Any]:
+        try:
+            return FinalActionJournal(self.run_item_id, action_type).resolve(outcome)
+        except FinalActionError as exc:
+            raise AgentBrowserError(str(exc)) from exc
 
     def wait_text(self, text: str) -> None:
         self._run(["wait", "--text", text])
@@ -411,6 +510,25 @@ def main() -> int:
     p.add_argument("--run-item-id", required=True)
     p.add_argument("--screenshot")
 
+    p = sub.add_parser("final-click")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--action-type", required=True, choices=sorted(FINAL_ACTION_TYPES))
+    p.add_argument("--selector", required=True)
+    p.add_argument("--lease-seconds", type=int, default=300)
+
+    p = sub.add_parser("final-action-status")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--action-type", required=True, choices=sorted(FINAL_ACTION_TYPES))
+
+    p = sub.add_parser("final-action-resolve")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--action-type", required=True, choices=sorted(FINAL_ACTION_TYPES))
+    p.add_argument(
+        "--outcome",
+        required=True,
+        choices=["confirmed", "outcome_unknown", "rejected"],
+    )
+
     args = parser.parse_args()
     try:
         if args.command == "session-id":
@@ -449,6 +567,34 @@ def main() -> int:
             print(json.dumps({"success": True}))
         elif args.command == "diagnostics":
             print(json.dumps(adapter.diagnostics(args.screenshot), ensure_ascii=False, indent=2))
+        elif args.command == "final-click":
+            print(
+                json.dumps(
+                    adapter.final_click(
+                        args.action_type,
+                        args.selector,
+                        lease_seconds=args.lease_seconds,
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        elif args.command == "final-action-status":
+            print(
+                json.dumps(
+                    adapter.final_action_status(args.action_type),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        elif args.command == "final-action-resolve":
+            print(
+                json.dumps(
+                    adapter.resolve_final_action(args.action_type, args.outcome),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         return 0
     except AgentBrowserError as exc:
         print(str(exc), file=sys.stderr)

@@ -341,7 +341,20 @@ Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提�
 5. 只有能证明尚未执行最终动作、且重新打开页面不会改变外部状态时，才允许新建/恢复目录 tab；
 6. 重新 snapshot 后继续。
 
-## 14. Final action
+## 14. Lease mutation gate
+
+Managed runtime 会设置：
+
+~~~text
+SHIPMORE_MANAGED_LEASE=1
+SHIPMORE_LEASE_GUARD_PATH=<runtime guard file>
+~~~
+
+`scripts/lease_keeper.py` 默认每 60 秒 heartbeat 一次，并把最新可信 lease deadline 原子写入 guard。Browser Adapter 的 open/bootstrap/fill/select/check/upload/click 都在执行前检查 guard。
+
+Heartbeat 失败、409、guard invalid 或本地 deadline 超时时，任何可变浏览器动作都必须立即失败。LeaseKeeper 后续 heartbeat 若重新成功可恢复 guard；在 guard 恢复前只能做 Queue/日志层处理，不得修改站点。
+
+## 15. Final action
 
 最终动作包括：
 
@@ -361,7 +374,18 @@ Gmail Send
 - 关键字段已 read-back；
 - EXEC-CHECKLIST before_final_action PASS。
 
-只执行一次。
+Final Action 不允许使用普通 `click`。必须：
+
+~~~bash
+python3 scripts/agent_browser_adapter.py final-click \
+  --run-item-id <runItemId> \
+  --action-type submit \
+  --selector @e17
+~~~
+
+可用 action type：`submit`、`publish`、`claim`、`gmail_send`。
+
+final-click 会同步 heartbeat、检查 lease guard，并在真正 click 前用 O_EXCL 原子创建本地 durable journal。如果 journal 已存在则拒绝第二次执行。返回 JSON 中的 `completionEventId` 应作为后续 Complete 的稳定 event ID。
 
 执行后立刻进入只读模式：
 
@@ -375,9 +399,18 @@ snapshot
 公开 listing
 ~~~
 
-任何 timeout、连接断开、按钮消失或页面跳转都不能成为第二次 click 的理由。
+任何 timeout、连接断开、按钮消失或页面跳转都不能成为第二次 click 的理由。确认结果后使用：
 
-## 15. Close
+~~~bash
+python3 scripts/agent_browser_adapter.py final-action-resolve \
+  --run-item-id <runItemId> \
+  --action-type submit \
+  --outcome confirmed|outcome_unknown|rejected
+~~~
+
+本地 journal 只能保证同一持久化宿主机的防重；跨主机 exactly-once 仍需要 Shipmore 服务端 final-action fencing，见 [production-hardening.md](production-hardening.md)。
+
+## 16. Close
 
 仅在 Shipmore complete 得到明确成功响应之后：
 
@@ -391,7 +424,7 @@ agent-browser --session <sessionId> --restore close
 - 使用同一个 eventId 幂等重试 complete；
 - 浏览器 session 暂时保留，直到状态确认或任务进入人工恢复流程。
 
-## 16. 并发
+## 17. 并发
 
 多个 Run Item 可以并发，但每个 Run Item 必须有自己的 named session。标准并发启动器为 `scripts/shipmore_worker_pool.py`，完整规则见 [parallel-execution.md](parallel-execution.md)。
 
@@ -407,7 +440,7 @@ agent-browser --session <sessionId> --restore close
 
 并发大小由 worker manager 配置，默认 4、硬上限 16。出现内存压力、browser crash、lease timeout 或验证码/登录拥塞时降低并发。
 
-## 17. State 生命周期
+## 18. State 生命周期
 
 生产默认：
 
