@@ -101,7 +101,6 @@ def run_worker(
     item_command: Sequence[str],
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
     heartbeat_interval: int = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
-    max_items: int | None = None,
     popen_factory=subprocess.Popen,
 ) -> int:
     command = _resolve_command(item_command)
@@ -110,9 +109,7 @@ def run_worker(
         os.environ.get("SHIPMORE_WORKER_INSTANCE_ID") or worker_id
     ).strip()
     pending_claim: dict[str, Any] | None = None
-    completed_items = 0
-
-    while max_items is None or completed_items < max_items:
+    while True:
         claim = pending_claim or client.claim(run_id, lease_seconds)
         pending_claim = None
         reason = _claim_reason(claim)
@@ -152,16 +149,19 @@ def run_worker(
             claim_reason=reason,
             guard_path=guard,
         )
-        child = popen_factory(command, env=env, text=True)
+        child = None
         try:
+            child = popen_factory(command, env=env, text=True)
             child_code = _wait_child(child)
         except KeyboardInterrupt:
-            if child.poll() is None:
+            if child is not None and child.poll() is None:
                 child.terminate()
-            keeper.stop("worker_interrupted")
             raise
         finally:
-            keeper.stop("item_processor_exited")
+            keeper.stop(
+                "worker_interrupted" if child is not None and child.poll() is None
+                else "item_processor_exited"
+            )
 
         # Re-claim with the same stable worker ID. If the item was completed,
         # this safely leases the next item. If it was not completed, Shipmore
@@ -181,7 +181,6 @@ def run_worker(
 
         if post_reason in ACTIVE_REASONS:
             pending_claim = post_claim
-            completed_items += 1
             if child_code != 0:
                 print(
                     f"item processor exited {child_code}, but Shipmore confirms "
@@ -219,7 +218,6 @@ def main() -> int:
             )
         ),
     )
-    parser.add_argument("--max-items", type=int)
     parser.add_argument("item_command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
@@ -246,7 +244,6 @@ def main() -> int:
             item_command=args.item_command,
             lease_seconds=args.lease_seconds,
             heartbeat_interval=args.heartbeat_interval,
-            max_items=args.max_items,
         )
     except (WorkerRuntimeError, ShipmoreClientError, LeaseGuardError) as exc:
         print(str(exc), file=sys.stderr)
