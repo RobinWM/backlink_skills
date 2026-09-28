@@ -127,6 +127,7 @@ class AgentBrowserAdapter:
                 assert_lease_guard_valid(
                     self.lease_guard_path,
                     expected_worker_id=worker_id or None,
+                    expected_run_item_id=self.run_item_id,
                 )
             except LeaseGuardError as exc:
                 raise AgentBrowserError(str(exc)) from exc
