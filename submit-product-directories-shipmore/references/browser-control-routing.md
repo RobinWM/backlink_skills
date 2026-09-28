@@ -54,7 +54,7 @@ Codex 负责：
 - `agent-browser` 精确版本为 `0.38.1`，且 adapter `preflight` 通过；
 - runtime 支持 named session、`--restore`、snapshot、标准表单交互、tabs、screenshot、Console 和 Network 诊断；
 - 当前 session 与 runItemId 对应；
-- 生产环境已设置 `AGENT_BROWSER_ENCRYPTION_KEY` 和 `AGENT_BROWSER_STATE_EXPIRE_DAYS=7`；
+- 生产环境已设置 `AGENT_BROWSER_ENCRYPTION_KEY`、`AGENT_BROWSER_STATE_EXPIRE_DAYS=36500` 和 `SHIPMORE_TERMINAL_STATE_RETENTION_DAYS=7`；
 - 若配置了 `BACKLINK_AGENT_BROWSER_AUTH_STATE`，它只作为新 session 的不透明 bootstrap 输入；已有 restore state 优先且不可被 seed 覆盖；
 - 当前页面属于预期 Directory / Product；
 - 当前租约仍归本 worker 所有；
@@ -155,6 +155,8 @@ checkbox/radio 必须只选择业务必需选项。不得勾选可选 newsletter
 - Console / Errors；
 - Network requests；
 - 对关键 request 的 request/response detail。
+
+除 screenshot 本身外，结构化诊断必须通过 adapter `diagnostics` 获取，让敏感 header、body、邮箱和 URL query/fragment 在进入 Codex 上下文前完成脱敏；不得直接把原始 Console/Network JSON 持久化到 Shipmore evidence。
 
 只有产生了新证据、且下一步与失败动作实质不同，才允许一次受控重试，并记录结构化 `retryDiagnostic`。普通读取可以重复；会改变外部状态的动作必须遵守更严格规则。
 
