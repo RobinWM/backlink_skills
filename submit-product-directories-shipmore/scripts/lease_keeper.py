@@ -74,6 +74,7 @@ def assert_lease_guard_valid(
     path: str | Path,
     *,
     expected_worker_id: str | None = None,
+    expected_run_item_id: str | None = None,
 ) -> dict[str, Any]:
     payload = read_lease_guard(path)
     if payload.get("valid") is not True:
@@ -85,6 +86,12 @@ def assert_lease_guard_valid(
         if actual_worker_id != expected_worker_id:
             raise LeaseGuardError(
                 "Shipmore lease guard belongs to another worker"
+            )
+    if expected_run_item_id:
+        actual_run_item_id = str(payload.get("runItemId") or "")
+        if actual_run_item_id != expected_run_item_id:
+            raise LeaseGuardError(
+                "Shipmore lease guard belongs to another Run Item"
             )
     deadline = payload.get("deadlineEpoch")
     if not isinstance(deadline, (int, float)) or deadline <= time.time():
@@ -130,6 +137,7 @@ class LeaseKeeper:
                 "valid": valid,
                 "reason": reason,
                 "workerId": self.client.require_worker_id(),
+                "runItemId": self.run_item_id,
                 "keeperId": self.keeper_id,
                 "heartbeatEpoch": now,
                 "deadlineEpoch": now + self.lease_seconds if valid else now,
@@ -235,6 +243,7 @@ def refresh_lease_from_env(
                 "valid": False,
                 "reason": f"final_action_heartbeat_failed:{exc}",
                 "workerId": client.require_worker_id(),
+                "runItemId": run_item_id,
                 "heartbeatEpoch": now,
                 "deadlineEpoch": now,
             },
@@ -249,6 +258,7 @@ def refresh_lease_from_env(
             "valid": True,
             "reason": "final_action_heartbeat_ok",
             "workerId": client.require_worker_id(),
+            "runItemId": run_item_id,
             "heartbeatEpoch": now,
             "deadlineEpoch": now + lease_seconds,
         },
