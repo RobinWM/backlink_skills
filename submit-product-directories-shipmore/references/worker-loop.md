@@ -54,8 +54,10 @@ while true:
 - 租约尚未过期；
 - Product 和 Directory 数据足以支持下一步只读检查；
 - 既有 `submissionStatus` 不禁止盲目重投；
-- 为当前 `runItemId` 建立稳定且唯一的 `agent-browser` named session，整个 Run Item 复用同一 session 并启用 `--restore`；
+- 使用 `agent_browser_adapter.py session-id` 为当前 `runItemId` 计算 deterministic session；整个 Run Item 复用同一 session 并启用 `--restore`；
 - 不使用默认 session、共享 CDP/`--auto-connect` 人类浏览器或其他浏览器后端。
+
+首次浏览器操作前运行 adapter preflight。随后用 adapter bootstrap 打开 `submitUrl`；只有全新且 `submissionStatus=not_attempted`、没有 recovery/previous-progress 证据时才允许 `--fresh-task` 加载 auth seed。reused/recover/form_in_progress/结果不明一律只 restore，不加载 seed。
 
 优先使用 `submitUrl`。如果它是首页或重定向到其他官方提交路由，必须在任何表单修改前检查目标地址。
 
@@ -121,7 +123,7 @@ while true:
 | Logo | `productLogo` |
 | 主图 | `productOgImage` |
 
-字段语义解释由 Codex 完成：先读取最新 `agent-browser snapshot -i --json`，结合 label、role、placeholder、相邻帮助文本和页面上下文，把页面字段映射到上表的 Shipmore 字段。`agent-browser` 只负责暴露页面结构并执行 Codex 指定的动作，不得自行生成、补全或猜测 Product 事实。所有关键文本字段在 `fill` 后必须 `get value` 回读；页面状态变化、导航、iframe 变化或 tab 切换后必须重新 snapshot，再使用新的或仍存活的 ref。
+字段语义解释由 Codex 完成：先读取最新 snapshot，结合 label、role、placeholder、相邻帮助文本和页面上下文，把页面字段映射到上表的 Shipmore 字段。agent-browser 只负责暴露页面结构并执行 Codex 指定的动作。所有标准文本/select/check/upload 写操作优先调用 adapter 的 safe 方法；页面状态变化、导航、iframe 变化或 tab 切换后必须重新 snapshot。
 
 不要在新逻辑中使用已废弃的 `productGithubUrl` 别名；它只为兼容存在，表示创始人 GitHub，不是仓库。
 

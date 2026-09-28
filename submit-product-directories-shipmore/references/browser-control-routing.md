@@ -38,7 +38,7 @@ Codex 负责：
 
 ## Session 绑定
 
-1. 成功 claim 后，以当前 `runItemId` 派生一个稳定、唯一且符合 agent-browser 命名规则的 named session。
+1. 成功 claim 后，必须用 `scripts/agent_browser_adapter.py session-id --run-item-id <id>` 派生 deterministic named session；不得由模型自行拼接。
 2. 整个 Run Item 必须复用同一个 named session，并启用 `--restore`。
 3. 不得使用 agent-browser 默认 session。
 4. 正常生产 Run Item 不得使用 `--cdp`、`--auto-connect` 或当前用户正在操作的人类 Chrome；`--auto-connect` 仅允许在 Run Item 之外由管理员执行一次 auth-seed 导出。
@@ -51,15 +51,16 @@ Codex 负责：
 
 任何可变浏览器操作前确认：
 
-- `agent-browser` CLI 可执行；
+- `agent-browser` 精确版本为 `0.38.1`，且 adapter `preflight` 通过；
 - runtime 支持 named session、`--restore`、snapshot、标准表单交互、tabs、screenshot、Console 和 Network 诊断；
 - 当前 session 与 runItemId 对应；
+- 生产环境已设置 `AGENT_BROWSER_ENCRYPTION_KEY` 和 `AGENT_BROWSER_STATE_EXPIRE_DAYS=7`；
 - 若配置了 `BACKLINK_AGENT_BROWSER_AUTH_STATE`，它只作为新 session 的不透明 bootstrap 输入；已有 restore state 优先且不可被 seed 覆盖；
 - 当前页面属于预期 Directory / Product；
 - 当前租约仍归本 worker 所有；
 - 当前 tab 没有意外切换或恢复到无关页面。
 
-部署可以固定经过验证的 agent-browser 版本；升级后应先跑回归测试，再进入生产 worker。
+版本由 `runtime/agent-browser.version` 固定为 0.38.1。任何升级必须先修改 pin、跑 unit + E2E CI，并通过 Windows/Linux smoke 后再进入生产 worker。
 
 ## 页面读取与 refs
 
@@ -84,13 +85,7 @@ Codex 负责：
 
 所有重要字段必须执行“写入后回读”，不能把 CLI 的成功退出等同于表单值已经正确落地。
 
-文本字段：
-
-1. 确认元素可见且 enabled；
-2. 使用 `fill`；
-3. 使用 `get value` 回读；
-4. Codex 比较预期值与实际值；
-5. 不一致时不得继续最终提交，必须重新 snapshot 并诊断。
+文本字段必须优先使用 adapter `safe_fill`：它会检查 visible/enabled/readonly，执行 fill，再进行精确 value 回读。禁止为了绕过 readonly/read-back 错误而直接调用裸 `agent-browser fill`。
 
 标准 select 使用 `select`。自定义 combobox/dropdown 使用：
 
@@ -102,13 +97,7 @@ Codex 负责：
 
 checkbox/radio 必须只选择业务必需选项。不得勾选可选 newsletter、推广、合作、付费试用或无关协议。
 
-文件上传：
-
-- 上传前确认本地文件真实存在；
-- 使用绝对路径；
-- 上传后重新读取页面；
-- 只有页面明确显示目标文件/预览或其他可靠 UI 证据时才认为素材已挂载；
-- 不得仅凭 upload 命令返回成功判断文件有效。
+文件上传优先使用 adapter `safe_upload`：必须确认文件存在、大小 > 0、使用绝对路径并有 input read-back。随后重新 snapshot，只有页面明确显示目标文件/预览或其他可靠 UI 证据时才认为素材已挂载。
 
 ## 导航与等待
 

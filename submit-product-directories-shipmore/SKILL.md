@@ -32,6 +32,10 @@ BACKLINK_APP_URL=https://shipmore.app
 BACKLINK_AGENT_TOKEN=<secret>
 BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth seed>
+AGENT_BROWSER_ENCRYPTION_KEY=<required 64-hex production key>
+AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+AGENT_BROWSER_NAMESPACE=shipmore
+SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 ```
 
 调用方还必须提供 Shipmore `runId`。
@@ -45,8 +49,9 @@ BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth 
 5. [references/account-authentication.md](references/account-authentication.md)
 6. [references/entry-and-content-routing.md](references/entry-and-content-routing.md)
 7. [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
+8. [references/parallel-execution.md](references/parallel-execution.md)（仅并发执行时）
 
-浏览器前置要求：先读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md)。成功 claim 后，为当前 `runItemId` 建立稳定且唯一的 `agent-browser` named session；整个 Run Item 必须复用同一个 session，并启用 `--restore` 以支持 worker 恢复。新 session 若没有可恢复状态，可以从 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向的 Chrome 导出 auth seed 初始化一次；已有 Run Item 状态必须优先恢复，绝不能用 seed 覆盖。不得使用默认 session，不得在同一个 Run Item 中切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。
+浏览器前置要求：先读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md)。生产环境固定使用 `agent-browser 0.38.1`，并先运行 `scripts/agent_browser_adapter.py preflight`。成功 claim 后，通过 adapter 的 deterministic session ID 为当前 `runItemId` 建立唯一 named session；整个 Run Item 必须复用同一个 session，并启用 `--restore`。新任务只有在 Shipmore 事实明确证明不存在需要恢复的浏览器进度时才允许加载 auth seed；已有 Run Item 状态必须优先恢复。不得使用默认 session，不得在同一个 Run Item 中切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。
 
 ## 事实来源规则
 
@@ -83,13 +88,13 @@ BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth 
 
 ## 浏览器执行规则
 
-- 所有浏览器操作必须通过 `agent-browser` named session 执行；优先使用 snapshot `@ref`、语义 locator 和标准交互命令完成页面读取、点击、填写、选择、上传、截图、弹窗处理，以及已授权的 Gmail 网页读取/发送操作。不要把浏览器操作交给 Queue CLI，也不要绕过 `agent-browser` 直接操作 CDP、Playwright 或浏览器 profile。页面字段语义、Shipmore 字段映射、缺失事实判断和最终动作决策始终由 Codex 完成，`agent-browser` 只提供页面证据和执行动作。
+- 所有浏览器操作必须落在当前 Run Item 的 `agent-browser` named session 中。标准的 session bootstrap、表单写入、select/check、文件上传和诊断优先通过 `scripts/agent_browser_adapter.py` 或其 Python API 执行；adapter 未覆盖的读取/导航动作才直接调用 agent-browser CLI。页面字段语义、Shipmore 字段映射、缺失事实判断和最终动作决策始终由 Codex 完成，agent-browser 只提供页面证据和执行动作。不得绕过 adapter 的 read-back、readonly、文件存在/非空和版本预检保护来执行等价写操作。
 - 登录状态必须以当前 `agent-browser` named session 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他浏览器/session 的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
 - 如果当前 `agent-browser` session 已显示与有效提交身份匹配的已登录账号，可以复用该 session 继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。
-- 有可用的已授权会话时优先复用。Chrome 导出的 auth seed 只允许作为不透明的运行时输入初始化一个全新的 Run Item session；worker 不得读取、解析、打印或修改 seed 内容。不要检查 Cookie、已保存密码、本地存储、恢复码或隐藏的身份验证材料。
+- 有可用的已授权会话时优先复用。Chrome 导出的 auth seed 只允许作为不透明运行时输入初始化全新 Run Item session；生产 seed 应来自专用的 “Shipmore Worker” Chrome Profile，而不是日常浏览器 Profile。worker 不得读取、解析、打印或修改 seed 内容。生产 restore state 必须设置 `AGENT_BROWSER_ENCRYPTION_KEY`，并默认使用 `AGENT_BROWSER_STATE_EXPIRE_DAYS=7`。
 - 目录需要身份验证时，遵循 [references/account-authentication.md](references/account-authentication.md)。使用 claim 载荷中的有效 `productContactEmail` 作为账号邮箱，并按以下顺序尝试已授权方式：已有 Google 会话、已有 GitHub 会话、站点原生邮箱验证码或 magic link（对于 Google 托管邮箱，优先使用已授权的 `gws`；仅当 `gws` 不可用时，才使用 `https://mail.google.com` 上现有且匹配的 Gmail 会话），最后才使用邮箱/密码。只有站点明确报告该邮箱没有账号时，才创建一个普通免费账号；身份验证成功后继续原始提交。
 - 绝不要在 Shipmore evidence 中打印、持久化、截图或写入凭据、OTP、magic link 或邮箱内容。运行时凭据位于配置的仓库外部敏感文件中。
 - 绝不要绕过 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或站点访问控制。允许使用已授权邮箱完成站点正常的邮箱验证；不允许绕过或削弱验证。
@@ -179,5 +184,9 @@ python3 scripts/shipmore_queue_client.py complete \
 - [references/agent-browser-runtime.md](references/agent-browser-runtime.md)：`agent-browser` session 生命周期、snapshot/ref、表单写入校验、标签页、诊断、恢复和最终动作规范。
 - [references/account-authentication.md](references/account-authentication.md)：默认账号的授权登录、免费注册、安全运行时凭据，以及优先使用 `gws`、不可用时回退 Gmail 的验证流程。
 - [references/entry-and-content-routing.md](references/entry-and-content-routing.md)：入口发现、站内去重和内容面 no-action 分类。
+- [references/parallel-execution.md](references/parallel-execution.md)：多 worker 并发模型和 worker pool 运行约束。
 - [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)：最终动作前后的执行检查单。
+- `scripts/agent_browser_adapter.py`：deterministic session、版本/doctor 预检、safe fill/select/check/upload、diagnostics 和 state cleanup。
+- `scripts/shipmore_worker_pool.py`：跨 Windows/Linux 的固定并发进程池启动器。
 - `scripts/shipmore_queue_client.py`：无第三方依赖的 Queue/outbound-link API 客户端和首页 backlink 验证器。
+- `runtime/agent-browser.version`：生产 agent-browser 精确版本。

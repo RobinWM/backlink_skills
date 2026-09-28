@@ -1,4 +1,4 @@
 interface:
   display_name: "Shipmore Directory Worker"
   short_description: "Claim Shipmore directory tasks and execute them safely"
-  default_prompt: "Use $submit-product-directories-shipmore to claim one item from the supplied Shipmore run, keep the lease alive, use the required agent-browser named session for every webpage, login, form, native verification, and authorized Gmail web read/send action, perform the authorized directory work, and complete the item with a truthful idempotent result."
+  default_prompt: "Use $submit-product-directories-shipmore as a long-lived worker for the supplied Shipmore run: keep claiming one item at a time until the run is paused, terminal, or empty; keep each lease alive; use the deterministic agent-browser session and safety adapter; perform only authorized directory work; and complete every item with a truthful idempotent result."

@@ -15,8 +15,8 @@
 
 - [ ] 当前 Run Item 仍由本 worker 持有；
 - [ ] 租约未过期，必要时已发送 heartbeat；
-- [ ] 当前 `agent-browser` named session 与本 `runItemId` 稳定绑定，并启用了恢复状态；
-- [ ] 当前页面使用最新 snapshot/refs，所有关键表单写入都已 read-back 验证；
+- [ ] agent-browser 0.38.1 / doctor preflight 已通过，当前 deterministic named session 与本 `runItemId` 绑定，并启用了恢复状态；
+- [ ] 当前页面使用最新 snapshot/refs；文本/select/check/upload 等标准写入已通过 adapter safe 方法和 read-back 校验；恢复登录态时已执行可用的 restore validation 或重新验证可见身份 + 受保护功能；
 - [ ] Product、Directory、账号别名和当前提交路由相互匹配；
 - [ ] 既有 `submissionStatus` 不属于禁止盲目重投的状态；
 - [ ] 入口已经从首页、导航、页脚、站内搜索或真实控件确认；
