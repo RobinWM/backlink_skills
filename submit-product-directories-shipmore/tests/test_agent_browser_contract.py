@@ -23,7 +23,7 @@ def test_runtime_requires_named_session_restore_and_readback():
         "get value",
         "Submit",
         "Gmail Send",
-        "一个 Run Item 对应一个独立 named session",
+        "每个 Run Item 必须有自己的 named session",
         "BACKLINK_AGENT_BROWSER_AUTH_STATE",
         "state load",
         "已有该 Run Item 的 restore state",
