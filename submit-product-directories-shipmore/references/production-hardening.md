@@ -208,6 +208,8 @@ shipmore-build01-a8f03172bc94de10-02
 
 同一宿主机重启保持稳定；不同宿主机因随机 instance ID 不会碰撞。
 
+`shipmore_worker.py` 还会对最终 `BACKLINK_WORKER_ID` 获取跨平台 advisory file lock。同一台机器如果误启动两个相同 slot，第二个进程会立即失败，而不是与第一个进程共享 Shipmore lease 身份。worker identity 文件和 lock 目录都属于宿主机运行时数据，不应烘焙进镜像或复制到另一台机器。
+
 ## P1-C：Host affinity
 
 当前 agent-browser restore state、lease guard 和 final-action journal 都是本机持久状态。
