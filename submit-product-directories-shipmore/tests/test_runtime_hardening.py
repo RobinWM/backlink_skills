@@ -154,7 +154,6 @@ def test_managed_worker_processes_one_item_then_stops_on_empty(tmp_path, monkeyp
         run_id="run-1",
         item_command=["processor"],
         heartbeat_interval=60,
-        max_items=10,
         popen_factory=popen,
     )
     assert code == 0
@@ -180,3 +179,20 @@ def test_managed_worker_refuses_automatic_second_execution(tmp_path, monkeypatch
             heartbeat_interval=60,
             popen_factory=lambda command, **kwargs: ImmediateChild(0),
         )
+
+
+def test_lease_guard_rejects_different_worker(tmp_path):
+    guard = tmp_path / "lease.json"
+    guard.write_text(
+        json.dumps(
+            {
+                "valid": True,
+                "reason": "heartbeat_ok",
+                "workerId": "worker-a",
+                "deadlineEpoch": time.time() + 300,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(LeaseGuardError, match="another worker"):
+        assert_lease_guard_valid(guard, expected_worker_id="worker-b")
