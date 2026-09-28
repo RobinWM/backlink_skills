@@ -19,6 +19,15 @@
 
 生产环境应固定并测试具体版本，不要在 worker 启动时自动跟随 latest。
 
+运行时可选配置：
+
+~~~text
+BACKLINK_AGENT_BROWSER_AUTH_STATE=<secure path outside repository>
+AGENT_BROWSER_ENCRYPTION_KEY=<64 hex chars, recommended>
+~~~
+
+`BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向一次性从已授权 Chrome 导出的 auth seed。它是敏感运行时文件，不属于仓库，不得被 Codex 读取、解析、打印或复制到 Shipmore evidence。
+
 ## 2. Session ID
 
 成功 claim 后：
@@ -72,7 +81,53 @@ agent-browser --session <sessionId> --restore fill @e3 "Product name"
 
 除非后续专门增加经过审计的运行模式。
 
-## 4. Session 恢复
+## 4. Auth seed 与首次 Session 初始化
+
+auth seed 用于解决“每个 Run Item 都是独立 named session，但仍需要复用已有 Google/GitHub/Gmail 登录态”的问题。
+
+### 一次性管理员初始化
+
+只在可信机器上执行，且不属于任何 Shipmore Run Item：
+
+1. 以 remote debugging 方式启动一个专用 Chrome，并由用户人工完成所需 Google、GitHub、Gmail 等登录；
+2. 设置 `AGENT_BROWSER_ENCRYPTION_KEY` 后，通过 agent-browser 连接该 Chrome；
+3. 保存 auth state 到 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向的仓库外路径：
+
+~~~bash
+agent-browser --auto-connect state save "$BACKLINK_AGENT_BROWSER_AUTH_STATE"
+~~~
+
+Windows 可使用等价的环境变量语法。Remote Debugging 只用于这次管理员 bootstrap；导出完成后关闭该 Chrome/调试端口。
+
+不得把 state 文件提交到 Git，不得在 Codex 上下文中输出其内容。
+
+### 每个 Run Item 的初始化顺序
+
+成功 claim 并派生 sessionId 后：
+
+1. 先以 `--restore` 启动/检查该 named session，使用只读命令确认是否已经加载了该 Run Item 自己的可恢复状态；
+2. 使用 `agent-browser --session <sessionId> session info --json` 检查 restore 状态；
+3. 如果已有该 Run Item 的 restore state，继续使用它，绝不能重新加载 auth seed；
+4. 只有确认没有已有 restore state，并且 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 已配置且文件可用时，才把 seed 加载到当前 session：
+
+~~~bash
+agent-browser --session <sessionId> state load "$BACKLINK_AGENT_BROWSER_AUTH_STATE"
+~~~
+
+5. seed 载入后再使用同一个 `--session <sessionId> --restore` 打开 `submitUrl`；此后登录、注册、OAuth、Gmail、表单和结果检查全部依赖该 Run Item 自己的 restore state；
+6. seed 缺失或已过期不等于任务失败；按 [account-authentication.md](account-authentication.md) 继续正常认证流程。
+
+不得对正在恢复的 Run Item 使用：
+
+~~~bash
+--state "$BACKLINK_AGENT_BROWSER_AUTH_STATE"
+~~~
+
+因为这可能用初始 Chrome 登录态覆盖该 Run Item 已经产生的目录 Cookie、OAuth、草稿或验证状态。
+
+`--auto-connect` 的唯一允许用途是上述管理员 auth-seed 导出。生产 Run Item 不得连接或控制用户正在使用的 Chrome。
+
+## 5. Session 恢复
 
 worker recover 一个已有 Run Item 时：
 
@@ -86,7 +141,7 @@ worker recover 一个已有 Run Item 时：
 
 如果恢复失败，不得自动新建会话后盲目重新提交；先根据账号后台、邮箱、公开页和 Shipmore 状态判断原动作是否可能已经发生。
 
-## 5. Snapshot 工作流
+## 6. Snapshot 工作流
 
 默认：
 
@@ -113,7 +168,7 @@ Codex 从 snapshot 理解：
 
 旧 ref 只有在 runtime 明确仍存活、且页面上下文没有改变时才可继续使用；有疑问就重新 snapshot。
 
-## 6. 安全填写
+## 7. 安全填写
 
 ### 文本输入
 
@@ -164,7 +219,7 @@ click combobox
 
 上传后必须通过最新 snapshot、文件名、预览或站点原生 UI 证据确认目标素材已经挂载。上传命令本身不是最终证据。
 
-## 7. Tabs
+## 8. Tabs
 
 列出 tabs：
 
@@ -191,7 +246,7 @@ agent-browser --session <sessionId> --restore tab gmail
 
 不要用位置整数假设 tab 身份。
 
-## 8. Wait
+## 9. Wait
 
 优先等待能证明业务状态变化的条件，例如：
 
@@ -209,7 +264,7 @@ agent-browser ... wait --load networkidle
 
 SSE、WebSocket、轮询页面不要依赖 networkidle。
 
-## 9. 登录、OAuth 和邮箱验证
+## 10. 登录、OAuth 和邮箱验证
 
 ### 已有 session
 
@@ -246,7 +301,7 @@ Magic link 必须在同一个 named session 内打开，以保持原注册会话
 
 当 `actionChannel=official_contact_email` 且 Shipmore Run 已明确授权时，可在同一 named session 的 Gmail tab 中执行发送。发送前必须完成邮件渠道的去重、收件路由、主题/正文和空 CC/BCC 检查；Gmail Send 只允许一次。发送结果不明时只读检查 Sent/All Mail/Drafts/Outbox 和当前线程，不得重发。
 
-## 10. 诊断命令
+## 11. 诊断命令
 
 只读诊断按需要使用：
 
@@ -264,7 +319,7 @@ agent-browser --session <sessionId> --restore network request <requestId>
 
 Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提炼必要的非敏感事实进入 Shipmore evidence，绝不原样持久化完整敏感 payload。
 
-## 11. tab_gone
+## 12. tab_gone
 
 `tab_gone` 不等于可以自动重新打开页面继续写操作。
 
@@ -277,7 +332,7 @@ Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提�
 5. 只有能证明尚未执行最终动作、且重新打开页面不会改变外部状态时，才允许新建/恢复目录 tab；
 6. 重新 snapshot 后继续。
 
-## 12. Final action
+## 13. Final action
 
 最终动作包括：
 
@@ -313,7 +368,7 @@ snapshot
 
 任何 timeout、连接断开、按钮消失或页面跳转都不能成为第二次 click 的理由。
 
-## 13. Close
+## 14. Close
 
 仅在 Shipmore complete 得到明确成功响应之后：
 
@@ -327,7 +382,7 @@ agent-browser --session <sessionId> --restore close
 - 使用同一个 eventId 幂等重试 complete；
 - 浏览器 session 暂时保留，直到状态确认或任务进入人工恢复流程。
 
-## 14. 并发
+## 15. 并发
 
 多个 Run Item 可以并发，但每个 Run Item 必须有自己的 named session。
 
