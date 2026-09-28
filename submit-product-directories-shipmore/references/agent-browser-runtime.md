@@ -452,7 +452,7 @@ AGENT_BROWSER_NAMESPACE=shipmore
 
 `AGENT_BROWSER_STATE_EXPIRE_DAYS` 只保留为 agent-browser 的高位 safety ceiling，避免其默认年龄清理误删长期等待人工验证或恢复中的非 terminal Run Item。
 
-当 Shipmore `complete` 返回明确 `success=true` 时，`shipmore_queue_client.py` 会把该 Run Item 的 deterministic session 登记到本机 terminal registry，并记录 `cleanupAfterEpoch`。worker pool 启动时或单 worker 的定时维护只执行：
+当 Shipmore `complete` 返回明确 `success=true` 且 Submission 已进入真正终止性的 lifecycle 时，`shipmore_queue_client.py` 才会把 deterministic session 登记到本机 terminal registry，并记录 `cleanupAfterEpoch`。当前 cleanup-eligible 状态仅包括：`published`、`unavailable`、`paid_only`、`ineligible`、`duplicate_no_action`、`terminated_by_user`、`rejected`。像 `submitted`、`awaiting_approval`、`awaiting_email_verification`、blocked 状态和 outcome unknown 都保留 session，因为后续流程仍可能依赖登录态。worker pool 启动时或单 worker 的定时维护只执行：
 
 ~~~bash
 python3 scripts/agent_browser_adapter.py cleanup
