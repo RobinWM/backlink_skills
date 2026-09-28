@@ -270,6 +270,14 @@ class AgentBrowserAdapter:
         )
         return self.session_id in (completed.stdout or "")
 
+    def active_session_exists(self) -> bool:
+        completed = self._run(
+            ["session", "list"],
+            include_session=False,
+            restore=False,
+        )
+        return self.session_id in (completed.stdout or "")
+
     def _assert_fresh_task_safe(self) -> None:
         if self.env.get("SHIPMORE_RECOVERY_MODE") == "1":
             raise AgentBrowserError("fresh_task is forbidden in recovery mode")
@@ -278,6 +286,10 @@ class AgentBrowserAdapter:
         if self.saved_restore_state_exists():
             raise AgentBrowserError(
                 "fresh_task refused because restore state already exists"
+            )
+        if self.active_session_exists():
+            raise AgentBrowserError(
+                "fresh_task refused because the session is already active"
             )
         for action_type in FINAL_ACTION_TYPES:
             if FinalActionJournal(self.run_item_id, action_type).read() is not None:
