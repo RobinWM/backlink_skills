@@ -2,117 +2,235 @@
 
 ## 唯一浏览器执行通道
 
-所有网页、登录、表单、验证码交接、站点原生验证、截图和 Gmail 操作必须通过指定的 `ego-browser` skill 完成：
+所有目录网页、登录、表单、验证码交接、站点原生验证、截图和 Gmail 网页回退必须通过 \`agent-browser\` 完成。
 
-```text
-C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser\SKILL.md
-```
+浏览器执行前先读取：
 
-先读取该 skill，再使用同一个 ego-browser TaskSpace 和 Page 完成当前站点流程。不得使用 browser-harness、agent-browser、CUA、Playwright、直接启动 Chrome 或其他浏览器自动化通道。Queue API/CLI 只负责 claim、heartbeat、outbound-link 注册、recover 和 complete。
+- [agent-browser-runtime.md](agent-browser-runtime.md)
+- [account-authentication.md](account-authentication.md)
+- [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md)
 
-根据 ego-browser skill 的运行时能力执行浏览器操作，不要把浏览器、操作系统、可执行路径、扩展、自动化库、快捷键或显示尺寸写死。
+Queue API/CLI 只负责 claim、heartbeat、outbound-link 注册、recover 和 complete，不代替可见页面交互。
 
-Shipmore 负责持久化提交状态。浏览器/后端诊断属于运行时信息，只有通过不透明 evidence reference 或明确支持的 Shipmore 字段保存。不要为了记录浏览器状态重新创建旧版 Markdown campaign record。
+同一个 Run Item 一旦开始浏览器执行，就不得切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。若 \`agent-browser\` 无法安全完成当前页面，保留真实 Shipmore 状态并交接，不得为了继续任务而换后端。
+
+## 角色边界
+
+Codex 是唯一业务决策 Agent。
+
+Codex 负责：
+
+- 理解页面字段语义；
+- 将页面字段映射到 Shipmore Product 数据；
+- 判断入口类型、重复项、资格条件和必填资料是否充分；
+- 决定是否允许执行可变动作和最终动作；
+- 根据页面、账号、邮箱和公开证据分类最终结果。
+
+\`agent-browser\` 只负责：
+
+- 导航和标签页管理；
+- snapshot 和页面状态读取；
+- click / fill / type / select / check / upload；
+- screenshot、Console、Errors、Network 等只读诊断；
+- 在 Codex 已经决定动作后执行该动作。
+
+不得把 Product 事实、字段业务含义、提交状态或重试决策交给浏览器后端自行推断。
+
+## Session 绑定
+
+1. 成功 claim 后，以当前 \`runItemId\` 派生一个稳定、唯一且符合 agent-browser 命名规则的 named session。
+2. 整个 Run Item 必须复用同一个 named session，并启用 \`--restore\`。
+3. 不得使用 agent-browser 默认 session。
+4. 正常生产路径不得使用 \`--cdp\`、\`--auto-connect\` 或当前用户正在操作的人类 Chrome。
+5. 同一个 Run Item 的登录、OAuth、邮箱验证输入、表单、上传、最终动作和结果检查必须保持在同一个 named session 中。
+6. 同一 session 可以使用多个 tab；tab 切换后必须重新 snapshot，绝不能复用另一个 tab 的 \`@ref\`。
+7. worker 恢复任务时，先恢复同一个 session，再执行只读检查；未确认页面和服务器事实前不得继续可变操作。
+8. 只有 Shipmore complete 已明确成功后，才关闭该 Run Item 的 browser session。complete 超时或响应丢失时先使用同一个 eventId 完成幂等重试，不要提前销毁浏览器证据。
 
 ## 能力预检
 
-在任何可变浏览器操作前确认：
+任何可变浏览器操作前确认：
 
-- 规范化主机平台：`windows`、`macos`、`linux` 或 `other`；
-- UI 环境：desktop、remote desktop、headless 或 unknown；
-- 用户指定的浏览器/应用约束；
-- 是否已经存在已授权的认证浏览器/应用绑定；
-- 可用的 connector、API、CLI、浏览器 runtime、连接扩展和桌面控制能力；
-- 每个候选后端是否支持当前平台和所需交互范围。
+- \`agent-browser\` CLI 可执行；
+- runtime 支持 named session、\`--restore\`、snapshot、标准表单交互、tabs、screenshot、Console 和 Network 诊断；
+- 当前 session 与 runItemId 对应；
+- 当前页面属于预期 Directory / Product；
+- 当前租约仍归本 worker 所有；
+- 当前 tab 没有意外切换或恢复到无关页面。
 
-## 路由顺序
+部署可以固定经过验证的 agent-browser 版本；升级后应先跑回归测试，再进入生产 worker。
 
-1. 读取并遵守 ego-browser skill；所有浏览器动作固定路由到 ego-browser。
-2. 使用同一个 TaskSpace 和 Page 完成登录、验证、表单、Gmail 和结果检查；不要为同一站点创建第二个 TaskSpace。
-3. Queue API/CLI 只执行后端任务操作，不代替可见页面交互。
-4. ego-browser 无法安全处理目标页面时，保留 Shipmore 状态并交接，不得切换到其他浏览器自动化工具。
+## 页面读取与 refs
 
-具体工具的选择器、确认规则、键盘行为、截图处理和支持平台，以当前 runtime/Skill 文档为准。
+页面操作默认顺序：
 
-## 会话规则
+1. 读取当前 URL；
+2. 获取最新 snapshot，优先 interactive JSON；
+3. Codex 根据 role、label、placeholder、accessible name、帮助文本和上下文理解页面；
+4. 使用 snapshot 的 \`@ref\` 或语义 locator 操作；
+5. 页面发生导航、iframe 切换、modal 重建、tab 切换或明显 DOM 替换后重新 snapshot；
+6. 状态变化后不得假设旧 ref 仍然有效。
 
-- 创建重复账号前，优先复用已授权现有会话。
-- 站点要求连续性时，登录、验证、填写和最终结果检查必须在同一个 ego-browser TaskSpace/Page 会话完成。
-- 登录状态以当前 ego-browser 页面实时证据为准：检查账号菜单、可见用户标识、Dashboard/Logout 入口，以及受保护提交页面是否可访问。claim 快照中的历史阻塞文案、另一个浏览器/TaskSpace 的登录状态、公开页面和 URL 本身都不是登录证明。
-- 只有当前页面显示的账号身份与 Shipmore 有效提交身份匹配，或该账号已获得当前任务授权时，才可复用会话。无法确认身份时停止在登录墙前，不要读取或复制 Cookie、localStorage、session ID 或隐藏认证材料。
-- 浏览器绑定和标签页绑定是分开的；可行时从现有浏览器绑定恢复失效标签页，不要重建整个 runtime。
-- 绝不要检查 Cookie、本地存储、已保存密码、profile store、恢复码、原始 session ID、magic link 或隐藏认证材料。
-- 不要把浏览器/profile 的不透明标识复制到另一台机器当作可移植凭据。
+选择器优先级：
 
-## 优先使用结构化交互
+1. 最新 snapshot 的 \`@ref\`；
+2. role / label / placeholder / text 等语义 locator；
+3. 必要时使用稳定 CSS selector；
+4. JavaScript 仅用于只读诊断或 runtime 文档明确允许且结构化交互不足的场景；
+5. 坐标操作不是默认路径。
 
-当前浏览器 runtime 支持时：
+## 表单写入规则
 
-1. 读取最新页面/DOM/可访问性状态；
-2. 优先使用语义化、结构化控件；
-3. 导航、刷新、弹窗、用户介入或意外结果后重新获取控件；
-4. 只有 runtime 文档允许且结构化控制不足时，才使用键盘或坐标回退。
+所有重要字段必须执行“写入后回读”，不能把 CLI 的成功退出等同于表单值已经正确落地。
 
-状态变化后绝不能复用旧 DOM handle、可访问性索引、菜单项或坐标。
+文本字段：
 
-## 桌面控制回退
+1. 确认元素可见且 enabled；
+2. 使用 \`fill\`；
+3. 使用 \`get value\` 回读；
+4. Codex 比较预期值与实际值；
+5. 不一致时不得继续最终提交，必须重新 snapshot 并诊断。
 
-只有必要且明确支持时才使用桌面 UI 控制。每次回退操作前：
+标准 select 使用 \`select\`。自定义 combobox/dropdown 使用：
 
-- 确认焦点应用/窗口；
-- 通过非敏感可见身份确认目标 profile/workspace/session；
-- 读取最新 UI 状态；
-- 坐标操作前重新确认布局、显示缩放和缩放比例。
+1. click 打开；
+2. 重新 snapshot；
+3. 找到真实 option；
+4. click 目标 option；
+5. 再次读取页面确认选中状态。
 
-不要假设 macOS、Windows、Linux 快捷键可以互换。除非用户明确要求且当前 runtime 政策允许，不要引入 AppleScript、PowerShell UI 自动化、xdotool、独立自动化服务器或其他 UI 技术。
+checkbox/radio 必须只选择业务必需选项。不得勾选可选 newsletter、推广、合作、付费试用或无关协议。
 
-## 身份验证和挑战
+文件上传：
 
-- 绝不绕过、外包、削弱或规避 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或访问控制。
-- 本 Shipmore worker 可按 `account-authentication.md` 使用现有 Google/GitHub OAuth 会话、原生邮箱验证、普通邮箱/密码登录和一次必要的免费注册。使用 claim 载荷中的有效账号邮箱；密码只能从运行时秘密文件读取。
-- Google 托管邮箱优先通过已授权 `gws` 完成普通验证；仅当 `gws` 不可用时使用匹配 Gmail 会话。这不是绕过。验证码/链接只能临时使用，并在同一目录浏览器会话中完成。
-- 认证成功后继续原始目录任务，不要仅因需要账号就停止。
-- 需要用户操作时，租约有效则交接前 heartbeat，并如实保留 Shipmore 状态。
-- 用户操作后重新读取页面并检查挑战有效性。交接期间租约过期时，不得继续以原所有者身份操作；按 Queue 协议重新 claim/recover，并在重试前检查站点状态。
+- 上传前确认本地文件真实存在；
+- 使用绝对路径；
+- 上传后重新读取页面；
+- 只有页面明确显示目标文件/预览或其他可靠 UI 证据时才认为素材已挂载；
+- 不得仅凭 upload 命令返回成功判断文件有效。
 
-## 租约感知的浏览器操作
+## 导航与等待
+
+可变动作后优先等待“任务真正需要的状态”：
+
+- URL 变化；
+- 指定文本出现；
+- 特定控件出现/消失；
+- 明确 DOM/JS 条件；
+- 站点已知会静默完成时才使用 network idle。
+
+对存在 SSE、WebSocket、轮询或 long-polling 的站点，不得把 network idle 当作通用完成条件。
+
+## 登录与认证
+
+认证业务顺序由 [account-authentication.md](account-authentication.md) 决定。
+
+- 只复用当前 named session 中可由页面证据确认的授权登录状态。
+- 不读取、复制、导出或打印 Cookie、localStorage、session ID、密码、OTP、magic link 或其他隐藏认证材料。
+- Google/GitHub OAuth 只有在当前 session 已明确存在匹配的授权身份时才使用。
+- 邮箱验证码或 magic link 的邮件读取优先通过 \`gws\`；仅当 \`gws\` 不可用时，才在同一个 named session 里新开 Gmail tab。
+- Gmail 网页回退建议给目录页和 Gmail 页使用固定 tab label，例如 \`directory\` 和 \`gmail\`；每次切换后重新 snapshot。
+- CAPTCHA、Turnstile、手机验证、KYC、passkey、安全密钥或人工审批不得绕过，按业务规则交接或阻塞。
+
+## 租约感知
 
 浏览器执行从属于 Shipmore 租约。每个可变步骤前：
 
-1. 确认当前 Run Item 仍归本 worker 所有；
+1. 确认当前 Run Item 仍归本 worker；
 2. 剩余租约不足以覆盖下一步时先 heartbeat；
-3. 收到租约冲突/过期响应后立即停止。
+3. heartbeat 返回冲突或租约过期后立即停止所有可变网页动作；
+4. 页面仍然打开不代表 worker 仍有操作权。
 
-页面仍然打开不代表租约过期后仍有执行权。
+长时间等待 OAuth、邮箱、用户介入、上传或页面计算时，继续按 worker-loop 的频率 heartbeat。
+
+## 诊断与受控重试
+
+发生以下情况时先只读诊断，不得直接重跑：
+
+- 命令 timeout；
+- 空响应；
+- \`tab_gone\`；
+- 元素不存在或失效；
+- fill 后 value 与预期不一致；
+- 上传后没有可靠 UI 证据；
+- 页面状态与预期不一致；
+- 最终动作后结果不明确。
+
+最小诊断集按需包含：
+
+- 当前 URL；
+- 最新 snapshot；
+- screenshot；
+- Console / Errors；
+- Network requests；
+- 对关键 request 的 request/response detail。
+
+只有产生了新证据、且下一步与失败动作实质不同，才允许一次受控重试，并记录结构化 \`retryDiagnostic\`。普通读取可以重复；会改变外部状态的动作必须遵守更严格规则。
 
 ## 最终动作安全
 
-以下任一情况都不能单独证明提交成功：点击 Submit、按钮禁用、表单清空、导航、普通感谢页或传输超时/错误。
+Submit、Publish、Claim 和 Gmail Send 都属于最终动作。
 
-最终动作后重新读取页面/状态，只报告证据支持的结果。若可能已到达服务器但无法确定：
+最终动作前：
 
-1. 不要再次点击 Submit；
-2. 检查已授权账号/后端历史；
-3. 检查已授权邮箱；
-4. 适用时检查公开列表/页面；
-5. 仍不明确时以 `submission_outcome_unknown` 完成 Shipmore item 并安排跟进。
+1. heartbeat；
+2. 获取最新 snapshot；
+3. 确认按钮/控件确实对应当前 Product 和 Directory 的预期最终动作；
+4. 所有关键字段已经 read-back 验证；
+5. 执行 EXEC-CHECKLIST 的 before-final-action；
+6. 最终动作只执行一次。
 
-## Product 数据规则
+最终动作后：
 
-以 Shipmore claim 载荷返回的 Product 数据作为主要已验证输入。可以按字段长度/类别真实改写 `productDescription` 或 `productMarkdown`，但不得虚构：创始人/公司身份、地址、上线日期、价格或套餐、联系方式、所有权/法律事实，或返回数据及独立验证来源未支持的产品能力。
+1. 不再次点击；
+2. 读取当前 URL 和最新 snapshot；
+3. 获取站点原生正向/负向回执；
+4. 必要时检查 Console/Network、账号后台、授权邮箱或公开 listing；
+5. 仍无法判断时使用 \`submission_outcome_unknown\` 或邮件专用 unknown 状态。
 
-可选未知字段保持为空；必填未知字段应使用 `blocked_missing_verified_data`。
+按钮禁用、表单清空、普通跳转、感谢页或 CLI timeout 都不能单独证明提交成功。
 
-## 协议、付款、互链和推广
+## Product 数据和字段语义
 
-不得自动：支付目录费用、购买链接/排名套餐、直接修改 Product 网站添加互链、修改 DNS/网站内容、接受可选 newsletter/推广、发布无关文章/帖子、请求 dofollow 或精确匹配商业锚文本。
+以 Shipmore claim 载荷为主要已验证输入。
 
-唯一窄范围例外是 Shipmore 的必需 backlink 流程：调用 `POST /api/outbound-links` 并验证 Product 首页，但绝不直接编辑 Product 代码/内容。链接可以出现在 SSR HTML 或首页最终 DOM 中；必须按 `worker-loop.md` 使用精确的 hostname/path 匹配、租约和超时规则，不得绕过 CAPTCHA/WAF。
+Codex 可以：
 
-## 证据和诊断
+- 根据页面字段语义选择正确的 Shipmore 字段；
+- 对 productDescription / productMarkdown 做真实的长度调整；
+- 按目录语义映射类别。
 
-只持久化 Shipmore API 契约支持的信息：准确结果文本、不透明证据引用、公开列表 URL、后端/邮箱/公开页检查时间、跟进时间/备注，以及规范提交/验证状态。
+Codex 不得：
 
-运行时本地诊断可以临时包含非敏感浏览器/后端别名，但不要为了保存它创建第二个持久队列/状态记录。
+- 从营销文案猜邮箱、创始人、公司、地址、价格、社交账号、法律身份或开源状态；
+- 混淆 productGithubRepoUrl 与 productFounderGithubUrl；
+- 用未知可选字段阻塞整个任务；
+- 为满足必填项捏造值。
 
-绝不能在 Shipmore evidence/result 字段保存密码、token、OTP、Cookie、原始邮箱、电话、认证 URL、本机应用路径、进程参数或 session secret。配置的账号邮箱可作为浏览器表单输入，但不得复制到证据或 exact-result 文本。
+## 并发规则
+
+允许多个 Run Item 并行，但必须：
+
+- 一个 Run Item 对应一个独立 named session；
+- 每个 worker 有独立 heartbeat 循环；
+- 不共享默认 session；
+- 不让多个 worker 通过同一个共享 CDP Chrome 承载生产提交；
+- 并发上限由 worker manager 根据 CPU、内存、页面复杂度和 lease 稳定性配置，不在 Skill 内硬编码。
+
+## 证据和隐私
+
+只持久化 Shipmore 契约允许的证据。
+
+不得把以下内容写入 exactResult、lastError、evidenceReference、followUpNote 或 retryDiagnostic：
+
+- 密码；
+- OTP；
+- magic link；
+- Cookie / session ID；
+- token URL；
+- 原始邮箱和电话；
+- 本机浏览器 profile 路径；
+- 进程参数；
+- agent-browser 的敏感 state 文件内容。
+
+本地运行时诊断可以临时存在，但必须避免把秘密复制到持久化字段。
