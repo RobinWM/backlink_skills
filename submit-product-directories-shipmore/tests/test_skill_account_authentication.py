@@ -9,20 +9,20 @@ AUTH_MD = SKILL_ROOT / "references" / "account-authentication.md"
 def test_skill_loads_account_authentication_reference():
     skill = SKILL_MD.read_text(encoding="utf-8")
     assert "references/account-authentication.md" in skill
-    assert "continue the original submission" in skill
+    assert "身份验证成功后继续原始提交" in skill
 
 
 def test_auth_flow_covers_login_registration_and_gws_verification():
     auth = AUTH_MD.read_text(encoding="utf-8").lower()
     required_phrases = (
-        "one normal login",
-        "explicitly says this email has no account",
+        "普通邮箱/密码登录",
+        "只有站点明确表示该邮箱没有账号",
         "gws gmail users messages list",
         "gws gmail +read",
-        "`gws` is unavailable",
+        "`gws` 不可用",
         "https://mail.google.com",
-        "same browser session",
-        "poll every 10 seconds for at most 2 minutes",
+        "同一个 `agent-browser` named session",
+        "每 10 秒轮询一次，最多 2 分钟",
     )
     for phrase in required_phrases:
         assert phrase in auth

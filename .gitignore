@@ -18,3 +18,8 @@ __pycache__/
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
 # should NOT be excluded as they contain compiler settings and other important
 # information for Eclipse / Flash Builder.
+
+
+# Browser authentication state (contains session tokens)
+*.auth-state.json
+shipmore-auth*.json
