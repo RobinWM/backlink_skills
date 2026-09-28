@@ -157,6 +157,10 @@ def run_worker(
             if child is not None and child.poll() is None:
                 child.terminate()
             raise
+        except OSError as exc:
+            raise WorkerRuntimeError(
+                f"failed to start item processor: {exc}"
+            ) from exc
         finally:
             keeper.stop(
                 "worker_interrupted" if child is not None and child.poll() is None
