@@ -27,6 +27,8 @@ def test_runtime_requires_named_session_restore_and_readback():
         "BACKLINK_AGENT_BROWSER_AUTH_STATE",
         "state load",
         "已有该 Run Item 的 restore state",
+        "agent_browser_adapter.py",
+        "AGENT_BROWSER_STATE_EXPIRE_DAYS=7",
     )
     for phrase in required:
         assert phrase in runtime
@@ -55,3 +57,10 @@ def test_auth_seed_is_bootstrap_only():
     assert "agent-browser --auto-connect state save" in runtime
     assert "已有 restore state 永远优先" in skill or "已有 Run Item 状态必须优先恢复" in skill
     assert "不得对正在恢复的 Run Item 使用" in runtime
+
+
+def test_production_runtime_files_exist():
+    assert (SKILL_ROOT / "scripts" / "agent_browser_adapter.py").is_file()
+    assert (SKILL_ROOT / "scripts" / "shipmore_worker_pool.py").is_file()
+    assert (SKILL_ROOT / "references" / "parallel-execution.md").is_file()
+    assert (SKILL_ROOT / "runtime" / "agent-browser.version").read_text(encoding="utf-8").strip() == "0.38.1"
