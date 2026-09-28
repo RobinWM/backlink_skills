@@ -16,6 +16,7 @@ from typing import Any, Callable
 DEFAULT_RETENTION_DAYS = 7
 DEFAULT_NAMESPACE = "shipmore"
 DEFAULT_REGISTRY_ROOT = Path.home() / ".shipmore" / "terminal-sessions"
+TERMINAL_ITEM_STATUSES = {"completed", "blocked", "failed", "skipped"}
 
 
 class RuntimeCleanupError(RuntimeError):
@@ -70,6 +71,8 @@ def mark_terminal_session(
     retention_days: int | None = None,
     now: float | None = None,
 ) -> dict[str, Any]:
+    if status not in TERMINAL_ITEM_STATUSES:
+        raise RuntimeCleanupError(f"status is not terminal: {status}")
     if retention_days is None:
         retention_days = int(
             os.environ.get(
@@ -127,6 +130,36 @@ def cleanup_terminal_sessions(
     deferred: list[str] = []
     failed: list[dict[str, str]] = []
 
+    list_command = [
+        resolved,
+        "--namespace",
+        namespace,
+        "state",
+        "list",
+    ]
+    listed = runner(
+        list_command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if listed.returncode != 0:
+        return {
+            "success": False,
+            "cleaned": [],
+            "deferred": [],
+            "failed": [
+                {
+                    "error": (
+                        listed.stderr
+                        or listed.stdout
+                        or "state list failed"
+                    ).strip()
+                }
+            ],
+        }
+    saved_states = listed.stdout or ""
+
     for path, record in list_terminal_records():
         run_item_id = str(record.get("runItemId") or "")
         session_id = str(record.get("sessionId") or "")
@@ -140,6 +173,14 @@ def cleanup_terminal_sessions(
             continue
         if cleanup_after > now:
             deferred.append(run_item_id)
+            continue
+
+        if session_id not in saved_states:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            cleaned.append(run_item_id)
             continue
 
         command = [
