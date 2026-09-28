@@ -34,6 +34,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth seed>
 AGENT_BROWSER_ENCRYPTION_KEY=<required 64-hex production key>
 AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+AGENT_BROWSER_NAMESPACE=shipmore
 SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 ```
 
