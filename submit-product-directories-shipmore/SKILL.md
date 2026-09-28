@@ -19,7 +19,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 - 后续跟进调度；
 - 提供给目录表单使用的已验证 Product 事实和有效提交身份。
 
-本 Skill 只对持有有效租约期间观察和操作浏览器的行为负责。所有涉及网页、登录、表单、验证码、站点原生验证、截图和 Gmail 网页回退的浏览器操作，必须通过 `agent-browser` 完成；Google 托管邮箱的验证邮件读取仍优先使用已授权的 `gws`，仅在 `gws` 不可用时才通过同一 `agent-browser` named session 中的 Gmail 网页回退。Queue API/CLI 只用于 Shipmore 任务领取、heartbeat、outbound-link 注册和状态回写。
+本 Skill 只对持有有效租约期间观察和操作浏览器的行为负责。所有涉及网页、登录、表单、验证码、站点原生验证、截图，以及 Gmail 网页操作（验证邮件读取回退与已授权 Contact 邮件发送），必须通过 `agent-browser` 完成；Google 托管邮箱的验证邮件读取仍优先使用已授权的 `gws`，仅在 `gws` 不可用时才通过同一 `agent-browser` named session 中的 Gmail 网页回退。Queue API/CLI 只用于 Shipmore 任务领取、heartbeat、outbound-link 注册和状态回写。
 
 绝不要创建并行 Markdown 队列、本地队列游标或第二份规范提交记录。
 
@@ -82,7 +82,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 
 ## 浏览器执行规则
 
-- 所有浏览器操作必须通过 `agent-browser` named session 执行；优先使用 snapshot `@ref`、语义 locator 和标准交互命令完成页面读取、点击、填写、选择、上传、截图、弹窗处理和 Gmail 网页回退。不要把浏览器操作交给 Queue CLI，也不要绕过 `agent-browser` 直接操作 CDP、Playwright 或浏览器 profile。页面字段语义、Shipmore 字段映射、缺失事实判断和最终动作决策始终由 Codex 完成，`agent-browser` 只提供页面证据和执行动作。
+- 所有浏览器操作必须通过 `agent-browser` named session 执行；优先使用 snapshot `@ref`、语义 locator 和标准交互命令完成页面读取、点击、填写、选择、上传、截图、弹窗处理，以及已授权的 Gmail 网页读取/发送操作。不要把浏览器操作交给 Queue CLI，也不要绕过 `agent-browser` 直接操作 CDP、Playwright 或浏览器 profile。页面字段语义、Shipmore 字段映射、缺失事实判断和最终动作决策始终由 Codex 完成，`agent-browser` 只提供页面证据和执行动作。
 - 登录状态必须以当前 `agent-browser` named session 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他浏览器/session 的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
 - 如果当前 `agent-browser` session 已显示与有效提交身份匹配的已登录账号，可以复用该 session 继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
