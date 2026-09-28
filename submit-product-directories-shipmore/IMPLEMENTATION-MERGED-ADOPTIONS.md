@@ -8,7 +8,7 @@ Shipmore 继续负责 Run、Run Item、租约、队列顺序、恢复和提交�
 
 目标是让 Shipmore worker 在执行前更早发现错误入口，在最终动作前降低重复提交风险，并在 Contact 邮件和结果不明场景下保留可恢复证据。
 
-当前进度：阶段一至七已实施。阶段一至三接入浏览器规则、检查单和去重证据；阶段四、五已在 Shipmore 后端增加内容面字段、no-action 校验、官方 Contact 邮件渠道字段、邮件专用状态和 Queue API/Server Action 传递；阶段六增加结构化 CDP 重试诊断；阶段七增加共享字段敏感信息审计和回归测试。
+当前进度：阶段一至七已实施。阶段一至三接入浏览器规则、检查单和去重证据；阶段四、五已在 Shipmore 后端增加内容面字段、no-action 校验、官方 Contact 邮件渠道字段、邮件专用状态和 Queue API/Server Action 传递；阶段六增加结构化 agent-browser 重试诊断；阶段七增加共享字段敏感信息审计和回归测试。
 
 登录状态判断补充：以当前 agent-browser named session/current tab 的实时可见身份和受保护页面访问结果为准，不使用 claim 历史阻塞文案或其他浏览器会话推断当前登录状态。
 
