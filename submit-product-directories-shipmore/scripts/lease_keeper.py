@@ -228,6 +228,17 @@ def refresh_lease_from_env(
         os.environ.get("SHIPMORE_LEASE_GUARD_PATH")
         or lease_guard_path(run_item_id)
     )
+    keeper_id = None
+    try:
+        current_guard = read_lease_guard(guard)
+        if (
+            current_guard.get("workerId") == client.require_worker_id()
+            and current_guard.get("runItemId") == run_item_id
+        ):
+            keeper_id = current_guard.get("keeperId")
+    except LeaseGuardError:
+        pass
+
     try:
         result = client.heartbeat(run_item_id, lease_seconds)
         if result.get("success") is False:
@@ -244,6 +255,7 @@ def refresh_lease_from_env(
                 "reason": f"final_action_heartbeat_failed:{exc}",
                 "workerId": client.require_worker_id(),
                 "runItemId": run_item_id,
+                "keeperId": keeper_id,
                 "heartbeatEpoch": now,
                 "deadlineEpoch": now,
             },
@@ -259,6 +271,7 @@ def refresh_lease_from_env(
             "reason": "final_action_heartbeat_ok",
             "workerId": client.require_worker_id(),
             "runItemId": run_item_id,
+            "keeperId": keeper_id,
             "heartbeatEpoch": now,
             "deadlineEpoch": now + lease_seconds,
         },
