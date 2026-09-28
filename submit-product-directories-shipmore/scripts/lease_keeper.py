@@ -69,12 +69,22 @@ def read_lease_guard(path: str | Path) -> dict[str, Any]:
     return payload
 
 
-def assert_lease_guard_valid(path: str | Path) -> dict[str, Any]:
+def assert_lease_guard_valid(
+    path: str | Path,
+    *,
+    expected_worker_id: str | None = None,
+) -> dict[str, Any]:
     payload = read_lease_guard(path)
     if payload.get("valid") is not True:
         raise LeaseGuardError(
             f"Shipmore lease is not valid: {payload.get('reason') or 'unknown'}"
         )
+    if expected_worker_id:
+        actual_worker_id = str(payload.get("workerId") or "")
+        if actual_worker_id != expected_worker_id:
+            raise LeaseGuardError(
+                "Shipmore lease guard belongs to another worker"
+            )
     deadline = payload.get("deadlineEpoch")
     if not isinstance(deadline, (int, float)) or deadline <= time.time():
         raise LeaseGuardError("Shipmore lease guard has expired")
