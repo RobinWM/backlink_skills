@@ -29,7 +29,8 @@ def test_runtime_requires_named_session_restore_and_readback():
         "非 fresh 路径绝不加载共享 seed",
         "AGENT_BROWSER_NAMESPACE=shipmore",
         "agent_browser_adapter.py",
-        "AGENT_BROWSER_STATE_EXPIRE_DAYS=7",
+        "AGENT_BROWSER_STATE_EXPIRE_DAYS=36500",
+        "SHIPMORE_TERMINAL_STATE_RETENTION_DAYS=7",
     )
     for phrase in required:
         assert phrase in runtime
@@ -65,3 +66,5 @@ def test_production_runtime_files_exist():
     assert (SKILL_ROOT / "scripts" / "shipmore_worker_pool.py").is_file()
     assert (SKILL_ROOT / "references" / "parallel-execution.md").is_file()
     assert (SKILL_ROOT / "runtime" / "agent-browser.version").read_text(encoding="utf-8").strip() == "0.38.1"
+    assert (SKILL_ROOT / "scripts" / "runtime_cleanup.py").is_file()
+    assert (SKILL_ROOT / "scripts" / "diagnostic_sanitizer.py").is_file()
