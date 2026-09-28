@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 from typing import Any, Callable, Sequence
@@ -122,7 +123,11 @@ class AgentBrowserAdapter:
         timeout: int | None = None,
         include_namespace: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        command = [self.executable]
+        resolved_executable = shutil.which(
+            self.executable,
+            path=self.env.get("PATH"),
+        ) or self.executable
+        command = [resolved_executable]
         if include_namespace and self.env.get("AGENT_BROWSER_NAMESPACE"):
             command.extend(["--namespace", self.env["AGENT_BROWSER_NAMESPACE"]])
         if include_session:
