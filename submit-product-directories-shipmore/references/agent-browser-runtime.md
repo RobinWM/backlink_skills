@@ -4,7 +4,7 @@
 
 ## 1. Runtime 基线
 
-部署环境必须提供兼容的 `agent-browser` CLI。当前迁移基线按 0.38.x 能力设计，至少需要支持：
+部署环境固定使用 `agent-browser 0.38.1`（见 `../runtime/agent-browser.version`）。该版本当前要求 Node.js >= 24。至少需要支持：
 
 - named session；
 - `--restore`；
@@ -17,13 +17,33 @@
 - network requests / network request；
 - wait。
 
-生产环境应固定并测试具体版本，不要在 worker 启动时自动跟随 latest。
+生产安装：
 
-运行时可选配置：
+~~~bash
+npm install -g agent-browser@0.38.1
+agent-browser install
+~~~
+
+Linux worker 安装浏览器系统依赖时使用：
+
+~~~bash
+agent-browser install --with-deps
+~~~
+
+启动生产 worker 前必须执行：
+
+~~~bash
+python3 scripts/agent_browser_adapter.py preflight
+~~~
+
+它会检查精确版本、`doctor --offline --quick --json`、auth seed 和 state encryption。不要在 worker 启动时自动跟随 latest。
+
+运行时配置：
 
 ~~~text
-BACKLINK_AGENT_BROWSER_AUTH_STATE=<secure path outside repository>
-AGENT_BROWSER_ENCRYPTION_KEY=<64 hex chars, recommended>
+BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path outside repository>
+AGENT_BROWSER_ENCRYPTION_KEY=<required 64 hex chars in production>
+AGENT_BROWSER_STATE_EXPIRE_DAYS=7
 ~~~
 
 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向一次性从已授权 Chrome 导出的 auth seed。它是敏感运行时文件，不属于仓库，不得被 Codex 读取、解析、打印或复制到 Shipmore evidence。
@@ -44,13 +64,19 @@ sessionId 必须：
 - 只包含 agent-browser 接受的字母、数字、连字符和下划线；
 - worker recover 后能够重新计算得到完全相同的值。
 
-推荐逻辑概念：
+Session ID 不再由模型临时拼接。统一调用：
 
-~~~text
-shipmore-<safe-runItemId>
+~~~bash
+python3 scripts/agent_browser_adapter.py session-id --run-item-id <runItemId>
 ~~~
 
-如果 runItemId 含不支持字符，使用确定性的安全编码/哈希后缀，不得使用随机 session id。
+实现固定为：
+
+~~~text
+shipmore-<sha256(runItemId) 前 32 个 hex>
+~~~
+
+因此 Windows/Linux/recover 都得到同一个合法 session ID。不得自行改写该算法或使用随机 session id。
 
 ## 3. 每条命令都显式指定 session
 
@@ -89,7 +115,7 @@ auth seed 用于解决“每个 Run Item 都是独立 named session，但仍需�
 
 只在可信机器上执行，且不属于任何 Shipmore Run Item：
 
-1. 以 remote debugging 方式启动一个专用 Chrome，并由用户人工完成所需 Google、GitHub、Gmail 等登录；
+1. 创建专用 Chrome Profile，例如 `Shipmore Worker`；只登录目录提交需要的 Google、GitHub、Gmail 身份，不要复用包含 Cloudflare、Stripe、银行、公司后台等高权限站点的日常 Profile。再以 remote debugging 方式启动该专用 Chrome，由用户人工完成登录；
 2. 设置 `AGENT_BROWSER_ENCRYPTION_KEY` 后，通过 agent-browser 连接该 Chrome；
 3. 保存 auth state 到 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向的仓库外路径：
 
@@ -103,7 +129,20 @@ Windows 可使用等价的环境变量语法。Remote Debugging 只用于这次�
 
 ### 每个 Run Item 的初始化顺序
 
-成功 claim 并派生 sessionId 后：
+成功 claim 后，优先使用 adapter 完成 session 初始化：
+
+~~~bash
+python3 scripts/agent_browser_adapter.py bootstrap \
+  --run-item-id <runItemId> \
+  --url <submitUrl> \
+  [--fresh-task] \
+  [--restore-check-url <glob>] \
+  [--restore-check-text <text>]
+~~~
+
+只有 Shipmore 事实确认这是全新、未产生浏览器进度的 Run Item 时才传 `--fresh-task`；reused/recover/form-in-progress/结果不明路径不得传。
+
+底层顺序：
 
 1. 先以 `--restore` 启动/检查该 named session，使用只读命令确认是否已经加载了该 Run Item 自己的可恢复状态；
 2. 使用 `agent-browser --session <sessionId> session info --json` 检查 restore 状态；
@@ -141,7 +180,13 @@ worker recover 一个已有 Run Item 时：
 
 如果恢复失败，不得自动新建会话后盲目重新提交；先根据账号后台、邮箱、公开页和 Shipmore 状态判断原动作是否可能已经发生。
 
-## 6. Snapshot 工作流
+## 6. Restore validation
+
+`--restore-save auto` 是默认策略。对登录敏感的恢复路径，如果已有可靠的受保护路由、登录后可见文本或 JS 状态，应把它作为 `--restore-check-url`、`--restore-check-text` 或 `--restore-check-fn` 传给 adapter。验证失败时不要继续可变操作，也不要让失败状态覆盖之前的 known-good restore state。
+
+不要为了“总能通过”而使用只验证公共域名的弱检查。无法定义可靠 restore check 时，恢复后必须按 `account-authentication.md` 使用可见身份 + 受保护功能重新确认。
+
+## 7. Snapshot 工作流
 
 默认：
 
@@ -168,20 +213,13 @@ Codex 从 snapshot 理解：
 
 旧 ref 只有在 runtime 明确仍存活、且页面上下文没有改变时才可继续使用；有疑问就重新 snapshot。
 
-## 7. 安全填写
+## 8. 安全填写
 
 ### 文本输入
 
-概念流程：
+标准文本写入必须使用 adapter 的 `safe_fill` / `safe-fill`。它在写入前检查 visible、enabled 和 readonly，写入后强制 `get value` 精确回读。这样可避免 readonly 字段被清空、maxlength/type 校验被 CLI 成功状态掩盖。
 
-~~~bash
-agent-browser ... is visible @e3
-agent-browser ... is enabled @e3
-agent-browser ... fill @e3 "<value>"
-agent-browser ... get value @e3
-~~~
-
-Codex 必须比较回读值。出现 maxlength 截断、格式化、readonly、disabled、校验器重写等情况时，不得把 fill 的成功退出当作填写成功。
+如果站点格式化输入导致“预期字符串”和“合法格式化值”不完全相同，不得绕过 safe_fill；应先由 Codex 明确新的可接受比较规则，再扩展 adapter。
 
 ### Select
 
@@ -211,15 +249,9 @@ click combobox
 
 ### Upload
 
-上传前先确认文件：
+上传必须使用 adapter 的 `safe_upload` / `safe-upload`。adapter 在调用 agent-browser 前强制检查文件存在、是普通文件、大小 > 0，并转换为绝对路径；上传后还要求 file input 有非空 read-back。之后仍必须通过最新 snapshot、文件名、预览或站点原生 UI 证据确认素材正确挂载。
 
-- 存在；
-- 类型/大小符合页面说明；
-- 使用绝对路径。
-
-上传后必须通过最新 snapshot、文件名、预览或站点原生 UI 证据确认目标素材已经挂载。上传命令本身不是最终证据。
-
-## 8. Tabs
+## 9. Tabs
 
 列出 tabs：
 
@@ -246,7 +278,7 @@ agent-browser --session <sessionId> --restore tab gmail
 
 不要用位置整数假设 tab 身份。
 
-## 9. Wait
+## 10. Wait
 
 优先等待能证明业务状态变化的条件，例如：
 
@@ -264,7 +296,7 @@ agent-browser ... wait --load networkidle
 
 SSE、WebSocket、轮询页面不要依赖 networkidle。
 
-## 10. 登录、OAuth 和邮箱验证
+## 11. 登录、OAuth 和邮箱验证
 
 ### 已有 session
 
@@ -301,7 +333,7 @@ Magic link 必须在同一个 named session 内打开，以保持原注册会话
 
 当 `actionChannel=official_contact_email` 且 Shipmore Run 已明确授权时，可在同一 named session 的 Gmail tab 中执行发送。发送前必须完成邮件渠道的去重、收件路由、主题/正文和空 CC/BCC 检查；Gmail Send 只允许一次。发送结果不明时只读检查 Sent/All Mail/Drafts/Outbox 和当前线程，不得重发。
 
-## 11. 诊断命令
+## 12. 诊断命令
 
 只读诊断按需要使用：
 
@@ -319,7 +351,7 @@ agent-browser --session <sessionId> --restore network request <requestId>
 
 Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提炼必要的非敏感事实进入 Shipmore evidence，绝不原样持久化完整敏感 payload。
 
-## 12. tab_gone
+## 13. tab_gone
 
 `tab_gone` 不等于可以自动重新打开页面继续写操作。
 
@@ -332,7 +364,7 @@ Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提�
 5. 只有能证明尚未执行最终动作、且重新打开页面不会改变外部状态时，才允许新建/恢复目录 tab；
 6. 重新 snapshot 后继续。
 
-## 13. Final action
+## 14. Final action
 
 最终动作包括：
 
@@ -368,7 +400,7 @@ snapshot
 
 任何 timeout、连接断开、按钮消失或页面跳转都不能成为第二次 click 的理由。
 
-## 14. Close
+## 15. Close
 
 仅在 Shipmore complete 得到明确成功响应之后：
 
@@ -382,9 +414,9 @@ agent-browser --session <sessionId> --restore close
 - 使用同一个 eventId 幂等重试 complete；
 - 浏览器 session 暂时保留，直到状态确认或任务进入人工恢复流程。
 
-## 15. 并发
+## 16. 并发
 
-多个 Run Item 可以并发，但每个 Run Item 必须有自己的 named session。
+多个 Run Item 可以并发，但每个 Run Item 必须有自己的 named session。标准并发启动器为 `scripts/shipmore_worker_pool.py`，完整规则见 [parallel-execution.md](parallel-execution.md)。
 
 不要用：
 
@@ -396,4 +428,20 @@ agent-browser --session <sessionId> --restore close
 
 作为默认并发模型。
 
-并发大小由 worker manager 配置。出现内存压力、浏览器 crash、lease timeout 或验证码/登录拥塞时降低并发。
+并发大小由 worker manager 配置，默认 4、硬上限 16。出现内存压力、browser crash、lease timeout 或验证码/登录拥塞时降低并发。
+
+## 17. State 生命周期
+
+生产默认：
+
+~~~text
+AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+~~~
+
+worker pool 启动时运行 `state clean --older-than 7`。单 worker 环境至少应通过定时维护执行：
+
+~~~bash
+python3 scripts/agent_browser_adapter.py cleanup --days 7
+~~~
+
+restore/auth state 必须使用 `AGENT_BROWSER_ENCRYPTION_KEY` 加密。auth seed 和 session state 都不得提交到仓库。
