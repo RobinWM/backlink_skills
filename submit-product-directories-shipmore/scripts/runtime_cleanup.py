@@ -17,6 +17,15 @@ DEFAULT_RETENTION_DAYS = 7
 DEFAULT_NAMESPACE = "shipmore"
 DEFAULT_REGISTRY_ROOT = Path.home() / ".shipmore" / "terminal-sessions"
 TERMINAL_ITEM_STATUSES = {"completed", "blocked", "failed", "skipped"}
+CLEANUP_ELIGIBLE_SUBMISSION_STATUSES = {
+    "published",
+    "unavailable",
+    "paid_only",
+    "ineligible",
+    "duplicate_no_action",
+    "terminated_by_user",
+    "rejected",
+}
 
 
 class RuntimeCleanupError(RuntimeError):
@@ -73,6 +82,15 @@ def mark_terminal_session(
 ) -> dict[str, Any]:
     if status not in TERMINAL_ITEM_STATUSES:
         raise RuntimeCleanupError(f"status is not terminal: {status}")
+    if submission_status not in CLEANUP_ELIGIBLE_SUBMISSION_STATUSES:
+        return {
+            "version": 1,
+            "runItemId": run_item_id,
+            "sessionId": deterministic_session_id(run_item_id),
+            "status": status,
+            "submissionStatus": submission_status,
+            "cleanupEligible": False,
+        }
     if retention_days is None:
         retention_days = int(
             os.environ.get(
@@ -89,6 +107,7 @@ def mark_terminal_session(
         "sessionId": deterministic_session_id(run_item_id),
         "status": status,
         "submissionStatus": submission_status,
+        "cleanupEligible": True,
         "terminalAtEpoch": now,
         "cleanupAfterEpoch": now + retention_days * 86400,
     }
@@ -130,6 +149,15 @@ def cleanup_terminal_sessions(
     deferred: list[str] = []
     failed: list[dict[str, str]] = []
 
+    records = list_terminal_records()
+    if not records:
+        return {
+            "success": True,
+            "cleaned": [],
+            "deferred": [],
+            "failed": [],
+        }
+
     list_command = [
         resolved,
         "--namespace",
@@ -160,7 +188,7 @@ def cleanup_terminal_sessions(
         }
     saved_states = listed.stdout or ""
 
-    for path, record in list_terminal_records():
+    for path, record in records:
         run_item_id = str(record.get("runItemId") or "")
         session_id = str(record.get("sessionId") or "")
         cleanup_after = record.get("cleanupAfterEpoch")
