@@ -101,14 +101,14 @@ def test_terminal_cleanup_only_clears_eligible_records(tmp_path, monkeypatch):
     first = mark_terminal_session(
         "item-old",
         status="completed",
-        submission_status="submitted",
+        submission_status="published",
         retention_days=7,
         now=100,
     )
     mark_terminal_session(
         "item-new",
-        status="blocked",
-        submission_status="blocked_manual_verification",
+        status="skipped",
+        submission_status="duplicate_no_action",
         retention_days=7,
         now=700000,
     )
@@ -273,3 +273,16 @@ def test_pool_launch_failure_terminates_started_workers(monkeypatch):
             skip_preflight=True,
         )
     assert first.terminated is True
+
+
+def test_follow_up_submission_status_is_not_cleanup_eligible(tmp_path, monkeypatch):
+    monkeypatch.setenv("SHIPMORE_TERMINAL_SESSION_DIR", str(tmp_path / "terminal"))
+    result = mark_terminal_session(
+        "item-awaiting",
+        status="completed",
+        submission_status="awaiting_approval",
+        retention_days=0,
+        now=100,
+    )
+    assert result["cleanupEligible"] is False
+    assert list((tmp_path / "terminal").glob("*.json")) == []
