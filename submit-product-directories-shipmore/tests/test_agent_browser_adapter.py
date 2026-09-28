@@ -98,8 +98,14 @@ def test_worker_pool_assigns_unique_ids():
     assert b["BACKLINK_WORKER_ID"] == "codex-04"
     assert a["SHIPMORE_RUN_ID"] == "run-1"
     assert a["SHIPMORE_POOL_SIZE"] == "4"
+    assert a["AGENT_BROWSER_NAMESPACE"] == "shipmore"
 
 
 def test_version_file_matches_adapter():
     path = SCRIPT_DIR.parent / "runtime" / "agent-browser.version"
     assert path.read_text(encoding="utf-8").strip() == AGENT_BROWSER_VERSION
+
+
+def test_adapter_defaults_to_shipmore_namespace():
+    adapter = AgentBrowserAdapter("item-1", runner=FakeRunner())
+    assert adapter.env["AGENT_BROWSER_NAMESPACE"] == "shipmore"
