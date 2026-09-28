@@ -364,6 +364,11 @@ class AgentBrowserAdapter:
     ) -> dict[str, Any]:
         if action_type not in FINAL_ACTION_TYPES:
             raise AgentBrowserError(f"unsupported final action type: {action_type}")
+
+        # Managed runtime must already own a valid guard for this exact Run Item
+        # before final-click is allowed to refresh the lease.
+        self._assert_mutation_allowed()
+
         if not self._bool("visible", selector) or not self._bool("enabled", selector):
             raise AgentBrowserError(f"{selector} is not actionable")
 
