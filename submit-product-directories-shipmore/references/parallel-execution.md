@@ -62,7 +62,7 @@ BACKLINK_WORKER_ID=<prefix>-01..N
 1. agent-browser 精确版本检查；
 2. `doctor --offline --quick --json`；
 3. 生产 state encryption 检查；
-4. `state clean --older-than N`。
+4. 在 `AGENT_BROWSER_NAMESPACE=shipmore` 内执行 `state clean --older-than N`，不清理其他项目 state。
 
 预检失败时整个 pool 不启动。`--skip-preflight` 只用于调试。
 
