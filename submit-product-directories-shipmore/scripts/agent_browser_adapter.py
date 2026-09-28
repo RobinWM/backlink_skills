@@ -358,17 +358,84 @@ def main() -> int:
     p.add_argument("--dev", action="store_true")
     p = sub.add_parser("cleanup")
     p.add_argument("--days", type=int, default=DEFAULT_STATE_EXPIRE_DAYS)
+
+    p = sub.add_parser("bootstrap")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--url", required=True)
+    p.add_argument("--fresh-task", action="store_true")
+    p.add_argument("--restore-check-url")
+    p.add_argument("--restore-check-text")
+    p.add_argument("--restore-check-fn")
+
+    p = sub.add_parser("snapshot")
+    p.add_argument("--run-item-id", required=True)
+
+    p = sub.add_parser("safe-fill")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--selector", required=True)
+    p.add_argument("--value", required=True)
+
+    p = sub.add_parser("safe-upload")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--selector", required=True)
+    p.add_argument("--file", required=True)
+
+    p = sub.add_parser("safe-select")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--selector", required=True)
+    p.add_argument("--option", action="append", required=True)
+
+    p = sub.add_parser("safe-check")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--selector", required=True)
+    p.add_argument("--unchecked", action="store_true")
+
+    p = sub.add_parser("click")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--selector", required=True)
+
+    p = sub.add_parser("diagnostics")
+    p.add_argument("--run-item-id", required=True)
+    p.add_argument("--screenshot")
+
     args = parser.parse_args()
     try:
         if args.command == "session-id":
             print(deterministic_session_id(args.run_item_id))
             return 0
-        adapter = AgentBrowserAdapter("runtime", executable=args.agent_browser)
+        adapter = AgentBrowserAdapter(
+            getattr(args, "run_item_id", "runtime"),
+            executable=args.agent_browser,
+        )
         if args.command == "preflight":
             print(json.dumps(adapter.preflight(production=not args.dev), indent=2))
         elif args.command == "cleanup":
             adapter.clean_states(args.days)
             print(json.dumps({"success": True, "days": args.days}))
+        elif args.command == "bootstrap":
+            result = adapter.bootstrap(
+                args.url,
+                fresh_task=args.fresh_task,
+                restore_check_url=args.restore_check_url,
+                restore_check_text=args.restore_check_text,
+                restore_check_fn=args.restore_check_fn,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        elif args.command == "snapshot":
+            print(json.dumps(adapter.snapshot(), ensure_ascii=False, indent=2))
+        elif args.command == "safe-fill":
+            print(json.dumps({"value": adapter.safe_fill(args.selector, args.value)}))
+        elif args.command == "safe-upload":
+            print(json.dumps({"value": adapter.safe_upload(args.selector, args.file)}))
+        elif args.command == "safe-select":
+            print(json.dumps({"value": adapter.safe_select(args.selector, args.option)}))
+        elif args.command == "safe-check":
+            print(json.dumps({"checked": adapter.safe_check(args.selector, not args.unchecked)}))
+        elif args.command == "click":
+            adapter.click(args.selector)
+            print(json.dumps({"success": True}))
+        elif args.command == "diagnostics":
+            print(json.dumps(adapter.diagnostics(args.screenshot), ensure_ascii=False, indent=2))
         return 0
     except AgentBrowserError as exc:
         print(str(exc), file=sys.stderr)
