@@ -13,6 +13,7 @@ from typing import Any, Callable, Sequence
 
 AGENT_BROWSER_VERSION = "0.38.1"
 DEFAULT_STATE_EXPIRE_DAYS = 7
+DEFAULT_NAMESPACE = "shipmore"
 DEFAULT_TIMEOUT_SECONDS = 45
 
 
@@ -99,6 +100,7 @@ class AgentBrowserAdapter:
             "AGENT_BROWSER_STATE_EXPIRE_DAYS",
             str(DEFAULT_STATE_EXPIRE_DAYS),
         )
+        self.env.setdefault("AGENT_BROWSER_NAMESPACE", DEFAULT_NAMESPACE)
 
     def _redact(self, text: str) -> str:
         result = text or ""
@@ -118,8 +120,11 @@ class AgentBrowserAdapter:
         global_args: Sequence[str] = (),
         json_output: bool = False,
         timeout: int | None = None,
+        include_namespace: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         command = [self.executable]
+        if include_namespace and self.env.get("AGENT_BROWSER_NAMESPACE"):
+            command.extend(["--namespace", self.env["AGENT_BROWSER_NAMESPACE"]])
         if include_session:
             command.extend(["--session", self.session_id])
             if restore:
@@ -164,7 +169,7 @@ class AgentBrowserAdapter:
 
     def version(self) -> str:
         output = self._run(
-            ["--version"], include_session=False, restore=False
+            ["--version"], include_session=False, restore=False, include_namespace=False
         ).stdout
         match = re.search(r"(\d+\.\d+\.\d+)", output)
         if not match:
@@ -176,6 +181,7 @@ class AgentBrowserAdapter:
             ["doctor", "--offline", "--quick"],
             include_session=False,
             restore=False,
+            include_namespace=False,
             timeout=max(self.timeout, 90),
         )
         failures = _doctor_failures(payload)
