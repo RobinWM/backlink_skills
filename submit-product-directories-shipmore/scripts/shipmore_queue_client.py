@@ -14,6 +14,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
+from runtime_cleanup import RuntimeCleanupError, mark_terminal_session
+
 
 DEFAULT_LEASE_SECONDS = 300
 DEFAULT_TIMEOUT_SECONDS = 30
@@ -423,7 +425,20 @@ class ShipmoreQueueClient:
                 'followUpNote': args.follow_up_note,
             }
         )
-        return self.post(payload)
+        result = self.post(payload)
+        if result.get('success') is True:
+            try:
+                mark_terminal_session(
+                    args.run_item_id,
+                    status=args.status,
+                    submission_status=args.submission_status,
+                )
+            except (RuntimeCleanupError, OSError, ValueError) as exc:
+                result = dict(result)
+                result['localRuntimeWarning'] = (
+                    f'terminal session cleanup registration failed: {exc}'
+                )
+        return result
 
 
 def add_common_connection_args(parser: argparse.ArgumentParser) -> None:

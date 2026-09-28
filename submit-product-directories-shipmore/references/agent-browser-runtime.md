@@ -43,7 +43,7 @@ python3 scripts/agent_browser_adapter.py preflight
 ~~~text
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path outside repository>
 AGENT_BROWSER_ENCRYPTION_KEY=<required 64 hex chars in production>
-AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+AGENT_BROWSER_STATE_EXPIRE_DAYS=36500
 AGENT_BROWSER_NAMESPACE=shipmore
 ~~~
 
@@ -127,12 +127,12 @@ python3 scripts/agent_browser_adapter.py bootstrap \
   [--restore-check-text <text>]
 ~~~
 
-只有 Shipmore 事实确认这是全新、`submissionStatus=not_attempted`、且没有 reused/recover/previous-progress 证据的 Run Item 时才传 `--fresh-task`。任何 form-in-progress、结果不明或恢复路径都不得传。
+只有 Shipmore 事实确认这是全新、`submissionStatus=not_attempted`、且没有 reused/recover/previous-progress 证据的 Run Item 时才传 `--fresh-task`。任何 form-in-progress、结果不明或恢复路径都不得传。adapter 还会做第二层 runtime 自校验：recovery/reused 模式、已有 restore state、已有 active session 或已有 final-action journal 任一存在时，`fresh_task` 都会直接拒绝。
 
 adapter 的实际顺序：
 
 1. 所有命令使用 deterministic `sessionId`、`AGENT_BROWSER_NAMESPACE=shipmore` 和 `--restore --restore-save auto`；
-2. `--fresh-task` 且配置了 auth seed 时，先在该全新 session 打开 `about:blank`，再执行 `state load <seed>`；
+2. `--fresh-task` 时先检查 `state list`、`session list` 和 final-action journal，确认该 session 真正没有已有进度；通过后且配置了 auth seed 时，才先打开 `about:blank` 再执行 `state load <seed>`；
 3. 随后打开 `submitUrl`，并应用调用方提供的 restore validation；
 4. 非 fresh 路径绝不加载共享 seed，只恢复该 Run Item 自己的 state；
 5. seed 缺失或已过期不等于任务失败；按 [account-authentication.md](account-authentication.md) 继续正常认证流程。
@@ -326,7 +326,7 @@ agent-browser --session <sessionId> --restore network request <requestId>
 
 截图不得包含邮箱、密码、OTP、magic link、token、个人敏感资料等不应进入证据的内容；敏感认证页面默认不要截图。
 
-Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提炼必要的非敏感事实进入 Shipmore evidence，绝不原样持久化完整敏感 payload。
+Network/Console 可能包含敏感 header、邮箱、请求体或带 query 的 URL。adapter 的 `diagnostics` 会在返回给 Codex 前递归脱敏敏感键、请求/响应 body、邮箱以及 URL query/fragment；调用方仍然只能提炼必要的非敏感事实进入 Shipmore evidence，不得绕过 adapter 直接持久化原始诊断 payload。
 
 ## 13. tab_gone
 
@@ -442,16 +442,28 @@ agent-browser --session <sessionId> --restore close
 
 ## 18. State 生命周期
 
-生产默认：
+生产不再按纯年龄删除所有 restore state。配置：
 
 ~~~text
-AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+AGENT_BROWSER_STATE_EXPIRE_DAYS=36500
+SHIPMORE_TERMINAL_STATE_RETENTION_DAYS=7
+AGENT_BROWSER_NAMESPACE=shipmore
 ~~~
 
-所有 Shipmore agent-browser 命令固定在 `AGENT_BROWSER_NAMESPACE=shipmore`，避免清理其他项目 state。worker pool 启动时在该 namespace 内运行 `state clean --older-than 7`。单 worker 环境至少应通过定时维护执行：
+`AGENT_BROWSER_STATE_EXPIRE_DAYS` 只保留为 agent-browser 的高位 safety ceiling，避免其默认年龄清理误删长期等待人工验证或恢复中的非 terminal Run Item。
+
+当 Shipmore `complete` 返回明确 `success=true` 且 Submission 已进入真正终止性的 lifecycle 时，`shipmore_queue_client.py` 才会把 deterministic session 登记到本机 terminal registry，并记录 `cleanupAfterEpoch`。当前 cleanup-eligible 状态仅包括：`published`、`unavailable`、`paid_only`、`ineligible`、`duplicate_no_action`、`terminated_by_user`、`rejected`。像 `submitted`、`awaiting_approval`、`awaiting_email_verification`、blocked 状态和 outcome unknown 都保留 session，因为后续流程仍可能依赖登录态。worker pool 启动时或单 worker 的定时维护只执行：
 
 ~~~bash
-python3 scripts/agent_browser_adapter.py cleanup --days 7
+python3 scripts/agent_browser_adapter.py cleanup
 ~~~
 
-restore/auth state 必须使用 `AGENT_BROWSER_ENCRYPTION_KEY` 加密。auth seed 和 session state 都不得提交到仓库。
+该命令只对 registry 中已到保留期的 terminal item 执行：
+
+~~~text
+agent-browser --namespace shipmore state clear <sessionId>
+~~~
+
+没有 terminal 证据的 orphan/non-terminal state 宁可保留，也不自动删除。Complete 响应丢失时不会登记 cleanup；后续使用同 eventId 得到明确成功响应后才登记。
+
+restore/auth state 必须使用 `AGENT_BROWSER_ENCRYPTION_KEY` 加密。auth seed、terminal registry 和 session state 都不得提交到仓库。
