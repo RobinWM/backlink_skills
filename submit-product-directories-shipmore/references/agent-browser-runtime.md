@@ -44,27 +44,14 @@ python3 scripts/agent_browser_adapter.py preflight
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path outside repository>
 AGENT_BROWSER_ENCRYPTION_KEY=<required 64 hex chars in production>
 AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+AGENT_BROWSER_NAMESPACE=shipmore
 ~~~
 
 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向一次性从已授权 Chrome 导出的 auth seed。它是敏感运行时文件，不属于仓库，不得被 Codex 读取、解析、打印或复制到 Shipmore evidence。
 
 ## 2. Session ID
 
-成功 claim 后：
-
-~~~text
-runItemId = claim.data.id
-sessionId = stable_agent_browser_id(runItemId)
-~~~
-
-sessionId 必须：
-
-- 稳定；
-- 一个 Run Item 唯一一个；
-- 只包含 agent-browser 接受的字母、数字、连字符和下划线；
-- worker recover 后能够重新计算得到完全相同的值。
-
-Session ID 不再由模型临时拼接。统一调用：
+成功 claim 后，Session ID 不再由模型临时拼接。统一调用：
 
 ~~~bash
 python3 scripts/agent_browser_adapter.py session-id --run-item-id <runItemId>
@@ -140,21 +127,17 @@ python3 scripts/agent_browser_adapter.py bootstrap \
   [--restore-check-text <text>]
 ~~~
 
-只有 Shipmore 事实确认这是全新、未产生浏览器进度的 Run Item 时才传 `--fresh-task`；reused/recover/form-in-progress/结果不明路径不得传。
+只有 Shipmore 事实确认这是全新、`submissionStatus=not_attempted`、且没有 reused/recover/previous-progress 证据的 Run Item 时才传 `--fresh-task`。任何 form-in-progress、结果不明或恢复路径都不得传。
 
-底层顺序：
+adapter 的实际顺序：
 
-1. 先以 `--restore` 启动/检查该 named session，使用只读命令确认是否已经加载了该 Run Item 自己的可恢复状态；
-2. 使用 `agent-browser --session <sessionId> session info --json` 检查 restore 状态；
-3. 如果已有该 Run Item 的 restore state，继续使用它，绝不能重新加载 auth seed；
-4. 只有确认没有已有 restore state，并且 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 已配置且文件可用时，才把 seed 加载到当前 session：
+1. 所有命令使用 deterministic `sessionId`、`AGENT_BROWSER_NAMESPACE=shipmore` 和 `--restore --restore-save auto`；
+2. `--fresh-task` 且配置了 auth seed 时，先在该全新 session 打开 `about:blank`，再执行 `state load <seed>`；
+3. 随后打开 `submitUrl`，并应用调用方提供的 restore validation；
+4. 非 fresh 路径绝不加载共享 seed，只恢复该 Run Item 自己的 state；
+5. seed 缺失或已过期不等于任务失败；按 [account-authentication.md](account-authentication.md) 继续正常认证流程。
 
-~~~bash
-agent-browser --session <sessionId> state load "$BACKLINK_AGENT_BROWSER_AUTH_STATE"
-~~~
-
-5. seed 载入后再使用同一个 `--session <sessionId> --restore` 打开 `submitUrl`；此后登录、注册、OAuth、Gmail、表单和结果检查全部依赖该 Run Item 自己的 restore state；
-6. seed 缺失或已过期不等于任务失败；按 [account-authentication.md](account-authentication.md) 继续正常认证流程。
+`--fresh-task` 是安全边界，不是“登录失败时再试一次”的开关。
 
 不得对正在恢复的 Run Item 使用：
 
@@ -223,13 +206,7 @@ Codex 从 snapshot 理解：
 
 ### Select
 
-标准 HTML select：
-
-~~~bash
-agent-browser ... select @e5 "Visible Label"
-~~~
-
-然后重新读取页面确认实际选择。
+标准 HTML select 使用 adapter `safe_select` / `safe-select`，写入后读取实际 value。
 
 自定义 combobox：
 
@@ -245,7 +222,7 @@ click combobox
 
 ### Checkbox / Radio
 
-仅对业务必需项操作。对 Terms 等必要协议要确认其语义确实是完成免费目录提交所必需；newsletter、营销、付费、推广或无关授权保持未选。
+仅对业务必需项操作，并使用 adapter `safe_check` / `safe-check` 做 checked read-back。对 Terms 等必要协议要确认其语义确实是完成免费目录提交所必需；newsletter、营销、付费、推广或无关授权保持未选。
 
 ### Upload
 
@@ -438,7 +415,7 @@ agent-browser --session <sessionId> --restore close
 AGENT_BROWSER_STATE_EXPIRE_DAYS=7
 ~~~
 
-worker pool 启动时运行 `state clean --older-than 7`。单 worker 环境至少应通过定时维护执行：
+所有 Shipmore agent-browser 命令固定在 `AGENT_BROWSER_NAMESPACE=shipmore`，避免清理其他项目 state。worker pool 启动时在该 namespace 内运行 `state clean --older-than 7`。单 worker 环境至少应通过定时维护执行：
 
 ~~~bash
 python3 scripts/agent_browser_adapter.py cleanup --days 7
