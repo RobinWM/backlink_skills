@@ -118,8 +118,16 @@ class AgentBrowserAdapter:
                 "managed Shipmore worker is missing SHIPMORE_LEASE_GUARD_PATH"
             )
         if self.lease_guard_path:
+            worker_id = (self.env.get("BACKLINK_WORKER_ID") or "").strip()
+            if self.managed_lease and not worker_id:
+                raise AgentBrowserError(
+                    "managed Shipmore worker is missing BACKLINK_WORKER_ID"
+                )
             try:
-                assert_lease_guard_valid(self.lease_guard_path)
+                assert_lease_guard_valid(
+                    self.lease_guard_path,
+                    expected_worker_id=worker_id or None,
+                )
             except LeaseGuardError as exc:
                 raise AgentBrowserError(str(exc)) from exc
 
