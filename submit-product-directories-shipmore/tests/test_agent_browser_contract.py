@@ -26,7 +26,8 @@ def test_runtime_requires_named_session_restore_and_readback():
         "每个 Run Item 必须有自己的 named session",
         "BACKLINK_AGENT_BROWSER_AUTH_STATE",
         "state load",
-        "已有该 Run Item 的 restore state",
+        "非 fresh 路径绝不加载共享 seed",
+        "AGENT_BROWSER_NAMESPACE=shipmore",
         "agent_browser_adapter.py",
         "AGENT_BROWSER_STATE_EXPIRE_DAYS=7",
     )
