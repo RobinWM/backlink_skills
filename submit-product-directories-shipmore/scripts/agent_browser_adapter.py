@@ -197,9 +197,10 @@ class AgentBrowserAdapter:
             raise AgentBrowserError(
                 f"agent-browser version mismatch: expected {self.expected_version}, got {current}"
             )
-        if production and not self.env.get("AGENT_BROWSER_ENCRYPTION_KEY"):
+        encryption_key = self.env.get("AGENT_BROWSER_ENCRYPTION_KEY", "")
+        if production and not re.fullmatch(r"[0-9a-fA-F]{64}", encryption_key):
             raise AgentBrowserError(
-                "AGENT_BROWSER_ENCRYPTION_KEY is required in production"
+                "AGENT_BROWSER_ENCRYPTION_KEY must be exactly 64 hex characters in production"
             )
         if self.auth_state_path:
             seed = Path(self.auth_state_path).expanduser()
