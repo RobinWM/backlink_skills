@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from typing import Sequence
@@ -50,6 +51,9 @@ def run_pool(
         command = command[1:]
     if not command:
         raise ValueError("worker command is required after --")
+    resolved = shutil.which(command[0], path=os.environ.get("PATH"))
+    if resolved:
+        command[0] = resolved
     if not 1 <= concurrency <= MAX_CONCURRENCY:
         raise ValueError(f"concurrency must be between 1 and {MAX_CONCURRENCY}")
 
