@@ -123,7 +123,14 @@ def run_pool(
                 slot=slot,
                 concurrency=concurrency,
             )
-            children.append((slot, subprocess.Popen(command, env=env, text=True)))
+            try:
+                child = subprocess.Popen(command, env=env, text=True)
+            except OSError as exc:
+                stop_children(children)
+                raise ValueError(
+                    f"failed to start worker slot {slot}: {exc}"
+                ) from exc
+            children.append((slot, child))
 
         failures = supervise_children(children)
         if failures:
