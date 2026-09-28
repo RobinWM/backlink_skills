@@ -2,7 +2,17 @@
 
 所有目录网页登录、OAuth、邮箱验证码输入、magic link 打开和目录会话操作必须通过 `agent-browser` 完成，并遵守 [agent-browser-runtime.md](agent-browser-runtime.md)。Google 托管邮箱的验证邮件读取优先使用已授权 `gws`；只有 `gws` 不可用时，才允许在同一个 `agent-browser` named session 中新建 Gmail 标签页读取匹配邮件。
 
-成功 claim 后为当前 `runItemId` 使用稳定的 named session，并在整个认证与原始提交过程中持续复用；不得切换到默认 session、其他浏览器后端或共享的人类 Chrome，也不得直接读取、导出或复制浏览器 Cookie/存储。
+成功 claim 后为当前 `runItemId` 使用稳定的 named session，并在整个认证与原始提交过程中持续复用；不得切换到默认 session、其他浏览器后端或共享的人类 Chrome，也不得直接读取、导出或复制浏览器 Cookie/存储。新 Run Item 可以按 [agent-browser-runtime.md](agent-browser-runtime.md) 从 Chrome 导出的不透明 auth seed 初始化一次，但已有 restore state 永远优先，不能被 seed 覆盖。
+
+## Auth seed 边界
+
+`BACKLINK_AGENT_BROWSER_AUTH_STATE` 只用于把用户已经授权的 Chrome 登录态引入全新的 Run Item session。该文件视为秘密：
+
+- worker 只把路径传给 `agent-browser state load`；
+- 不读取 JSON，不提取 Cookie/localStorage，不打印文件路径到 Shipmore evidence；
+- 不把 seed 当作“已经登录”的证明，加载后仍必须通过页面身份和受保护功能重新确认；
+- seed 不可用或登录态过期时，继续本文件的正常 OAuth、邮箱验证或密码流程；
+- auth seed 的创建/刷新是运行时管理员操作，不由目录任务自动从用户 Chrome 抓取。
 
 ## 账号身份来源
 
