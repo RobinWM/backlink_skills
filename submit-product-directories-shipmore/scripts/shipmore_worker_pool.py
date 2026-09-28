@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from typing import Sequence
 
 from worker_identity import WorkerIdentityError, get_worker_instance_id
@@ -18,6 +19,45 @@ from agent_browser_adapter import (
 
 DEFAULT_CONCURRENCY = 4
 MAX_CONCURRENCY = 16
+
+
+def stop_children(
+    children: list[tuple[int, subprocess.Popen[str]]],
+    *,
+    wait_seconds: int = 10,
+) -> None:
+    for _, child in children:
+        if child.poll() is None:
+            child.terminate()
+    for _, child in children:
+        if child.poll() is not None:
+            continue
+        try:
+            child.wait(timeout=wait_seconds)
+        except subprocess.TimeoutExpired:
+            child.kill()
+
+
+def supervise_children(
+    children: list[tuple[int, subprocess.Popen[str]]],
+    *,
+    poll_interval: float = 0.5,
+) -> dict[int, int]:
+    active = {slot: child for slot, child in children}
+    failures: dict[int, int] = {}
+    while active:
+        for slot, child in list(active.items()):
+            code = child.poll()
+            if code is None:
+                continue
+            del active[slot]
+            if code != 0:
+                failures[slot] = code
+                stop_children(list(active.items()))
+                return failures
+        if active:
+            time.sleep(poll_interval)
+    return failures
 
 
 def build_worker_env(
@@ -67,9 +107,11 @@ def run_pool(
     if not skip_preflight:
         adapter = AgentBrowserAdapter("pool-preflight")
         adapter.preflight(production=True)
-        adapter.clean_states(
-            int(os.environ.get("AGENT_BROWSER_STATE_EXPIRE_DAYS", DEFAULT_STATE_EXPIRE_DAYS))
-        )
+        cleanup = adapter.clean_terminal_states()
+        if cleanup.get("success") is False:
+            raise AgentBrowserError(
+                "lifecycle-aware terminal state cleanup failed"
+            )
 
     children: list[tuple[int, subprocess.Popen[str]]] = []
     try:
@@ -83,11 +125,7 @@ def run_pool(
             )
             children.append((slot, subprocess.Popen(command, env=env, text=True)))
 
-        failures = {}
-        for slot, child in children:
-            code = child.wait()
-            if code:
-                failures[slot] = code
+        failures = supervise_children(children)
         if failures:
             print(
                 "worker pool failures: "
@@ -97,14 +135,7 @@ def run_pool(
             return 1
         return 0
     except KeyboardInterrupt:
-        for _, child in children:
-            if child.poll() is None:
-                child.terminate()
-        for _, child in children:
-            try:
-                child.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                child.kill()
+        stop_children(children)
         return 130
 
 
