@@ -20,7 +20,11 @@ from lease_keeper import (
     lease_guard_path,
 )
 from shipmore_queue_client import ShipmoreClientError, ShipmoreQueueClient
-from worker_identity import get_worker_instance_id
+from worker_identity import (
+    WorkerIdentityError,
+    WorkerProcessLock,
+    get_worker_instance_id,
+)
 
 
 STOP_REASONS = {"run_paused", "run_terminal", "queue_empty"}
@@ -242,14 +246,20 @@ def main() -> int:
         worker_id=worker_id,
     )
     try:
-        return run_worker(
-            client,
-            run_id=args.run_id,
-            item_command=args.item_command,
-            lease_seconds=args.lease_seconds,
-            heartbeat_interval=args.heartbeat_interval,
-        )
-    except (WorkerRuntimeError, ShipmoreClientError, LeaseGuardError) as exc:
+        with WorkerProcessLock(worker_id):
+            return run_worker(
+                client,
+                run_id=args.run_id,
+                item_command=args.item_command,
+                lease_seconds=args.lease_seconds,
+                heartbeat_interval=args.heartbeat_interval,
+            )
+    except (
+        WorkerRuntimeError,
+        ShipmoreClientError,
+        LeaseGuardError,
+        WorkerIdentityError,
+    ) as exc:
         print(str(exc), file=sys.stderr)
         return 1
     except KeyboardInterrupt:
