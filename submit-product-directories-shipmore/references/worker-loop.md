@@ -66,8 +66,8 @@ while true:
 
 1. **路由/站点不可用**：官方提交路由消失、关闭或不可用时，分类为 `unavailable`。
 2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。
-3. **必需 backlink/badge**：不要立即分类为不符合资格。使用下方已授权的 Shipmore outbound-link 注册和首页验证流程；只有验证成功才继续，超时则在提交前停止。
-4. **其他不符合资格**：不支持的资格、禁止的非 backlink 站点修改或无关商业/社区动作分类为 `ineligible`。
+3. **必需 backlink/badge**：页面出现 backlink、reciprocal link/backlink、permanent backlink、badge required 或同义措辞时，不得仅凭这些文字分类为 `ineligible`。先执行下方 Shipmore outbound-link 注册和首页验证；验证成功即表示“网站存在指向目录的链接”这一条件已满足，必须继续原始任务。
+4. **其他不符合资格**：只有取得明确页面证据证明目录还要求 Shipmore outbound-link 无法完成的额外站点修改（例如强制特定图片 Badge、指定 HTML/script/属性、无法由 endpoint 生成的指定锚文本或精确 listing URL），才把该额外要求作为 `ineligible` 候选。不得把“reciprocal”“permanent”“badge”这些措辞本身当作额外修改证据。其他真实资格不符或无关商业/社区动作仍按 `ineligible` 处理。
 5. **重复项/既有生命周期保护**：检查既有 Shipmore 状态和明确的现有列表。绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。
 6. **入口和内容面分类**：按照 [entry-and-content-routing.md](entry-and-content-routing.md) 从首页、导航、页脚、站内搜索和真实控件确认当前入口；在填写字段前完成站内重复查询，并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方 Contact 邮件必须分别分类。`short note — no action`、`long post — no action` 和 `unknown — no action` 立即停止该站的内容动作；只有内容编辑器的站点使用 `ineligible`。
 7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前 `agent-browser` named session 中匹配的现有会话、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交。
@@ -96,9 +96,15 @@ while true:
 6. 只有命令返回 `success=true` 且 `reason=backlink_verified`，或在租约有效期间取得等价的最终 DOM 证据，才能继续原始目录表单。
 7. 注册失败、租约丢失或 6 次检查都找不到链接时，在提交前停止。6 次超时记录 `backlink verification timeout`，并使用最接近事实的 blocked/ineligible 状态。
 
-### Badge 与反链的等价判断
+### Backlink / reciprocal / permanent / Badge 判定
 
-如果目录页面把 Badge 作为反链存在性的可视化入口，且其验证只检查 Product 首页是否存在指向该站的链接，则 `reason=backlink_verified` 可以直接满足 Badge 验证，不需要额外插入图片或复制 Badge HTML。只有当页面明确要求特定 Badge 图片、HTML 属性、脚本或精确 listing URL 时，才执行额外的原生 Badge 检查。
+先按“实际技术要求”判断，不按页面用词判断：
+
+1. 页面只要求 Product 网站存在指向目录的链接：无论写的是 backlink、reciprocal backlink、permanent backlink、link back、badge required，只要 Shipmore outbound-link 能注册且首页验证为 `backlink_verified`，条件就已满足，继续原始提交。
+2. 页面把 Badge 作为反链存在性的可视化入口，验证实际只检查链接：`backlink_verified` 直接满足要求，不需要额外插入图片或复制 Badge HTML。
+3. 只有页面明确说明并能观察到普通链接不足，且要求特定 Badge 图片、指定 HTML/script/属性、endpoint 无法产生的指定锚文本或精确 listing URL，才认为需要额外站点修改。
+4. “永久”“互链”“reciprocal”“badge”不是额外站点修改的充分证据；禁止据此提前输出 `ineligible`。
+5. outbound-link 已验证后，worker 不得再次以“目录要求 reciprocal backlink/badge”为理由停止；必须继续账号认证、重复检查、表单和最终动作流程，除非出现另一个独立的决定性阻塞条件。
 
 ## Product 字段映射
 
