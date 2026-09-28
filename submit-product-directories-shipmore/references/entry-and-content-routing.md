@@ -79,7 +79,7 @@ duplicate confirmed: existing listing points to the canonical product URL
 
 ## 结果与执行边界
 
-目录把 Badge 作为反链验证时，先使用 Shipmore 的精确出站链接结果判断。链接已经通过且站点没有额外的图片、属性或 listing URL 要求时，Badge 与链接视为等价；不要仅因没有看到图片 Badge 就阻塞。
+目录出现 backlink、reciprocal/permanent backlink、link back 或 Badge 要求时，先判断 Shipmore outbound-link 是否已经产生并验证所需的首页链接。只要页面的实际要求是“存在指向该目录的链接”，验证通过就视为满足，不受页面措辞影响。不要仅因看到 `reciprocal`、`permanent`、`badge` 或没有图片 Badge 就阻塞/判 `ineligible`；只有页面明确证明普通链接不足并要求 endpoint 无法实现的特定图片、HTML/script/属性、指定锚文本或精确 listing URL 时，才进入额外修改判断。
 
 入口发现和站内去重必须发生在以下动作之前：
 
