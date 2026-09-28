@@ -1,4 +1,4 @@
 interface:
   display_name: "Shipmore Directory Worker"
   short_description: "Claim Shipmore directory tasks and execute them safely"
-  default_prompt: "Use $submit-product-directories-shipmore as a long-lived worker for the supplied Shipmore run: keep claiming one item at a time until the run is paused, terminal, or empty; keep each lease alive; use the deterministic agent-browser session and safety adapter; perform only authorized directory work; and complete every item with a truthful idempotent result."
+  default_prompt: "Use $submit-product-directories-shipmore safely. If SHIPMORE_MANAGED_LEASE=1, process exactly the currently leased Run Item, claim with the existing BACKLINK_WORKER_ID to obtain the reused task envelope, obey the lease guard and final-action journal, complete the item truthfully, then exit. Otherwise use the documented direct worker loop."
