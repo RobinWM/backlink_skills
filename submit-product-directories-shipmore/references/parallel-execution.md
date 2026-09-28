@@ -52,7 +52,7 @@ BACKLINK_WORKER_ID=<prefix>-01..N
 
 `<one-item-agent-command>` 只处理当前 leased Run Item 并退出；长驻循环由 `shipmore_worker.py` 负责。processor 使用相同 worker ID 再 claim，得到 `reason=reused` 和完整 task envelope。若 processor 退出后同一 item 仍返回 reused，managed runtime 会停止并拒绝自动执行第二次，避免 crash 后重复 Final Action。
 
-Pool 不会自动重启失败 worker，因为无条件 restart 可能掩盖最终动作结果不明。
+Pool 不会自动重启失败 worker，因为无条件 restart 可能掩盖最终动作结果不明。Pool 使用 wait-any supervisor 持续 poll 所有 slot；任意 slot 非 0 退出会被立即发现，其他仍运行的 slot 会被终止，pool 返回失败交给外层恢复/告警处理。正常 0 退出的 slot 可以独立结束，不阻塞其他 slot。
 
 ## 并发上限
 
@@ -67,9 +67,9 @@ Pool 不会自动重启失败 worker，因为无条件 restart 可能掩盖最�
 1. agent-browser 精确版本检查；
 2. `doctor --offline --quick --json`；
 3. 生产 state encryption 检查；
-4. 在 `AGENT_BROWSER_NAMESPACE=shipmore` 内执行 `state clean --older-than N`，不清理其他项目 state。
+4. 执行 lifecycle-aware terminal cleanup：只对本机 registry 中已明确 terminal 且超过 `SHIPMORE_TERMINAL_STATE_RETENTION_DAYS` 的 session 执行 `state clear <sessionId>`。
 
-预检失败时整个 pool 不启动。`--skip-preflight` 只用于调试。
+预检或 terminal cleanup 失败时整个 pool 不启动。`--skip-preflight` 只用于调试。
 
 ## 终止
 
