@@ -18,9 +18,10 @@ from lease_keeper import (
     assert_lease_guard_valid,
     refresh_lease_from_env,
 )
+from runtime_cleanup import cleanup_terminal_sessions
 
 AGENT_BROWSER_VERSION = "0.38.1"
-DEFAULT_STATE_EXPIRE_DAYS = 7
+DEFAULT_STATE_EXPIRE_DAYS = 36500
 DEFAULT_NAMESPACE = "shipmore"
 DEFAULT_TIMEOUT_SECONDS = 45
 
@@ -260,8 +261,33 @@ class AgentBrowserAdapter:
             flags.extend(["--restore-check-fn", restore_check_fn])
         return self._run_json(["open", url], global_args=flags)
 
+    def saved_restore_state_exists(self) -> bool:
+        completed = self._run(
+            ["state", "list"],
+            include_session=False,
+            restore=False,
+        )
+        return self.session_id in (completed.stdout or "")
+
+    def _assert_fresh_task_safe(self) -> None:
+        if self.env.get("SHIPMORE_RECOVERY_MODE") == "1":
+            raise AgentBrowserError("fresh_task is forbidden in recovery mode")
+        if (self.env.get("SHIPMORE_CLAIM_REASON") or "").strip() == "reused":
+            raise AgentBrowserError("fresh_task is forbidden for a reused Run Item")
+        if self.saved_restore_state_exists():
+            raise AgentBrowserError(
+                "fresh_task refused because restore state already exists"
+            )
+        for action_type in FINAL_ACTION_TYPES:
+            if FinalActionJournal(self.run_item_id, action_type).read() is not None:
+                raise AgentBrowserError(
+                    "fresh_task refused because a final-action journal already exists"
+                )
+
     def bootstrap(self, url: str, *, fresh_task: bool, **restore_checks: Any):
         self._assert_mutation_allowed()
+        if fresh_task:
+            self._assert_fresh_task_safe()
         if fresh_task and self.auth_state_path:
             seed = Path(self.auth_state_path).expanduser().resolve()
             if not seed.is_file() or seed.stat().st_size <= 0:
@@ -450,13 +476,11 @@ class AgentBrowserAdapter:
     def close(self) -> None:
         self._run(["close"])
 
-    def clean_states(self, days: int = DEFAULT_STATE_EXPIRE_DAYS) -> None:
-        if days < 1:
-            raise AgentBrowserError("cleanup days must be >= 1")
-        self._run(
-            ["state", "clean", "--older-than", str(days)],
-            include_session=False,
-            restore=False,
+    def clean_terminal_states(self) -> dict[str, Any]:
+        return cleanup_terminal_sessions(
+            executable=self.executable,
+            namespace=self.env.get("AGENT_BROWSER_NAMESPACE") or DEFAULT_NAMESPACE,
+            runner=self.runner,
         )
 
 
@@ -468,8 +492,7 @@ def main() -> int:
     p.add_argument("--run-item-id", required=True)
     p = sub.add_parser("preflight")
     p.add_argument("--dev", action="store_true")
-    p = sub.add_parser("cleanup")
-    p.add_argument("--days", type=int, default=DEFAULT_STATE_EXPIRE_DAYS)
+    sub.add_parser("cleanup")
 
     p = sub.add_parser("bootstrap")
     p.add_argument("--run-item-id", required=True)
@@ -541,8 +564,10 @@ def main() -> int:
         if args.command == "preflight":
             print(json.dumps(adapter.preflight(production=not args.dev), indent=2))
         elif args.command == "cleanup":
-            adapter.clean_states(args.days)
-            print(json.dumps({"success": True, "days": args.days}))
+            result = adapter.clean_terminal_states()
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            if result.get("success") is False:
+                return 1
         elif args.command == "bootstrap":
             result = adapter.bootstrap(
                 args.url,
