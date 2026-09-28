@@ -144,3 +144,11 @@ def test_fresh_bootstrap_loads_seed_once(tmp_path):
     adapter.bootstrap("https://example.test", fresh_task=True)
     loads = [call for call in runner.calls if "state load" in " ".join(call)]
     assert len(loads) == 1
+
+
+def test_workflow_pins_same_agent_browser_version():
+    repo_root = SCRIPT_DIR.parents[1]
+    workflow = (repo_root / ".github" / "workflows" / "shipmore-agent-browser.yml").read_text(
+        encoding="utf-8"
+    )
+    assert f"agent-browser@{AGENT_BROWSER_VERSION}" in workflow
