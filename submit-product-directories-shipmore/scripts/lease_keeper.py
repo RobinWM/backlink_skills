@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import threading
 import time
+import uuid
 from typing import Any, Callable
 
 from shipmore_queue_client import ShipmoreClientError, ShipmoreQueueClient
@@ -118,6 +119,7 @@ class LeaseKeeper:
         self._thread: threading.Thread | None = None
         self.lost = False
         self.last_error: str | None = None
+        self.keeper_id = uuid.uuid4().hex
 
     def _write(self, *, valid: bool, reason: str) -> None:
         now = self.clock()
@@ -128,6 +130,7 @@ class LeaseKeeper:
                 "valid": valid,
                 "reason": reason,
                 "workerId": self.client.require_worker_id(),
+                "keeperId": self.keeper_id,
                 "heartbeatEpoch": now,
                 "deadlineEpoch": now + self.lease_seconds if valid else now,
             },
@@ -175,7 +178,12 @@ class LeaseKeeper:
         self._stop_event.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=max(2, min(self.interval_seconds, 10)))
-        self._write(valid=False, reason=reason)
+        try:
+            current = read_lease_guard(self.path)
+        except LeaseGuardError:
+            current = None
+        if not current or current.get("keeperId") == self.keeper_id:
+            self._write(valid=False, reason=reason)
 
     def __enter__(self) -> "LeaseKeeper":
         self.start()
@@ -208,15 +216,31 @@ def refresh_lease_from_env(
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
 ) -> dict[str, Any]:
     client = client_from_env()
-    result = client.heartbeat(run_item_id, lease_seconds)
-    if result.get("success") is False:
-        raise LeaseGuardError(
-            str(result.get("reason") or result.get("error") or "heartbeat rejected")
-        )
     guard = Path(
         os.environ.get("SHIPMORE_LEASE_GUARD_PATH")
         or lease_guard_path(run_item_id)
     )
+    try:
+        result = client.heartbeat(run_item_id, lease_seconds)
+        if result.get("success") is False:
+            raise LeaseGuardError(
+                str(result.get("reason") or result.get("error") or "heartbeat rejected")
+            )
+    except (ShipmoreClientError, LeaseGuardError) as exc:
+        now = time.time()
+        _atomic_json_write(
+            guard,
+            {
+                "version": 1,
+                "valid": False,
+                "reason": f"final_action_heartbeat_failed:{exc}",
+                "workerId": client.require_worker_id(),
+                "heartbeatEpoch": now,
+                "deadlineEpoch": now,
+            },
+        )
+        raise LeaseGuardError(str(exc)) from exc
+
     now = time.time()
     _atomic_json_write(
         guard,
