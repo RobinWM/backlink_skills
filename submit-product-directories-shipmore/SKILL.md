@@ -30,7 +30,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 ```text
 BACKLINK_APP_URL=https://shipmore.app
 BACKLINK_AGENT_TOKEN=<secret>
-BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
+BACKLINK_WORKER_ID=<stable worker alias; managed runtime may generate a persistent unique ID>
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth seed>
 AGENT_BROWSER_ENCRYPTION_KEY=<required 64-hex production key>
 AGENT_BROWSER_STATE_EXPIRE_DAYS=7
@@ -50,6 +50,7 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 6. [references/entry-and-content-routing.md](references/entry-and-content-routing.md)
 7. [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
 8. [references/parallel-execution.md](references/parallel-execution.md)（仅并发执行时）
+9. [references/production-hardening.md](references/production-hardening.md)（生产边界和未解决缺口）
 
 浏览器前置要求：先读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md)。生产环境固定使用 `agent-browser 0.38.1`，并先运行 `scripts/agent_browser_adapter.py preflight`。成功 claim 后，通过 adapter 的 deterministic session ID 为当前 `runItemId` 建立唯一 named session；整个 Run Item 必须复用同一个 session，并启用 `--restore`。新任务只有在 Shipmore 事实明确证明不存在需要恢复的浏览器进度时才允许加载 auth seed；已有 Run Item 状态必须优先恢复。不得使用默认 session，不得在同一个 Run Item 中切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。
 
@@ -75,20 +76,20 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 2. 如果 Run 已暂停、已结束或为空，按照 API 参考中的说明停止或等待。
 3. 在浏览器操作前检查返回的既有 Submission 快照。
 4. 如果快照已经证明不应进行新的表单操作，则将 Run Item 以 `skipped` 完成，同时保留当前 submission status。
-5. 在任何可变浏览器操作前发送 heartbeat；在重要导航、验证、用户交接或长时间推理后再次发送。300 秒租约通常应每 60–120 秒发送一次 heartbeat；较长的浏览器操作可在 API 限制内申请更长租约。
+5. Managed runtime（`SHIPMORE_MANAGED_LEASE=1`）必须由 `scripts/lease_keeper.py` 自动维护 heartbeat，并通过 lease guard 阻止失去租约后的浏览器可变操作；direct/manual 模式仍需在任何可变操作前和耗时步骤后显式 heartbeat。300 秒租约默认每 60 秒自动 heartbeat。
 6. 按 [references/worker-loop.md](references/worker-loop.md) 的强制预检顺序执行：不可用 → 仅付费 → 必需 backlink 注册与验证 → 其他不符合资格 → 既有生命周期/重复项 → 入口和内容面分类 → 已授权的账号登录/注册/邮箱验证 → 缺少已验证资料 → 其他验证 → 可变表单操作。
 7. 只执行真实且已授权的表单操作。可选的未知字段保持为空；只有在前置的终止性资格/政策检查通过后，才因必填未知字段阻塞任务。
-8. 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前执行检查单；有未通过项目时不得执行 Submit、Publish、Claim 或其他不可逆动作。
+8. 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前执行检查单；有未通过项目时不得执行 Submit、Publish、Claim 或其他不可逆动作。Submit、Publish、Claim 和 Gmail Send 必须通过 adapter 的 `final-click` 执行，禁止使用普通 `click`。
 9. 记录准确的页面/服务器结果，并在有证据时记录不透明的 evidence reference。
 10. 使用 [references/status-mapping.md](references/status-mapping.md) 对结果分类。
 11. 结果分类后再次执行检查单；未通过时不得把结果标记为成功。
-12. 第一次尝试 `complete` 前选择一个稳定的 `eventId`。如果 HTTP 响应丢失或请求需要重试，重复使用同一个 event ID。
+12. 有 Final Action 时，优先使用 durable final-action journal 返回的 `completionEventId` 作为稳定 Complete `eventId`；没有 Final Action 的 blocked/skipped/failed 路径才生成新的稳定 event ID。HTTP 响应丢失时重复使用同一个 ID。
 13. 完成该任务。同一个逻辑完成操作绝不能生成新的 event ID。
 14. 只有在前一个任务得到终止性 Run Item 结果后，才能 claim 下一个任务。
 
 ## 浏览器执行规则
 
-- 所有浏览器操作必须落在当前 Run Item 的 `agent-browser` named session 中。标准的 session bootstrap、表单写入、select/check、文件上传和诊断优先通过 `scripts/agent_browser_adapter.py` 或其 Python API 执行；adapter 未覆盖的读取/导航动作才直接调用 agent-browser CLI。页面字段语义、Shipmore 字段映射、缺失事实判断和最终动作决策始终由 Codex 完成，agent-browser 只提供页面证据和执行动作。不得绕过 adapter 的 read-back、readonly、文件存在/非空和版本预检保护来执行等价写操作。
+- 所有浏览器操作必须落在当前 Run Item 的 `agent-browser` named session 中。Managed runtime 下 adapter 会在 open/fill/select/check/upload/click 前检查 `SHIPMORE_LEASE_GUARD_PATH`；guard 无效或过期即拒绝动作。标准写操作必须经 adapter safe 方法执行，最终 Submit/Publish/Claim/Gmail Send 必须经 `final-click` + durable journal 执行；不得绕过这些保护直接调用等价的 agent-browser 写命令。页面字段语义、Shipmore 字段映射和结果分类仍由 Codex 完成。
 - 登录状态必须以当前 `agent-browser` named session 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他浏览器/session 的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
 - 如果当前 `agent-browser` session 已显示与有效提交身份匹配的已登录账号，可以复用该 session 继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
@@ -109,7 +110,7 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 - 将 `productContactEmail` 视为表单输入，而不是日志材料。不要仅因为提交过它，就把它复制到 `exactResult`、证据标签或可分享的尝试记录中。
 - 点击、导航、清空表单、按钮禁用或普通感谢页本身都不能证明提交成功。
 - `submitted` 不等于 `published`。
-- 最终动作结果不明时必须改为 `submission_outcome_unknown`；绝不能盲目再次点击 Submit。
+- 最终动作结果不明时必须改为 `submission_outcome_unknown`；绝不能盲目再次点击 Submit。只要本机 final-action journal 已存在，无论状态为 prepared/attempting/dispatched/outcome_unknown，都不得再次执行同一 action type。
 - `agent-browser` 命令超时、空响应、`tab_gone`、元素不存在、写入值不一致或页面状态不明时，不得直接重跑；先按 [references/agent-browser-runtime.md](references/agent-browser-runtime.md) 获取最新 URL、snapshot、截图和必要的 Console/Network 只读证据。如需一次受控重试，必须提交结构化 `retryDiagnostic`，且下一步与上次实质不同。Submit、Publish、Claim 和 Gmail Send 均不得重试。
 - 不得把原始邮箱、电话、密码、OTP、magic link、Cookie、session ID、token URL、本机路径或进程参数写入 `lastError`、`exactResult`、`evidenceReference`、`followUpNote` 或 retry diagnostic。
 
@@ -131,7 +132,15 @@ published
 
 ## CLI 辅助工具
 
-使用随附的标准库客户端：
+推荐生产运行方式：
+
+```bash
+python3 scripts/shipmore_worker.py --run-id <runId> -- <one-item-agent-command>
+```
+
+Managed runtime 会自动启动 LeaseKeeper，并要求 one-item processor 使用相同 worker ID claim（得到 `reason=reused`）取得完整任务信封；processor 完成一个 Run Item 后必须退出。并发时由 `shipmore_worker_pool.py` 启动多个 managed runtime。
+
+低级 Queue 调试仍可使用随附客户端：
 
 ```bash
 python3 scripts/shipmore_queue_client.py claim --run-id <runId>
@@ -184,9 +193,14 @@ python3 scripts/shipmore_queue_client.py complete \
 - [references/agent-browser-runtime.md](references/agent-browser-runtime.md)：`agent-browser` session 生命周期、snapshot/ref、表单写入校验、标签页、诊断、恢复和最终动作规范。
 - [references/account-authentication.md](references/account-authentication.md)：默认账号的授权登录、免费注册、安全运行时凭据，以及优先使用 `gws`、不可用时回退 Gmail 的验证流程。
 - [references/entry-and-content-routing.md](references/entry-and-content-routing.md)：入口发现、站内去重和内容面 no-action 分类。
-- [references/parallel-execution.md](references/parallel-execution.md)：多 worker 并发模型和 worker pool 运行约束。
+- [references/parallel-execution.md](references/parallel-execution.md)：多 worker 并发模型、managed worker runtime、唯一 worker identity 和 host affinity。
+- [references/production-hardening.md](references/production-hardening.md)：生产缺陷清单、P0/P1 已实现保护和仍需服务端解决的 fencing/affinity 边界。
 - [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)：最终动作前后的执行检查单。
-- `scripts/agent_browser_adapter.py`：deterministic session、版本/doctor 预检、safe fill/select/check/upload、diagnostics 和 state cleanup。
+- `scripts/agent_browser_adapter.py`：deterministic session、lease mutation gate、safe fill/select/check/upload、durable final-click、diagnostics 和 state cleanup。
+- `scripts/lease_keeper.py`：自动 heartbeat 和 lease guard。
+- `scripts/final_action_guard.py`：Final Action durable 本地 fence 和稳定 completion event ID。
+- `scripts/worker_identity.py`：跨重启持久化的唯一 worker instance ID。
+- `scripts/shipmore_worker.py`：真正长驻的 managed Queue/lease runtime。
 - `scripts/shipmore_worker_pool.py`：跨 Windows/Linux 的固定并发进程池启动器。
 - `scripts/shipmore_queue_client.py`：无第三方依赖的 Queue/outbound-link API 客户端和首页 backlink 验证器。
 - `runtime/agent-browser.version`：生产 agent-browser 精确版本。
