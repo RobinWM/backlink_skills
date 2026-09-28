@@ -103,6 +103,7 @@ def test_managed_adapter_blocks_mutation_when_guard_invalid(tmp_path):
         env={
             "SHIPMORE_MANAGED_LEASE": "1",
             "SHIPMORE_LEASE_GUARD_PATH": str(guard),
+            "BACKLINK_WORKER_ID": "worker-a",
         },
         runner=lambda *a, **k: subprocess.CompletedProcess([], 0, "{}", ""),
     )
