@@ -1,14 +1,14 @@
 # agent-browser 运行规范
 
-本文件定义 \`submit-product-directories-shipmore\` 使用 agent-browser 时的唯一运行约定。业务判断仍由 Codex 和 Shipmore 状态机完成。
+本文件定义 `submit-product-directories-shipmore` 使用 agent-browser 时的唯一运行约定。业务判断仍由 Codex 和 Shipmore 状态机完成。
 
 ## 1. Runtime 基线
 
-部署环境必须提供兼容的 \`agent-browser\` CLI。当前迁移基线按 0.38.x 能力设计，至少需要支持：
+部署环境必须提供兼容的 `agent-browser` CLI。当前迁移基线按 0.38.x 能力设计，至少需要支持：
 
 - named session；
-- \`--restore\`；
-- snapshot / \`@ref\`；
+- `--restore`；
+- snapshot / `@ref`；
 - fill / type / select / check / uncheck / upload；
 - get value / get url / is visible / is enabled；
 - tab 管理；
@@ -59,7 +59,7 @@ agent-browser --session <sessionId> --restore snapshot -i --json
 agent-browser --session <sessionId> --restore fill @e3 "Product name"
 ~~~
 
-\`--restore\` 用于同一 Run Item 的崩溃/daemon 重启恢复。它不是跨 Run Item 共享登录态的理由。
+`--restore` 用于同一 Run Item 的崩溃/daemon 重启恢复。它不是跨 Run Item 共享登录态的理由。
 
 默认生产执行不使用：
 
@@ -77,7 +77,7 @@ agent-browser --session <sessionId> --restore fill @e3 "Product name"
 worker recover 一个已有 Run Item 时：
 
 1. 使用原 runItemId 重新派生同一个 sessionId；
-2. 通过 \`--restore\` 恢复；
+2. 通过 `--restore` 恢复；
 3. 只读检查 session info、当前 URL 和 snapshot；
 4. 检查页面是否仍属于当前 Directory；
 5. 检查当前 Shipmore lease 是否有效；
@@ -178,7 +178,7 @@ agent-browser --session <sessionId> --restore tab
 agent-browser --session <sessionId> --restore tab new --label gmail https://mail.google.com
 ~~~
 
-建议目录主页面使用 label \`directory\`，Gmail fallback 使用 \`gmail\`。
+建议目录主页面使用 label `directory`，Gmail fallback 使用 `gmail`。
 
 切换：
 
@@ -266,7 +266,7 @@ Network/Console 可能包含 token、邮箱、请求体或其他秘密。只提�
 
 ## 11. tab_gone
 
-\`tab_gone\` 不等于可以自动重新打开页面继续写操作。
+`tab_gone` 不等于可以自动重新打开页面继续写操作。
 
 处理顺序：
 
