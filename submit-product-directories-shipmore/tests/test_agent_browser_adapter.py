@@ -152,3 +152,11 @@ def test_workflow_pins_same_agent_browser_version():
         encoding="utf-8"
     )
     assert f"agent-browser@{AGENT_BROWSER_VERSION}" in workflow
+
+
+def test_adapter_uses_path_resolved_executable(monkeypatch):
+    runner = FakeRunner()
+    monkeypatch.setattr("agent_browser_adapter.shutil.which", lambda value, path=None: "C:/tools/agent-browser.cmd")
+    adapter = AgentBrowserAdapter("item-1", runner=runner)
+    assert adapter.version() == AGENT_BROWSER_VERSION
+    assert runner.calls[0][0].endswith("agent-browser.cmd")
