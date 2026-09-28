@@ -259,8 +259,8 @@ class AgentBrowserAdapter:
         )
         return bool(value)
 
-    def _assert_writable(self, selector: str) -> None:
-        if not self._bool("visible", selector):
+    def _assert_writable(self, selector: str, *, require_visible: bool = True) -> None:
+        if require_visible and not self._bool("visible", selector):
             raise AgentBrowserError(f"{selector} is not visible")
         if not self._bool("enabled", selector):
             raise AgentBrowserError(f"{selector} is not enabled")
@@ -299,7 +299,8 @@ class AgentBrowserAdapter:
         return actual
 
     def safe_upload(self, selector: str, file_path: str) -> str:
-        self._assert_writable(selector)
+        # Native file inputs are commonly hidden behind a visible custom upload button.
+        self._assert_writable(selector, require_visible=False)
         path = Path(file_path).expanduser().resolve()
         if not path.is_file():
             raise AgentBrowserError("Upload source does not exist")
