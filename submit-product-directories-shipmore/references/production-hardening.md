@@ -11,7 +11,7 @@
 | P1 | 缺少真正长驻 worker runtime | pool 只会启动进程，不负责完整 claim → execute → complete 周期 | **已实现 `shipmore_worker.py` managed runtime** |
 | P1 | worker ID 可能跨机器冲突 | 两台机器可被 Shipmore 误认为同一 worker | **已实现持久化随机 worker instance ID** |
 | P1 | 跨主机 recover 没有浏览器/session affinity | deterministic session ID 相同但 state 不共享 | **部分处理：稳定 host identity + same-host recovery 规则；服务端 affinity 仍缺失** |
-| P2 | state cleanup 只按年龄 | 长等待任务可能丢失浏览器 state | **已实现：Complete 成功登记 terminal registry，仅精确清理已到保留期的 session** |
+| P2 | state cleanup 只按年龄 | 长等待任务可能丢失浏览器 state | **已实现：只有真正终止性的 Submission lifecycle 才登记 cleanup；等待/blocked/unknown 状态保留 session** |
 | P2 | worker pool 顺序 wait 子进程 | 后面的 slot 崩溃可能很久才被发现 | **已实现 wait-any supervisor；非 0 slot 立即使 pool fail-fast** |
 | P2 | diagnostics 原始 console/network 可能含秘密 | 敏感 header、邮箱、请求体可能进入日志 | **已实现 adapter 内递归结构化脱敏** |
 | P2 | `fresh_task` 仍信任调用方 | 调用错误可能把 seed load 到恢复任务 | **已实现 runtime 自校验 restore state / active session / recovery / journal** |
@@ -268,7 +268,7 @@ processor 仍应调用 claim 获取完整 task envelope；因为使用相同 wor
 
 ## P2-A：Lifecycle-aware browser state cleanup
 
-纯年龄清理已移除。Shipmore `complete` 明确成功后，客户端在本机 terminal registry 记录 deterministic session ID、terminal 时间和 cleanup 时间。默认保留 7 天，随后只执行 `state clear <sessionId>`。没有 terminal 成功证据的 session 不自动删除。
+纯年龄清理已移除。Shipmore `complete` 明确成功后，只有 Submission 进入真正终止性的状态才登记 cleanup：`published`、`unavailable`、`paid_only`、`ineligible`、`duplicate_no_action`、`terminated_by_user`、`rejected`。默认保留 7 天，随后只执行 `state clear <sessionId>`。仍在等待审批/邮箱验证、blocked、结果不明或其他可恢复状态的 session 不自动删除。
 
 agent-browser 自身的 `AGENT_BROWSER_STATE_EXPIRE_DAYS` 设为 36500，仅作为极高 safety ceiling，避免其默认年龄策略绕过 Shipmore lifecycle。
 
