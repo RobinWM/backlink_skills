@@ -24,7 +24,12 @@ class WorkerProcessLock:
 
     def __init__(self, worker_id: str) -> None:
         digest = uuid.uuid5(uuid.NAMESPACE_URL, worker_id).hex
-        root = Path.home() / ".shipmore" / "worker-locks"
+        root = Path(
+            os.environ.get(
+                "SHIPMORE_WORKER_LOCK_DIR",
+                str(Path.home() / ".shipmore" / "worker-locks"),
+            )
+        ).expanduser()
         self.path = root / f"{digest}.lock"
         self.handle: IO[str] | None = None
 
