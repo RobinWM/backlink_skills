@@ -14,7 +14,12 @@ from agent_browser_adapter import AgentBrowserAdapter, AgentBrowserError
 from final_action_guard import FinalActionJournal, FinalActionError
 from lease_keeper import LeaseKeeper, assert_lease_guard_valid, LeaseGuardError
 from shipmore_worker import WorkerRuntimeError, run_worker
-from worker_identity import get_worker_instance_id, worker_id_for_slot
+from worker_identity import (
+    WorkerIdentityError,
+    WorkerProcessLock,
+    get_worker_instance_id,
+    worker_id_for_slot,
+)
 
 
 class FakeQueueClient:
@@ -236,3 +241,18 @@ def test_final_click_checks_existing_run_item_guard_before_heartbeat(
     with pytest.raises(AgentBrowserError, match="another Run Item"):
         adapter.final_click("submit", "@e1")
     assert called["refresh"] is False
+
+
+def test_worker_process_lock_rejects_duplicate_live_worker(tmp_path, monkeypatch):
+    monkeypatch.setenv("SHIPMORE_WORKER_LOCK_DIR", str(tmp_path / "locks"))
+    first = WorkerProcessLock("worker-a")
+    second = WorkerProcessLock("worker-a")
+    first.acquire()
+    try:
+        with pytest.raises(WorkerIdentityError, match="another live process"):
+            second.acquire()
+    finally:
+        first.release()
+
+    second.acquire()
+    second.release()
