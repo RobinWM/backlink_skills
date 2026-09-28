@@ -31,6 +31,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 BACKLINK_APP_URL=https://shipmore.app
 BACKLINK_AGENT_TOKEN=<secret>
 BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
+BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth seed>
 ```
 
 调用方还必须提供 Shipmore `runId`。
@@ -45,7 +46,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 6. [references/entry-and-content-routing.md](references/entry-and-content-routing.md)
 7. [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
 
-浏览器前置要求：先读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md)。成功 claim 后，为当前 `runItemId` 建立稳定且唯一的 `agent-browser` named session；整个 Run Item 必须复用同一个 session，并启用 `--restore` 以支持 worker 恢复。不得使用默认 session，不得在同一个 Run Item 中切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。
+浏览器前置要求：先读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md)。成功 claim 后，为当前 `runItemId` 建立稳定且唯一的 `agent-browser` named session；整个 Run Item 必须复用同一个 session，并启用 `--restore` 以支持 worker 恢复。新 session 若没有可恢复状态，可以从 `BACKLINK_AGENT_BROWSER_AUTH_STATE` 指向的 Chrome 导出 auth seed 初始化一次；已有 Run Item 状态必须优先恢复，绝不能用 seed 覆盖。不得使用默认 session，不得在同一个 Run Item 中切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。
 
 ## 事实来源规则
 
@@ -88,7 +89,7 @@ BACKLINK_WORKER_ID=<stable worker alias, e.g. codex-windows-01>
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。
-- 有可用的已授权会话时优先复用。不要检查 Cookie、已保存密码、本地存储、恢复码或隐藏的身份验证材料。
+- 有可用的已授权会话时优先复用。Chrome 导出的 auth seed 只允许作为不透明的运行时输入初始化一个全新的 Run Item session；worker 不得读取、解析、打印或修改 seed 内容。不要检查 Cookie、已保存密码、本地存储、恢复码或隐藏的身份验证材料。
 - 目录需要身份验证时，遵循 [references/account-authentication.md](references/account-authentication.md)。使用 claim 载荷中的有效 `productContactEmail` 作为账号邮箱，并按以下顺序尝试已授权方式：已有 Google 会话、已有 GitHub 会话、站点原生邮箱验证码或 magic link（对于 Google 托管邮箱，优先使用已授权的 `gws`；仅当 `gws` 不可用时，才使用 `https://mail.google.com` 上现有且匹配的 Gmail 会话），最后才使用邮箱/密码。只有站点明确报告该邮箱没有账号时，才创建一个普通免费账号；身份验证成功后继续原始提交。
 - 绝不要在 Shipmore evidence 中打印、持久化、截图或写入凭据、OTP、magic link 或邮箱内容。运行时凭据位于配置的仓库外部敏感文件中。
 - 绝不要绕过 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或站点访问控制。允许使用已授权邮箱完成站点正常的邮箱验证；不允许绕过或削弱验证。
