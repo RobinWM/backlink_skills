@@ -8,7 +8,7 @@ import subprocess
 import sys
 from typing import Sequence
 
-from worker_identity import get_worker_instance_id
+from worker_identity import WorkerIdentityError, get_worker_instance_id
 from agent_browser_adapter import (
     AgentBrowserAdapter,
     AgentBrowserError,
@@ -134,7 +134,7 @@ def main() -> int:
             args.worker_command,
             skip_preflight=args.skip_preflight,
         )
-    except (ValueError, AgentBrowserError) as exc:
+    except (ValueError, AgentBrowserError, WorkerIdentityError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
