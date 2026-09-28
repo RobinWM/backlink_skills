@@ -68,6 +68,14 @@ def test_preflight_pins_version_and_requires_encryption():
     with pytest.raises(AgentBrowserError, match="ENCRYPTION_KEY"):
         adapter.preflight()
 
+    adapter = AgentBrowserAdapter(
+        "item-1",
+        runner=runner,
+        env={"AGENT_BROWSER_ENCRYPTION_KEY": "not-hex"},
+    )
+    with pytest.raises(AgentBrowserError, match="64 hex"):
+        adapter.preflight()
+
 
 def test_safe_fill_reads_back_and_blocks_readonly():
     runner = FakeRunner()
@@ -109,3 +117,30 @@ def test_version_file_matches_adapter():
 def test_adapter_defaults_to_shipmore_namespace():
     adapter = AgentBrowserAdapter("item-1", runner=FakeRunner())
     assert adapter.env["AGENT_BROWSER_NAMESPACE"] == "shipmore"
+
+
+def test_recovery_bootstrap_never_loads_shared_seed(tmp_path):
+    seed = tmp_path / "auth.json"
+    seed.write_text("{}", encoding="utf-8")
+    runner = FakeRunner()
+    adapter = AgentBrowserAdapter(
+        "item-1",
+        runner=runner,
+        auth_state_path=str(seed),
+    )
+    adapter.bootstrap("https://example.test", fresh_task=False)
+    assert not any("state load" in " ".join(call) for call in runner.calls)
+
+
+def test_fresh_bootstrap_loads_seed_once(tmp_path):
+    seed = tmp_path / "auth.json"
+    seed.write_text("{}", encoding="utf-8")
+    runner = FakeRunner()
+    adapter = AgentBrowserAdapter(
+        "item-1",
+        runner=runner,
+        auth_state_path=str(seed),
+    )
+    adapter.bootstrap("https://example.test", fresh_task=True)
+    loads = [call for call in runner.calls if "state load" in " ".join(call)]
+    assert len(loads) == 1
