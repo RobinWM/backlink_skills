@@ -11,10 +11,10 @@
 | P1 | 缺少真正长驻 worker runtime | pool 只会启动进程，不负责完整 claim → execute → complete 周期 | **已实现 `shipmore_worker.py` managed runtime** |
 | P1 | worker ID 可能跨机器冲突 | 两台机器可被 Shipmore 误认为同一 worker | **已实现持久化随机 worker instance ID** |
 | P1 | 跨主机 recover 没有浏览器/session affinity | deterministic session ID 相同但 state 不共享 | **部分处理：稳定 host identity + same-host recovery 规则；服务端 affinity 仍缺失** |
-| P2 | state cleanup 只按年龄 | 长等待任务可能丢失浏览器 state | 待处理：按 Shipmore terminal 生命周期清理 |
-| P2 | worker pool 顺序 wait 子进程 | 后面的 slot 崩溃可能很久才被发现 | 待处理：wait-any/process supervisor |
-| P2 | diagnostics 原始 console/network 可能含秘密 | token/cookie/邮箱可能进入日志 | 待处理：adapter 内结构化脱敏 |
-| P2 | `fresh_task` 仍信任调用方 | 调用错误可能把 seed load 到恢复任务 | 待处理：runtime 自校验 restore state |
+| P2 | state cleanup 只按年龄 | 长等待任务可能丢失浏览器 state | **已实现：Complete 成功登记 terminal registry，仅精确清理已到保留期的 session** |
+| P2 | worker pool 顺序 wait 子进程 | 后面的 slot 崩溃可能很久才被发现 | **已实现 wait-any supervisor；非 0 slot 立即使 pool fail-fast** |
+| P2 | diagnostics 原始 console/network 可能含秘密 | 敏感 header、邮箱、请求体可能进入日志 | **已实现 adapter 内递归结构化脱敏** |
+| P2 | `fresh_task` 仍信任调用方 | 调用错误可能把 seed load 到恢复任务 | **已实现 runtime 自校验 restore state / active session / recovery / journal** |
 | P2 | Windows 真浏览器 E2E 目前非阻塞 | Windows 浏览器链回归可能不阻塞 merge | 待上游 Windows 稳定后改为 blocking |
 | P3 | 缺少完整 Shipmore worker integration E2E | claim/heartbeat/lease-loss/final-action/recover 未端到端覆盖 | 待处理 |
 
@@ -266,13 +266,42 @@ BACKLINK_WORKER_ID=<stable unique worker id>
 
 processor 仍应调用 claim 获取完整 task envelope；因为使用相同 worker ID，API 返回 `reason=reused`。
 
-## 后续优先级
+## P2-A：Lifecycle-aware browser state cleanup
 
-下一轮建议依次处理：
+纯年龄清理已移除。Shipmore `complete` 明确成功后，客户端在本机 terminal registry 记录 deterministic session ID、terminal 时间和 cleanup 时间。默认保留 7 天，随后只执行 `state clear <sessionId>`。没有 terminal 成功证据的 session 不自动删除。
+
+agent-browser 自身的 `AGENT_BROWSER_STATE_EXPIRE_DAYS` 设为 36500，仅作为极高 safety ceiling，避免其默认年龄策略绕过 Shipmore lifecycle。
+
+## P2-B：Wait-any supervisor
+
+`shipmore_worker_pool.py` 不再按 slot 顺序阻塞 `wait()`。Supervisor 持续检查所有 worker；任意 slot 非 0 退出会立即被发现并终止剩余 slot，让外层调度及时告警/恢复。不会自动 restart 失败 slot，以免掩盖 Final Action 结果不明。
+
+## P2-C：Diagnostics sanitization
+
+Browser Adapter 的 diagnostics 在返回前递归处理：
+
+- 敏感认证 header/字段；
+- request/response body；
+- 邮箱；
+- URL query / fragment；
+- Console 文本中的常见 credential 形态。
+
+截图仍属于视觉证据，敏感认证页面继续遵守“不截图”的原有规则。
+
+## P2-D：fresh_task self-verification
+
+`fresh_task` 现在同时检查：
+
+1. `SHIPMORE_RECOVERY_MODE`；
+2. claim reason 是否 `reused`；
+3. `agent-browser state list` 中是否已有 deterministic restore state；
+4. `session list` 中是否已有活跃 session；
+5. 是否已有任何 final-action journal。
+
+任一命中都会拒绝 auth seed bootstrap。该检查是 defense-in-depth；Shipmore submission lifecycle 仍是是否 fresh 的第一事实来源。
+
+## 仍待处理
 
 1. 服务端 final-action fencing；
-2. lifecycle-aware browser state cleanup；
-3. wait-any worker supervisor；
-4. diagnostics sanitization；
-5. fresh-task self-verification；
-6. Queue + browser + crash/recovery integration E2E。
+2. Windows 真浏览器 E2E 在 agent-browser 上游稳定后改为 blocking；
+3. Queue + browser + crash/recovery integration E2E（P3）。
