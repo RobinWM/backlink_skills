@@ -62,9 +62,9 @@ Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Produ
 | 账号/邮箱政策阻止授权执行 | `blocked` | `blocked_account_or_email_policy` | 保留准确政策/结果 |
 | 路由或站点不可用 | `completed` | `unavailable` | 尽可能保留结构化证据 |
 | 只有未获授权的付费入口 | `completed` | `paid_only` | 不得付款 |
-| 必需 backlink/badge 已注册且 Product 首页验证通过 | 继续当前任务 | 保留当前生命周期 | 不要提前 Complete，继续原始目录提交 |
+| backlink / reciprocal / permanent backlink / badge 要求可由 Shipmore outbound-link 满足，且首页验证通过 | 继续当前任务 | 保留当前生命周期 | 不要提前 Complete；这些措辞本身绝不是 `ineligible`，继续原始目录提交 |
 | 6 次首页检查仍找不到 backlink | `blocked` | `ineligible` | exact result/error 必须包含 `backlink verification timeout` |
-| 除已授权 outbound-link 流程外还要求修改站点 | `completed` | `ineligible` | 不执行该修改 |
+| 有明确页面证据证明除已验证普通 backlink 外还强制要求 Shipmore endpoint 无法完成的特定站点修改 | `completed` | `ineligible` | 例如特定 Badge 图片/HTML/script/属性、无法生成的指定锚文本或精确 listing URL；不得仅凭 reciprocal/permanent/badge 字样判断 |
 | Product 不符合目录资格 | `completed` | `ineligible` | 记录原因 |
 | 目录确认已有列表且无需操作 | `completed` 或 `skipped` | `duplicate_no_action` | 只有实际确认重复时使用 |
 | 用户明确停止该任务 | `skipped` | `terminated_by_user` | 没有新 Run/action 不得继续 |
@@ -126,7 +126,9 @@ unavailable
 
 ## 必需 backlink 结果
 
-注册 API 成功不等于验证成功。只有 Product 首页 HTML 或最终 DOM 中的 `<a href>` 解析后 hostname/path 与目录 URL 完全匹配，才允许继续表单。允许 scheme、开头 `www.` 和结尾斜杠不同；不允许子字符串、伪后缀域名或不同路径。
+首先区分“页面措辞”和“实际技术要求”。`reciprocal`、`permanent`、`link back`、`badge required` 等文字不改变标准流程，也不能单独产生 `ineligible`。只要目录实际接受 Product 首页存在指向目录的普通链接，Shipmore outbound-link 就是授权实现方式。
+
+注册 API 成功不等于验证成功。只有 Product 首页 HTML 或最终 DOM 中的 `<a href>` 解析后 hostname/path 与目录 URL 完全匹配，才允许继续表单。允许 scheme、开头 `www.` 和结尾斜杠不同；不允许子字符串、伪后缀域名或不同路径。验证成功后必须继续原始提交，不得再次因 reciprocal/permanent/badge 要求提前 Complete。
 
 轮询期间每次检查前都发送 heartbeat。若收到 409 或证明租约已过期/归属他人，立即停止，不得继续提交或 Complete。
 
