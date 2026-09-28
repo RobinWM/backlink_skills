@@ -45,7 +45,7 @@ while true:
 
 ## 打开浏览器前
 
-所有目录网页、登录、原生验证、表单和 Gmail 网页回退操作必须通过 `agent-browser` named session 完成，并遵守 [agent-browser-runtime.md](agent-browser-runtime.md)。Google 托管邮箱邮件读取仍优先使用已授权 `gws`。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete，不代替页面点击或填写。
+所有目录网页、登录、原生验证、表单，以及已授权的 Gmail 网页读取/发送操作必须通过 `agent-browser` named session 完成，并遵守 [agent-browser-runtime.md](agent-browser-runtime.md)。Google 托管邮箱邮件读取仍优先使用已授权 `gws`。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete，不代替页面点击或填写。
 
 确认：
 
