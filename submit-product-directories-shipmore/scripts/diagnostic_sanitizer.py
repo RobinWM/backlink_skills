@@ -27,6 +27,16 @@ CREDENTIAL_TEXT_RE = re.compile(
 HTTP_URL_RE = re.compile(r"https?://[^\s\"'<>]+")
 
 
+def _sanitize_path(path: str) -> str:
+    safe_segments = []
+    for segment in path.split("/"):
+        cleaned = EMAIL_RE.sub("[email]", segment)
+        if len(cleaned) >= 24 and re.fullmatch(r"[A-Za-z0-9._~-]+", cleaned):
+            cleaned = "[opaque]"
+        safe_segments.append(cleaned)
+    return "/".join(safe_segments)
+
+
 def strip_url_secrets(url: str) -> str:
     try:
         parsed = urlsplit(url)
@@ -34,7 +44,15 @@ def strip_url_secrets(url: str) -> str:
         return "[url]"
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return "[url]"
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    return urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            _sanitize_path(parsed.path),
+            "",
+            "",
+        )
+    )
 
 
 def sanitize_text(value: str) -> str:
