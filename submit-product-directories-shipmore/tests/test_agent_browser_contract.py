@@ -68,3 +68,15 @@ def test_production_runtime_files_exist():
     assert (SKILL_ROOT / "runtime" / "agent-browser.version").read_text(encoding="utf-8").strip() == "0.38.1"
     assert (SKILL_ROOT / "scripts" / "runtime_cleanup.py").is_file()
     assert (SKILL_ROOT / "scripts" / "diagnostic_sanitizer.py").is_file()
+
+
+def test_backlink_wording_cannot_be_used_as_ineligible_shortcut():
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    worker = (SKILL_ROOT / "references" / "worker-loop.md").read_text(encoding="utf-8")
+    status = (SKILL_ROOT / "references" / "status-mapping.md").read_text(encoding="utf-8")
+    checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
+
+    assert "这些文字本身绝不能作为 `ineligible` 依据" in skill
+    assert "验证成功即表示“网站存在指向目录的链接”这一条件已满足" in worker
+    assert "reciprocal/permanent/badge 字样" in status
+    assert "验证通过后没有仅因这些措辞把任务判为 `ineligible`" in checklist
