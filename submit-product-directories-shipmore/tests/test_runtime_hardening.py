@@ -197,3 +197,42 @@ def test_lease_guard_rejects_different_worker(tmp_path):
     )
     with pytest.raises(LeaseGuardError, match="another worker"):
         assert_lease_guard_valid(guard, expected_worker_id="worker-b")
+
+
+def test_final_click_checks_existing_run_item_guard_before_heartbeat(
+    tmp_path, monkeypatch
+):
+    guard = tmp_path / "lease.json"
+    guard.write_text(
+        json.dumps(
+            {
+                "valid": True,
+                "reason": "heartbeat_ok",
+                "workerId": "worker-a",
+                "runItemId": "item-1",
+                "deadlineEpoch": time.time() + 300,
+            }
+        ),
+        encoding="utf-8",
+    )
+    called = {"refresh": False}
+
+    def fake_refresh(*args, **kwargs):
+        called["refresh"] = True
+        return {"success": True}
+
+    monkeypatch.setattr("agent_browser_adapter.refresh_lease_from_env", fake_refresh)
+    adapter = AgentBrowserAdapter(
+        "item-2",
+        env={
+            "SHIPMORE_MANAGED_LEASE": "1",
+            "SHIPMORE_LEASE_GUARD_PATH": str(guard),
+            "BACKLINK_WORKER_ID": "worker-a",
+        },
+        runner=lambda *a, **k: subprocess.CompletedProcess(
+            [], 0, json.dumps({"success": True, "data": {"visible": True}}), ""
+        ),
+    )
+    with pytest.raises(AgentBrowserError, match="another Run Item"):
+        adapter.final_click("submit", "@e1")
+    assert called["refresh"] is False
