@@ -292,7 +292,13 @@ class AgentBrowserAdapter:
                 "fresh_task refused because the session is already active"
             )
         for action_type in FINAL_ACTION_TYPES:
-            if FinalActionJournal(self.run_item_id, action_type).read() is not None:
+            try:
+                journal = FinalActionJournal(self.run_item_id, action_type).read()
+            except FinalActionError as exc:
+                raise AgentBrowserError(
+                    "fresh_task refused because final-action journal is unreadable"
+                ) from exc
+            if journal is not None:
                 raise AgentBrowserError(
                     "fresh_task refused because a final-action journal already exists"
                 )
