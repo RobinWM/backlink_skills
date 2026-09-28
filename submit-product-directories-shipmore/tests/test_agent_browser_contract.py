@@ -24,6 +24,9 @@ def test_runtime_requires_named_session_restore_and_readback():
         "Submit",
         "Gmail Send",
         "一个 Run Item 对应一个独立 named session",
+        "BACKLINK_AGENT_BROWSER_AUTH_STATE",
+        "state load",
+        "已有该 Run Item 的 restore state",
     )
     for phrase in required:
         assert phrase in runtime
@@ -44,3 +47,11 @@ def test_routing_keeps_codex_as_business_decision_agent():
     assert "Codex 是唯一业务决策 Agent" in routing
     assert "字段业务含义" in routing
     assert "最终动作只执行一次" in routing
+
+
+def test_auth_seed_is_bootstrap_only():
+    runtime = RUNTIME_MD.read_text(encoding="utf-8")
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    assert "agent-browser --auto-connect state save" in runtime
+    assert "已有 restore state 永远优先" in skill or "已有 Run Item 状态必须优先恢复" in skill
+    assert "不得对正在恢复的 Run Item 使用" in runtime
