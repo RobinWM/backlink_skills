@@ -160,3 +160,26 @@ def test_adapter_uses_path_resolved_executable(monkeypatch):
     adapter = AgentBrowserAdapter("item-1", runner=runner)
     assert adapter.version() == AGENT_BROWSER_VERSION
     assert runner.calls[0][0].endswith("agent-browser.cmd")
+
+
+def test_worker_pool_resolves_command_shim(monkeypatch):
+    import shipmore_worker_pool as pool
+
+    monkeypatch.setattr(pool.shutil, "which", lambda value, path=None: "C:/tools/codex.cmd")
+    captured = []
+
+    class Child:
+        def wait(self, timeout=None):
+            return 0
+        def poll(self):
+            return 0
+
+    monkeypatch.setattr(pool.subprocess, "Popen", lambda command, **kwargs: captured.append(command) or Child())
+    assert pool.run_pool(
+        "run-1",
+        1,
+        "codex",
+        ["codex", "--help"],
+        skip_preflight=True,
+    ) == 0
+    assert captured[0][0].endswith("codex.cmd")
