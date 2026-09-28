@@ -12,6 +12,7 @@ import subprocess
 import sys
 from typing import Any, Callable, Sequence
 
+from diagnostic_sanitizer import sanitize_diagnostic, sanitize_text
 from final_action_guard import FinalActionError, FinalActionJournal, FINAL_ACTION_TYPES
 from lease_keeper import (
     LeaseGuardError,
@@ -140,7 +141,7 @@ class AgentBrowserAdapter:
         key = self.env.get("AGENT_BROWSER_ENCRYPTION_KEY")
         if key:
             result = result.replace(key, "[encryption-key]")
-        return result
+        return sanitize_text(result)
 
     def _run(
         self,
@@ -461,7 +462,7 @@ class AgentBrowserAdapter:
         }
         for name, args in checks.items():
             try:
-                result[name] = self._run_json(args)
+                result[name] = sanitize_diagnostic(self._run_json(args), name)
             except AgentBrowserError as exc:
                 result[name] = {"error": self._redact(str(exc))}
         if screenshot_path:
