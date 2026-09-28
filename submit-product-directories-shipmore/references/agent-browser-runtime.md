@@ -43,7 +43,7 @@ python3 scripts/agent_browser_adapter.py preflight
 ~~~text
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path outside repository>
 AGENT_BROWSER_ENCRYPTION_KEY=<required 64 hex chars in production>
-AGENT_BROWSER_STATE_EXPIRE_DAYS=7
+AGENT_BROWSER_STATE_EXPIRE_DAYS=36500
 AGENT_BROWSER_NAMESPACE=shipmore
 ~~~
 
