@@ -117,6 +117,14 @@ def test_terminal_cleanup_only_clears_eligible_records(tmp_path, monkeypatch):
 
     def runner(command, **kwargs):
         calls.append(command)
+        joined = " ".join(command)
+        if "state list" in joined:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=first["sessionId"] + "\n",
+                stderr="",
+            )
         return subprocess.CompletedProcess(command, 0, stdout="cleared", stderr="")
 
     result = cleanup_terminal_sessions(
@@ -128,8 +136,8 @@ def test_terminal_cleanup_only_clears_eligible_records(tmp_path, monkeypatch):
     assert result["success"] is True
     assert result["cleaned"] == ["item-old"]
     assert result["deferred"] == ["item-new"]
-    assert len(calls) == 1
-    assert calls[0][-3:] == ["state", "clear", first["sessionId"]]
+    assert len(calls) == 2
+    assert calls[1][-3:] == ["state", "clear", first["sessionId"]]
 
 
 def test_complete_success_registers_terminal_cleanup(monkeypatch):
@@ -213,3 +221,55 @@ def test_supervisor_allows_clean_workers_to_finish():
 def test_cleanup_session_id_matches_adapter_contract():
     adapter = AgentBrowserAdapter("same-item")
     assert deterministic_session_id("same-item") == adapter.session_id
+
+
+def test_terminal_cleanup_treats_missing_state_as_already_clean(tmp_path, monkeypatch):
+    monkeypatch.setenv("SHIPMORE_TERMINAL_SESSION_DIR", str(tmp_path / "terminal"))
+    mark_terminal_session(
+        "item-no-state",
+        status="skipped",
+        submission_status="duplicate_no_action",
+        retention_days=0,
+        now=100,
+    )
+
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    result = cleanup_terminal_sessions(
+        executable="agent-browser",
+        namespace="shipmore",
+        now=101,
+        runner=runner,
+    )
+    assert result["success"] is True
+    assert result["cleaned"] == ["item-no-state"]
+    assert len(calls) == 1
+    assert "state list" in " ".join(calls[0])
+
+
+def test_pool_launch_failure_terminates_started_workers(monkeypatch):
+    import shipmore_worker_pool as pool
+
+    first = FakeChild(None)
+    calls = {"count": 0}
+
+    def popen(command, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return first
+        raise OSError("boom")
+
+    monkeypatch.setattr(pool.subprocess, "Popen", popen)
+    with pytest.raises(ValueError, match="failed to start worker slot 2"):
+        pool.run_pool(
+            "run-1",
+            2,
+            "codex",
+            ["worker"],
+            skip_preflight=True,
+        )
+    assert first.terminated is True
