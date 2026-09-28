@@ -45,7 +45,7 @@ while true:
 
 ## 打开浏览器前
 
-所有浏览器、目录原生验证和 Gmail 操作必须通过 `ego-browser` skill 完成。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete，不代替页面点击或填写。
+所有目录网页、登录、原生验证、表单，以及已授权的 Gmail 网页读取/发送操作必须通过 `agent-browser` named session 完成，并遵守 [agent-browser-runtime.md](agent-browser-runtime.md)。Google 托管邮箱邮件读取仍优先使用已授权 `gws`。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete，不代替页面点击或填写。
 
 确认：
 
@@ -53,7 +53,9 @@ while true:
 - `claimedBy` 与当前 worker 一致；
 - 租约尚未过期；
 - Product 和 Directory 数据足以支持下一步只读检查；
-- 既有 `submissionStatus` 不禁止盲目重投。
+- 既有 `submissionStatus` 不禁止盲目重投；
+- 为当前 `runItemId` 建立稳定且唯一的 `agent-browser` named session，整个 Run Item 复用同一 session 并启用 `--restore`；
+- 不使用默认 session、共享 CDP/`--auto-connect` 人类浏览器或其他浏览器后端。
 
 优先使用 `submitUrl`。如果它是首页或重定向到其他官方提交路由，必须在任何表单修改前检查目标地址。
 
@@ -67,7 +69,7 @@ while true:
 4. **其他不符合资格**：不支持的资格、禁止的非 backlink 站点修改或无关商业/社区动作分类为 `ineligible`。
 5. **重复项/既有生命周期保护**：检查既有 Shipmore 状态和明确的现有列表。绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。
 6. **入口和内容面分类**：按照 [entry-and-content-routing.md](entry-and-content-routing.md) 从首页、导航、页脚、站内搜索和真实控件确认当前入口；在填写字段前完成站内重复查询，并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方 Contact 邮件必须分别分类。`short note — no action`、`long post — no action` 和 `unknown — no action` 立即停止该站的内容动作；只有内容编辑器的站点使用 `ineligible`。
-7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前 ego-browser 中匹配的现有会话、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交。
+7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前 `agent-browser` named session 中匹配的现有会话、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交。
 8. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
 9. **验证挑战**：暴露 CAPTCHA、Turnstile、邮箱挑战等原生验证。未解决的人工验证使用 `blocked_manual_verification`。
 10. **表单执行**：只有现在才能填写可变的产品目录字段并走向最终动作。
@@ -118,6 +120,8 @@ while true:
 | 创始人/你的 GitHub 资料 | `productFounderGithubUrl` |
 | Logo | `productLogo` |
 | 主图 | `productOgImage` |
+
+字段语义解释由 Codex 完成：先读取最新 `agent-browser snapshot -i --json`，结合 label、role、placeholder、相邻帮助文本和页面上下文，把页面字段映射到上表的 Shipmore 字段。`agent-browser` 只负责暴露页面结构并执行 Codex 指定的动作，不得自行生成、补全或猜测 Product 事实。所有关键文本字段在 `fill` 后必须 `get value` 回读；页面状态变化、导航、iframe 变化或 tab 切换后必须重新 snapshot，再使用新的或仍存活的 ref。
 
 不要在新逻辑中使用已废弃的 `productGithubUrl` 别名；它只为兼容存在，表示创始人 GitHub，不是仓库。
 
@@ -197,9 +201,9 @@ heartbeat 返回 409 时停止，不得假装仍拥有租约而执行最终提�
 
 最终动作前必须完成 [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md) 的检查并记录 `checklist PASS/FAIL`、检查时间和 `evidenceReference`。结果分类后再次执行检查；如果 `published` 没有公开列表 URL、重复检查没有证据或租约已失效，必须按事实降级或阻塞，不能继续 Complete 为成功。
 
-## CDP 失败诊断与受控重试
+## agent-browser 失败诊断与受控重试
 
-CDP 超时、空响应、找不到元素或页面状态不明时，不得直接重跑。只有下一步与上次操作实质不同，且已经产生新证据，才允许一次受控重试。将以下结构化对象随 Complete 载荷写入 attempt metadata：
+`agent-browser` 命令超时、空响应、`tab_gone`、找不到元素、写入值不一致或页面状态不明时，不得直接重跑。只有下一步与上次操作实质不同，且已经产生新证据，才允许一次受控重试。将以下结构化对象随 Complete 载荷写入 attempt metadata：
 
 ```json
 {

@@ -1,12 +1,8 @@
 # 目录账号身份验证
 
-所有登录、OAuth、邮箱验证码、Gmail 读取和目录会话操作必须通过指定的 `ego-browser` skill 完成。先读取：
+所有目录网页登录、OAuth、邮箱验证码输入、magic link 打开和目录会话操作必须通过 `agent-browser` 完成，并遵守 [agent-browser-runtime.md](agent-browser-runtime.md)。Google 托管邮箱的验证邮件读取优先使用已授权 `gws`；只有 `gws` 不可用时，才允许在同一个 `agent-browser` named session 中新建 Gmail 标签页读取匹配邮件。
 
-```text
-C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser\SKILL.md
-```
-
-使用同一个 ego-browser TaskSpace/Page 完成目录认证和原始提交；不要改用其他浏览器自动化工具或直接读取浏览器 Cookie/存储。
+成功 claim 后为当前 `runItemId` 使用稳定的 named session，并在整个认证与原始提交过程中持续复用；不得切换到默认 session、其他浏览器后端或共享的人类 Chrome，也不得直接读取、导出或复制浏览器 Cookie/存储。
 
 ## 账号身份来源
 
@@ -19,14 +15,14 @@ C:\Program Files\Citro Labs\ego lite\Application\0.5.2.12\ego-skills\ego-browser
 
 ## 登录状态判断
 
-登录状态必须在当前 ego-browser TaskSpace/Page 中重新确认。至少检查一项可见身份和一项受保护功能：
+登录状态必须在当前 `agent-browser` named session 的当前页面中重新确认。至少检查一项可见身份和一项受保护功能：
 
 - 账号菜单中的可见用户标识、邮箱别名或头像菜单；
 - 页面提供 `Dashboard`、`Logout`、账号设置等已登录入口；
 - 受保护的目录提交页可以直接打开并显示表单，而不是重定向到登录/注册页；
 - 目录账号页面显示与有效提交身份一致的账号信息。
 
-claim 载荷中的历史 `exactResult`、其他浏览器中的登录状态、公开页面或地址栏 URL 不能单独证明当前 ego-browser 已登录。无法确认身份时，不得输入密码、复制会话材料或继续可变提交。
+claim 载荷中的历史 `exactResult`、其他浏览器中的登录状态、公开页面或地址栏 URL 不能单独证明当前 `agent-browser` session 已登录。无法确认身份时，不得输入密码、复制会话材料或继续可变提交。
 
 ## 授权范围
 
@@ -74,7 +70,7 @@ DIRECTORY_ACCOUNT_PASSWORD
 
 ## Gmail 验证（优先 `gws`，否则 Gmail 网页）
 
-Google 托管邮箱只能使用已经授权的 Gmail 账号。`gws` 可用时优先使用它；不可用时才可使用 `https://mail.google.com` 上现有且明确匹配 `productContactEmail` 的 Gmail 会话。只读取匹配验证邮件，不发送、回复、删除、归档、修改邮箱设置或使用其他账号。
+Google 托管邮箱只能使用已经授权的 Gmail 账号。`gws` 可用时优先使用它；不可用时才可使用 `https://mail.google.com` 上现有且明确匹配 `productContactEmail` 的 Gmail 会话。Gmail 网页回退必须使用当前目录的同一个 `agent-browser` named session：保留目录页面标签，另开带固定标签名的 Gmail tab；每次切换 tab 后重新 snapshot，绝不复用另一个 tab 的 `@ref`。只读取匹配验证邮件，不发送、回复、删除、归档、修改邮箱设置或使用其他账号。
 
 1. 先确认授权邮箱与 `productContactEmail` 一致；无法确认时，不要触发验证码。触发前记录 UTC 时间；租约存在时先 heartbeat。
 2. 只触发一次站点原生邮箱验证。除非站点明确报告验证码已过期或未发送，否则不要重复请求。
