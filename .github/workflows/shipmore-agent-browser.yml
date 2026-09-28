@@ -30,6 +30,7 @@ jobs:
 
   agent-browser-e2e-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,6 +51,7 @@ jobs:
 
   agent-browser-e2e-windows:
     runs-on: windows-latest
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
