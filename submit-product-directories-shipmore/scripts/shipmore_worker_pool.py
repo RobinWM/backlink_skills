@@ -10,6 +10,7 @@ from typing import Sequence
 from agent_browser_adapter import (
     AgentBrowserAdapter,
     AgentBrowserError,
+    DEFAULT_NAMESPACE,
     DEFAULT_STATE_EXPIRE_DAYS,
 )
 
@@ -32,6 +33,7 @@ def build_worker_env(
     env["SHIPMORE_CONCURRENCY"] = str(concurrency)
     env["BACKLINK_WORKER_ID"] = f"{worker_id_prefix}-{slot:02d}"
     env.setdefault("AGENT_BROWSER_STATE_EXPIRE_DAYS", str(DEFAULT_STATE_EXPIRE_DAYS))
+    env.setdefault("AGENT_BROWSER_NAMESPACE", DEFAULT_NAMESPACE)
     return env
 
 
