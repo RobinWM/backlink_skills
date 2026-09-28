@@ -23,7 +23,8 @@
 - [ ] 入口类型已分类为目录表单、产品资料页、claim listing、内容编辑器或官方联系邮件；
 - [ ] 站内重复查询已完成，且候选结果已核对实际出站 URL；
 - [ ] `evidenceReference` 已引用入口和重复检查证据；
-- [ ] 未选择未经授权的付费、推广、互链、DNS、站点编辑或其他法律/财务动作；
+- [ ] 未选择未经授权的付费、推广、DNS、额外站点编辑或其他法律/财务动作；Shipmore outbound-link endpoint 完成的 reciprocal/backlink 不属于“未经授权互链”；
+- [ ] 如果目录出现 backlink/reciprocal/permanent/badge 要求，已先走 Shipmore outbound-link；验证通过后没有仅因这些措辞把任务判为 `ineligible`；
 - [ ] 必需 backlink 已注册并通过 Product 首页精确 hostname/path 验证；
 - [ ] CAPTCHA、Turnstile、邮箱验证等挑战已通过，或已按规则保留人工交接；
 - [ ] 表单字段来自已验证 Product 数据，必填字段没有猜测值；
