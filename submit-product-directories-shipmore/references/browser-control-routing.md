@@ -41,7 +41,7 @@ Codex 负责：
 1. 成功 claim 后，以当前 `runItemId` 派生一个稳定、唯一且符合 agent-browser 命名规则的 named session。
 2. 整个 Run Item 必须复用同一个 named session，并启用 `--restore`。
 3. 不得使用 agent-browser 默认 session。
-4. 正常生产路径不得使用 `--cdp`、`--auto-connect` 或当前用户正在操作的人类 Chrome。
+4. 正常生产 Run Item 不得使用 `--cdp`、`--auto-connect` 或当前用户正在操作的人类 Chrome；`--auto-connect` 仅允许在 Run Item 之外由管理员执行一次 auth-seed 导出。
 5. 同一个 Run Item 的登录、OAuth、邮箱验证输入、表单、上传、最终动作和结果检查必须保持在同一个 named session 中。
 6. 同一 session 可以使用多个 tab；tab 切换后必须重新 snapshot，绝不能复用另一个 tab 的 `@ref`。
 7. worker 恢复任务时，先恢复同一个 session，再执行只读检查；未确认页面和服务器事实前不得继续可变操作。
@@ -54,6 +54,7 @@ Codex 负责：
 - `agent-browser` CLI 可执行；
 - runtime 支持 named session、`--restore`、snapshot、标准表单交互、tabs、screenshot、Console 和 Network 诊断；
 - 当前 session 与 runItemId 对应；
+- 若配置了 `BACKLINK_AGENT_BROWSER_AUTH_STATE`，它只作为新 session 的不透明 bootstrap 输入；已有 restore state 优先且不可被 seed 覆盖；
 - 当前页面属于预期 Directory / Product；
 - 当前租约仍归本 worker 所有；
 - 当前 tab 没有意外切换或恢复到无关页面。
