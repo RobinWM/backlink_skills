@@ -1,6 +1,7 @@
 name: Shipmore agent-browser
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "submit-product-directories-shipmore/**"
