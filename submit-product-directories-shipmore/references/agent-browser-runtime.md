@@ -242,6 +242,10 @@ OTP / magic link 只在内存和当前动作中临时使用，不写入日志、
 
 Magic link 必须在同一个 named session 内打开，以保持原注册会话的 Cookie/Storage 连续性。
 
+### 官方 Contact 邮件
+
+当 `actionChannel=official_contact_email` 且 Shipmore Run 已明确授权时，可在同一 named session 的 Gmail tab 中执行发送。发送前必须完成邮件渠道的去重、收件路由、主题/正文和空 CC/BCC 检查；Gmail Send 只允许一次。发送结果不明时只读检查 Sent/All Mail/Drafts/Outbox 和当前线程，不得重发。
+
 ## 10. 诊断命令
 
 只读诊断按需要使用：
