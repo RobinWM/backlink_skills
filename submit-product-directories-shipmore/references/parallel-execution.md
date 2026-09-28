@@ -36,7 +36,7 @@ python3 scripts/shipmore_worker_pool.py \
        -- <one-item-agent-command>
 ```
 
-如果不显式传 `--worker-id-prefix`，pool 使用仓库外持久化的唯一 `SHIPMORE_WORKER_INSTANCE_ID`。
+如果不显式传 `--worker-id-prefix`，pool 使用仓库外持久化的唯一 `SHIPMORE_WORKER_INSTANCE_ID`。若显式覆盖 prefix，调用方必须保证它在所有宿主机之间全局唯一；否则会破坏 Shipmore 的 worker ownership 语义。
 
 Windows 可以使用 `python` 或 `py -3`。
 
