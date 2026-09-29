@@ -26,7 +26,9 @@
 - [ ] 未选择未经授权的付费、推广、DNS、额外站点编辑或其他法律/财务动作；Shipmore outbound-link endpoint 完成的 reciprocal/backlink 不属于“未经授权互链”；
 - [ ] 如果目录出现 backlink/reciprocal/permanent/badge 要求，已先走 Shipmore outbound-link；纯 backlink/reciprocal/permanent 场景在验证通过后没有再错误进入 Badge 安装分支；
 - [ ] 必需 backlink 已注册并通过 Product 首页精确 hostname/path 验证；
-- [ ] 如果是 badge 场景且目录提供 Verify Badge / Check Backlink / Verify / Continue 等原生校验控件，已实际执行一次并记录实时结果；未执行目录原生校验时，没有仅凭 badge/permanent/install badge 文案、示例代码或图片预览判 `ineligible`；
+- [ ] 如果是 badge 场景，已把表单推进到最终动作前的最后安全阶段；verifier 之前 disabled、隐藏或要求先完整填表时，没有因此提前停止；
+- [ ] 如果最终动作前出现 Verify Badge / Check Backlink / Verify / Continue 等原生校验控件，已实际执行一次并记录实时结果；若没有执行成功，没有仅凭 badge/permanent/dofollow/install badge 文案、固定尺寸、示例代码或图片预览判 `ineligible`；
+- [ ] 当前不存在尚未解决的 Badge 验证 pending 状态；如果 verifier 明确失败，`ineligible` 结论包含具体技术错误证据；
 - [ ] CAPTCHA、Turnstile、邮箱验证等挑战已通过，或已按规则保留人工交接；
 - [ ] 表单字段来自已验证 Product 数据，必填字段没有猜测值；
 - [ ] 最终动作只计划执行一次；agent-browser 将通过 adapter `final-click`，ego-browser 将先执行 `browser_action_guard.py final-begin` 再执行一次最终动作；当前 runItemId + actionType 不存在已有 final-action journal。
