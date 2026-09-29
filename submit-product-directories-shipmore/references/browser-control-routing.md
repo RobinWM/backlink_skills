@@ -15,7 +15,7 @@ claim 成功后、第一次浏览器动作前，必须执行：
 python3 scripts/browser_action_guard.py select --run-item-id <runItemId> --provider <provider>
 ```
 
-该 provider lock 属于 Run Item 生命周期的一部分。同一个 Run Item 不得从 agent-browser 切到 ego-browser，也不得反向切换。账号阻塞若要换 provider，必须创建新的 Run / Run Item。
+该 provider lock 属于 Run Item 生命周期的一部分。同一个 Run Item 不得中途切换 provider：不得从 agent-browser 切到 ego-browser，也不得反向切换。账号阻塞若要换 provider，必须创建新的 Run / Run Item。
 
 浏览器执行前先读取：
 
@@ -137,12 +137,12 @@ checkbox/radio 必须只选择业务必需选项。不得勾选可选 newsletter
 
 认证业务顺序由 [account-authentication.md](account-authentication.md) 决定。
 
-- 只复用当前 named session 中可由页面证据确认的授权登录状态。
+- 只复用当前已锁定 provider 上下文中可由页面证据确认的授权登录状态。
 - 不读取、复制、导出或打印 Cookie、localStorage、session ID、密码、OTP、magic link 或其他隐藏认证材料。
-- Google/GitHub OAuth 只有在当前 session 已明确存在匹配的授权身份时才使用。
-- 邮箱验证码或 magic link 的邮件读取优先通过 `gws`；仅当 `gws` 不可用时，才在同一个 named session 里新开 Gmail tab。
-- 当 `actionChannel=official_contact_email` 且当前 Run 明确授权发送时，Gmail Web 发送也必须在同一 named session 中执行；Gmail Send 属于最终动作，只能执行一次。
-- Gmail 网页回退建议给目录页和 Gmail 页使用固定 tab label，例如 `directory` 和 `gmail`；每次切换后重新 snapshot。
+- Google/GitHub OAuth 只有在当前 provider 上下文已明确存在匹配的授权身份时才使用。
+- 邮箱验证码或 magic link 的邮件读取优先通过 `gws`；仅当 `gws` 不可用时，才在同一个 provider 浏览器上下文中打开 Gmail。
+- 当 `actionChannel=official_contact_email` 且当前 Run 明确授权发送时，Gmail Web 发送也必须在同一 provider 上下文中执行；Gmail Send 属于最终动作，只能执行一次。
+- provider 页面/标签切换后必须重新读取实时页面状态，不复用旧 ref/handle。
 - CAPTCHA、Turnstile、手机验证、KYC、passkey、安全密钥或人工审批不得绕过，按业务规则交接或阻塞。
 
 ## 租约感知
