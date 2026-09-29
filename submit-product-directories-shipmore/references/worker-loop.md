@@ -61,6 +61,29 @@ while true:
 
 优先使用 `submitUrl`。如果它是首页或重定向到其他官方提交路由，必须在任何表单修改前检查目标地址。
 
+## 调试：忽略历史业务状态
+
+当 `SHIPMORE_DEBUG_IGNORE_HISTORY=1` 时，`shipmore_queue_client.py claim` 会返回 `debugHistoryIgnored=true`，并把既有 Submission 业务历史归一化为新的调试视图：
+
+- `submissionStatus=not_attempted`
+- `verificationStatus=not_checked`
+- 历史 route/account/content-surface、提交时间、结果、证据、公开 URL、检查时间和 follow-up 字段清空
+- 历史邮件发送计数归零
+
+此模式下，业务判断必须重新读取当前站点、当前账号和当前表单状态。不得从旧 `exactResult`、旧截图、旧 follow-up 或其他接口重新恢复被屏蔽历史来决定本次结果。
+
+以下安全状态**仍然有效且不得忽略**：
+
+- `reason=claimed|reused`
+- Run Item status / lease / worker ownership
+- provider lock
+- browser recovery state
+- final-action journal 和稳定 completion eventId
+
+因此 debug 模式不等于“允许重放最终动作”。若同一 Run Item 已有 final-action journal，仍只能核验结果，不能再次 Submit。要获得最干净的调试环境，使用新的 Run / Run Item。
+
+注意：该模式只改变 worker 看到的 claim 业务历史，不会删除 Shipmore 数据库历史；Complete 仍会把本次实时判断写回 Shipmore，因此只应在明确的调试数据/调试 Run 上启用。
+
 ## 强制预检顺序
 
 按以下顺序执行只读检查，避免后续较弱的缺失字段掩盖更早的终止性政策结果：
@@ -69,7 +92,7 @@ while true:
 2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。
 3. **必需 backlink/badge**：页面出现 backlink、reciprocal link/backlink、permanent backlink、badge required 或同义措辞时，不得仅凭这些文字分类为 `ineligible`。先执行下方 Shipmore outbound-link 注册和首页验证；验证成功即表示“网站存在指向目录的链接”这一条件已满足，必须继续原始任务。
 4. **其他不符合资格**：只有取得明确页面证据证明目录还要求 Shipmore outbound-link 无法完成的额外站点修改（例如强制特定图片 Badge、指定 HTML/script/属性、无法由 endpoint 生成的指定锚文本或精确 listing URL），才把该额外要求作为 `ineligible` 候选。不得把“reciprocal”“permanent”“badge”这些措辞本身当作额外修改证据。其他真实资格不符或无关商业/社区动作仍按 `ineligible` 处理。
-5. **重复项/既有生命周期保护**：检查既有 Shipmore 状态和明确的现有列表。绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。
+5. **重复项/既有生命周期保护**：正常模式检查既有 Shipmore 状态和明确的现有列表，绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。当 `debugHistoryIgnored=true` 时，不使用被屏蔽的 Shipmore 生命周期做业务判断，但仍必须从当前站点实时检查是否已经存在列表/提交；final-action journal 仍可阻止重复最终动作。
 6. **入口和内容面分类**：按照 [entry-and-content-routing.md](entry-and-content-routing.md) 从首页、导航、页脚、站内搜索和真实控件确认当前入口；在填写字段前完成站内重复查询，并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方 Contact 邮件必须分别分类。`short note — no action`、`long post — no action` 和 `unknown — no action` 立即停止该站的内容动作；只有内容编辑器的站点使用 `ineligible`。
 7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前已锁定 provider 会话中的现有身份、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交；不得通过中途换 provider 绕过认证/挑战。
 8. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
@@ -140,6 +163,8 @@ while true:
 不得从营销文案推导独立的身份/联系方式事实，尤其不要猜邮箱、创始人、公司、社交账号、上线日期、法律身份或开源状态。符合资格的路由完成预检后，如果必填字段仍缺少且无法从官方来源只读验证，使用 `blocked_missing_verified_data`；可选未知字段保持为空。
 
 ## 既有状态处理
+
+以下规则只在正常模式使用。若 claim 明确返回 `debugHistoryIgnored=true`，跳过历史 Submission 生命周期分支，改为从当前站点重新判断；安全恢复状态和 final-action journal 不受影响。
 
 ### 已发布
 

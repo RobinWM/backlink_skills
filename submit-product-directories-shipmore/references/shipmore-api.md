@@ -59,6 +59,39 @@ Content-Type: application/json
 
 响应可能丢失时，用相同 `runId` 和 `workerId` 重试 claim，预期返回 `reused`。生产 workerId 必须是持久化且跨机器不冲突的 instance/slot ID；不要在多机部署中复用 `shipmore-worker-01` 这类通用名称。
 
+### 调试模式：屏蔽历史 Submission 业务字段
+
+设置：
+
+```text
+SHIPMORE_DEBUG_IGNORE_HISTORY=1
+```
+
+后，随附的 Queue client 会在 **claim 响应交给 worker 前**生成一个去历史化视图，并增加：
+
+```json
+{"debugHistoryIgnored": true}
+```
+
+它不会修改服务端 claim/lease 语义，也不会把 `reused` 伪装成 `claimed`。Run Item ID、Run Item status、worker/lease 字段和 reason 保持原样。
+
+业务历史字段按以下方式归一化：
+
+```text
+submissionStatus   -> not_attempted
+verificationStatus -> not_checked
+
+route/accountAlias/actionChannel/contentSurface/... -> null
+submittedAt/exactResult/evidenceReference/publicListingUrl -> null
+backendCheckedAt/mailboxCheckedAt/publicPageCheckedAt/lastCheckedAt -> null
+followUpAt/followUpNote -> null
+emailSendAttempts -> 0
+```
+
+Product、Directory、有效提交身份字段不变。
+
+该模式只改变 worker 的本地 claim 视图，不删除数据库历史。provider lock、browser restore、lease guard、final-action journal 和 completion eventId 仍必须执行。Complete 仍会正常写回本次结果，因此只能用于明确的调试 Run/调试数据，不应用于需要保留历史生命周期的生产记录。
+
 ## Heartbeat
 
 请求：
@@ -173,6 +206,8 @@ lastCheckedAt
 followUpAt
 followUpNote
 ```
+
+当 `debugHistoryIgnored=true` 时，上述字段除 `productDirectoryId` 外按前述调试规则归一化，不得作为历史事实恢复使用。
 
 ### Directory
 
