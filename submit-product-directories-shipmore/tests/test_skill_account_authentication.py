@@ -21,7 +21,7 @@ def test_auth_flow_covers_login_registration_and_gws_verification():
         "gws gmail +read",
         "`gws` 不可用",
         "https://mail.google.com",
-        "同一个 `agent-browser` named session",
+        "同一个 provider 浏览器上下文",
         "每 10 秒轮询一次，最多 2 分钟",
     )
     for phrase in required_phrases:
