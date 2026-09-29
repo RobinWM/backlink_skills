@@ -40,8 +40,8 @@ def test_runtime_requires_named_session_restore_and_readback():
 def test_ego_provider_is_explicit_and_experimental():
     routing = ROUTING_MD.read_text(encoding="utf-8")
     ego = (SKILL_ROOT / "references" / "ego-browser-runtime.md").read_text(encoding="utf-8")
-    assert "agent-browser   # 默认生产 provider" in routing
-    assert "ego-browser     # 实验 provider" in routing
+    assert "ego-browser     # 默认 provider" in routing
+    assert "agent-browser   # 可显式选择的备用 provider" in routing
     assert "不得中途切换" in routing
     assert "browser_action_guard.py mutation-check" in ego
     assert "browser_action_guard.py final-begin" in ego

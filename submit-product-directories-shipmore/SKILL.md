@@ -19,7 +19,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 - 后续跟进调度；
 - 提供给目录表单使用的已验证 Product 事实和有效提交身份。
 
-本 Skill 只对持有有效租约期间观察和操作浏览器的行为负责。浏览器执行由 `BACKLINK_BROWSER_PROVIDER` 在 Run Item 开始前选择，默认 `agent-browser`，可显式选择实验性的 `ego-browser`。同一个 Run Item 一旦锁定 provider，就不得中途切换。所有网页、登录、表单、验证码交接、站点原生验证、截图和已授权 Gmail 网页操作都必须通过已锁定 provider 完成；Google 托管邮箱验证邮件读取仍优先使用已授权的 `gws`。Queue API/CLI 只用于 Shipmore 任务领取、heartbeat、outbound-link 注册和状态回写。
+本 Skill 只对持有有效租约期间观察和操作浏览器的行为负责。浏览器执行由 `BACKLINK_BROWSER_PROVIDER` 在 Run Item 开始前选择，默认 `ego-browser`，可显式选择 `agent-browser`。同一个 Run Item 一旦锁定 provider，就不得中途切换。所有网页、登录、表单、验证码交接、站点原生验证、截图和已授权 Gmail 网页操作都必须通过已锁定 provider 完成；Google 托管邮箱验证邮件读取仍优先使用已授权的 `gws`。Queue API/CLI 只用于 Shipmore 任务领取、heartbeat、outbound-link 注册和状态回写。
 
 绝不要创建并行 Markdown 队列、本地队列游标或第二份规范提交记录。
 
@@ -31,7 +31,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 BACKLINK_APP_URL=https://shipmore.app
 BACKLINK_AGENT_TOKEN=<secret>
 BACKLINK_WORKER_ID=<stable worker alias; managed runtime may generate a persistent unique ID>
-BACKLINK_BROWSER_PROVIDER=agent-browser|ego-browser  # default agent-browser
+BACKLINK_BROWSER_PROVIDER=ego-browser|agent-browser  # default ego-browser
 BACKLINK_EGO_BROWSER_SKILL=<optional local ego-browser SKILL.md path>
 BACKLINK_AGENT_BROWSER_AUTH_STATE=<optional secure path to Chrome-exported auth seed>
 AGENT_BROWSER_ENCRYPTION_KEY=<required 64-hex production key>
@@ -55,7 +55,7 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 8. [references/parallel-execution.md](references/parallel-execution.md)（仅并发执行时）
 9. [references/production-hardening.md](references/production-hardening.md)（生产边界和未解决缺口）
 
-浏览器前置要求：先读取 [references/browser-control-routing.md](references/browser-control-routing.md)，随后按 provider 读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md) 或 [references/ego-browser-runtime.md](references/ego-browser-runtime.md)。claim 后先用 `scripts/browser_action_guard.py select --run-item-id <id> --provider <provider>` 锁定 provider。`agent-browser` 仍固定为 0.38.1 并执行 adapter preflight；`ego-browser` 仅作为明确选择的实验 provider。整个 Run Item 不得切换 provider，也不得转到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use 或共享的人类 Chrome。账号类阻塞若需要换 provider，必须创建新的 Run / Run Item。
+浏览器前置要求：先读取 [references/browser-control-routing.md](references/browser-control-routing.md)，随后按 provider 读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md) 或 [references/ego-browser-runtime.md](references/ego-browser-runtime.md)。claim 后先用 `scripts/browser_action_guard.py select --run-item-id <id> --provider <provider>` 锁定 provider。`ego-browser` 为默认 provider；`agent-browser` 可显式选择，仍固定为 0.38.1 并执行 adapter preflight。整个 Run Item 不得切换 provider，也不得转到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use 或共享的人类 Chrome。账号类阻塞若需要换 provider，必须创建新的 Run / Run Item。
 
 ## 事实来源规则
 
@@ -195,7 +195,7 @@ python3 scripts/shipmore_queue_client.py complete \
 - [references/worker-loop.md](references/worker-loop.md)：确定性的 worker 流程、Product 字段映射、预检顺序和重试规则。
 - [references/browser-control-routing.md](references/browser-control-routing.md)：与后端无关的浏览器选择和验证规则。
 - [references/agent-browser-runtime.md](references/agent-browser-runtime.md)：`agent-browser` session 生命周期、snapshot/ref、表单写入校验、标签页、诊断、恢复和最终动作规范。
-- [references/ego-browser-runtime.md](references/ego-browser-runtime.md)：`ego-browser` 实验 provider 的 TaskSpace/Page、lease guard、final-action fence 和认证边界。
+- [references/ego-browser-runtime.md](references/ego-browser-runtime.md)：默认 `ego-browser` provider 的 TaskSpace/Page、lease guard、final-action fence 和认证边界。
 - [references/account-authentication.md](references/account-authentication.md)：默认账号的授权登录、免费注册、安全运行时凭据，以及优先使用 `gws`、不可用时回退 Gmail 的验证流程。
 - [references/entry-and-content-routing.md](references/entry-and-content-routing.md)：入口发现、站内去重和内容面 no-action 分类。
 - [references/parallel-execution.md](references/parallel-execution.md)：多 worker 并发模型、managed worker runtime、唯一 worker identity 和 host affinity。

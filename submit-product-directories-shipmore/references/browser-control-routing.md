@@ -5,8 +5,8 @@
 浏览器执行通过 `BACKLINK_BROWSER_PROVIDER` 选择：
 
 ```text
-agent-browser   # 默认生产 provider
-ego-browser     # 实验 provider，主要用于账号/OAuth/安全检查兼容性实验
+ego-browser     # 默认 provider
+agent-browser   # 可显式选择的备用 provider
 ```
 
 claim 成功后、第一次浏览器动作前，必须执行：

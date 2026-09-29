@@ -1,18 +1,18 @@
 # ego-browser 实验运行规范
 
-本文件定义 `BACKLINK_BROWSER_PROVIDER=ego-browser` 时的实验执行路径。业务判断仍由 Codex 和 Shipmore 状态机完成；ego-browser 只负责页面观察与动作执行。
+本文件定义默认 `BACKLINK_BROWSER_PROVIDER=ego-browser` 的执行路径。业务判断仍由 Codex 和 Shipmore 状态机完成；ego-browser 只负责页面观察与动作执行。
 
 ## 1. 适用范围
 
-ego-browser provider 用于对账号登录、OAuth、Cloudflare/Vercel 安全检查等 agent-browser 兼容性较差的页面做受控实验。
+ego-browser provider 是当前默认执行路径，尤其用于账号登录、OAuth、Cloudflare/Vercel 安全检查等 agent-browser 兼容性较差的页面。
 
 它不是同一个 Run Item 内的 fallback。一个 Run Item 在第一次浏览器动作前必须锁定 provider，之后直到 Complete 都不得切换。
 
 推荐：
 
 ```text
-BACKLINK_BROWSER_PROVIDER=agent-browser   # 默认生产路径
-BACKLINK_BROWSER_PROVIDER=ego-browser     # 明确实验时使用
+BACKLINK_BROWSER_PROVIDER=ego-browser     # 默认路径
+BACKLINK_BROWSER_PROVIDER=agent-browser   # 显式备用路径
 ```
 
 如果本机 ego-browser skill 不是通过运行时名称直接可用，可额外设置：
@@ -127,10 +127,10 @@ ego-browser 可以利用其自己的受控浏览器会话来改善登录/OAuth�
 
 ## 7. 当前定位
 
-ego-browser provider 当前是实验路径：
+ego-browser provider 当前是默认路径：
 
-- agent-browser 仍是默认 provider；
+- ego-browser 是默认 provider；
 - agent-browser 的 unit / Linux real-browser E2E 仍是主 CI；
 - ego-browser 依赖本机已安装 skill，因此仓库 CI 不假设其存在；
-- 用于比较账号登录成功率时，应使用新的 Run Item，并记录 provider；
-- 只有验证稳定后才考虑扩大默认使用范围。
+- agent-browser 仍可通过 `BACKLINK_BROWSER_PROVIDER=agent-browser` 显式选择；
+- 用于比较两个 provider 的账号登录成功率时，应使用新的 Run Item，并记录 provider。

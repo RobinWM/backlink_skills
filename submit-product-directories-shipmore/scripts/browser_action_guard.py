@@ -19,7 +19,7 @@ from lease_keeper import (
 
 
 ALLOWED_PROVIDERS = {"agent-browser", "ego-browser"}
-DEFAULT_PROVIDER = "agent-browser"
+DEFAULT_PROVIDER = "ego-browser"
 DEFAULT_PROVIDER_LOCK_ROOT = Path.home() / ".shipmore" / "browser-providers"
 
 
