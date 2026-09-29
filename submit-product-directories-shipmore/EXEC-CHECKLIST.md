@@ -15,8 +15,8 @@
 
 - [ ] 当前 Run Item 仍由本 worker 持有；
 - [ ] 租约未过期；managed runtime 的 LeaseKeeper 正在运行且 lease guard 为 valid，direct/manual 模式必要时已显式 heartbeat；
-- [ ] agent-browser 0.38.1 / doctor preflight 已通过，当前 deterministic named session 与本 `runItemId` 绑定，并启用了恢复状态；
-- [ ] 当前页面使用最新 snapshot/refs；文本/select/check/upload 等标准写入已通过 adapter safe 方法和 read-back 校验；恢复登录态时已执行可用的 restore validation 或重新验证可见身份 + 受保护功能；
+- [ ] 当前 Run Item 已通过 `browser_action_guard.py select` 锁定 provider；若为 agent-browser，0.38.1 / doctor preflight 已通过且 deterministic named session 与 `runItemId` 绑定；若为 ego-browser，当前独立 TaskSpace/Page 与本 Run Item 绑定；
+- [ ] 当前页面使用最新 provider 页面证据；agent-browser 标准写入已通过 adapter safe 方法和 read-back 校验；ego-browser 的每次可变动作前已通过 `browser_action_guard.py mutation-check`，写入后重新读取页面确认；
 - [ ] Product、Directory、账号别名和当前提交路由相互匹配；
 - [ ] 既有 `submissionStatus` 不属于禁止盲目重投的状态；
 - [ ] 入口已经从首页、导航、页脚、站内搜索或真实控件确认；
@@ -28,7 +28,7 @@
 - [ ] 必需 backlink 已注册并通过 Product 首页精确 hostname/path 验证；
 - [ ] CAPTCHA、Turnstile、邮箱验证等挑战已通过，或已按规则保留人工交接；
 - [ ] 表单字段来自已验证 Product 数据，必填字段没有猜测值；
-- [ ] 最终动作只计划执行一次，并且将通过 adapter `final-click` 执行；当前 runItemId + actionType 不存在已有 final-action journal。
+- [ ] 最终动作只计划执行一次；agent-browser 将通过 adapter `final-click`，ego-browser 将先执行 `browser_action_guard.py final-begin` 再执行一次最终动作；当前 runItemId + actionType 不存在已有 final-action journal。
 
 ### 内容编辑器阻断
 
