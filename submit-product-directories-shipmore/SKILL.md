@@ -39,8 +39,10 @@ AGENT_BROWSER_STATE_EXPIRE_DAYS=36500
 AGENT_BROWSER_NAMESPACE=shipmore
 SHIPMORE_TERMINAL_STATE_RETENTION_DAYS=7
 SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
-SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 0
+SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 ```
+
+完整环境变量模板见 [`example.env`](example.env)。其中包含用户配置项、可选路径覆盖项以及 managed runtime 自动注入的内部变量。
 
 调用方还必须提供 Shipmore `runId`。
 
