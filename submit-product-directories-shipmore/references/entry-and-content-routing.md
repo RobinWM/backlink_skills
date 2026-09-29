@@ -79,7 +79,7 @@ duplicate confirmed: existing listing points to the canonical product URL
 
 ## 结果与执行边界
 
-目录出现 backlink、reciprocal/permanent backlink、link back 或 Badge 要求时，先判断 Shipmore outbound-link 是否已经产生并验证所需的首页链接。只要页面的实际要求是“存在指向该目录的链接”，验证通过就视为满足，不受页面措辞影响。不要仅因看到 `reciprocal`、`permanent`、`badge` 或没有图片 Badge 就阻塞/判 `ineligible`；只有页面明确证明普通链接不足并要求 endpoint 无法实现的特定图片、HTML/script/属性、指定锚文本或精确 listing URL 时，才进入额外修改判断。
+目录出现 backlink、reciprocal/permanent backlink、link back 或 Badge 要求时，先执行 Shipmore outbound-link 并验证 Product 首页。对于纯 backlink/reciprocal/permanent backlink，验证通过后条件已经满足，直接继续，不得转而寻找 Badge 入口。对于 Badge 场景，只要目录提供 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或等价原生校验控件，就必须在 outbound-link 验证成功后实际执行一次，再依据目录实时返回判断；不得仅因看到 `reciprocal`、`permanent`、`badge`、示例代码或没有图片 Badge 就阻塞/判 `ineligible`。只有原生校验明确失败并指出普通链接不足，或页面没有校验控件但明确且不可歧义地要求 endpoint 无法实现的特定图片、HTML/script/属性、指定锚文本或精确 listing URL 时，才进入额外修改判断。
 
 入口发现和站内去重必须发生在以下动作之前：
 

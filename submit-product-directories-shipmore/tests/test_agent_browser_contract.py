@@ -81,6 +81,23 @@ def test_backlink_wording_cannot_be_used_as_ineligible_shortcut():
     checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
 
     assert "这些文字本身绝不能作为 `ineligible` 依据" in skill
-    assert "验证成功即表示“网站存在指向目录的链接”这一条件已满足" in worker
-    assert "reciprocal/permanent/badge 字样" in status
-    assert "验证通过后没有仅因这些措辞把任务判为 `ineligible`" in checklist
+    assert "纯 backlink/reciprocal/permanent backlink" in worker
+    assert "install badge 字样" in status
+    assert "没有再错误进入 Badge 安装分支" in checklist
+
+
+def test_badge_requires_native_verifier_before_unsupported_classification():
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    worker = (SKILL_ROOT / "references" / "worker-loop.md").read_text(encoding="utf-8")
+    routing = (SKILL_ROOT / "references" / "entry-and-content-routing.md").read_text(encoding="utf-8")
+    checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
+
+    for phrase in ("Verify Badge", "Check Backlink", "实际执行一次"):
+        assert phrase in skill
+        assert phrase in worker
+
+    assert "不得仅凭说明文字" in skill
+    assert "原生校验明确失败" in routing
+    assert "未执行目录原生校验时" in checklist
+    assert "没有安全 Badge 变更入口" in worker
+    assert "不能修改 Product 网站" in worker
