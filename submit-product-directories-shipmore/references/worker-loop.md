@@ -102,7 +102,7 @@ while true:
 8. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
 9. **验证挑战**：暴露 CAPTCHA、Turnstile、邮箱挑战等原生验证。未解决的人工验证使用 `blocked_manual_verification`。
 10. **安全表单准备**：填写所有能够由已验证 Shipmore Product 数据支持的普通字段、选择合法分类、上传已授权素材，并推进到最终 Submit/Publish/Claim 之前的最后可逆阶段。此阶段允许为了**解锁目录原生 Badge/Backlink verifier**而填写表单；不得把“verifier 需要先完整填表”当作停止理由。不要执行最终 Submit/Publish/Claim。
-11. **延后的 Badge/Backlink 原生验证**：如果第 3 步识别到 badge 场景，重新读取当前页面。若出现 `Verify Badge` / `Check Backlink` / `Verify` / `Continue` 或语义等价控件，在 lease 有效且 mutation guard 通过后实际执行一次，并读取实时结果。若按钮此前 disabled，表单准备后必须重新检查。只有此时原生校验明确失败并指出当前普通 outbound-link 无法满足的特定图片 Badge、HTML/script/属性、指定锚文本或精确 listing URL，或表单已完整准备但页面始终没有可执行 verifier 且技术要求明确不可歧义，才允许分类为 `ineligible`。验证成功则继续最终动作。
+11. **延后的 Badge/Backlink 原生验证**：如果第 3 步识别到 badge 场景，重新读取当前页面。若出现 `Verify Badge` / `Check Backlink` / `Verify` / `Continue` 或语义等价控件，在 lease 有效且 mutation guard 通过后实际执行一次，并读取实时结果。若按钮此前 disabled，表单准备后必须重新检查。只有此时原生校验明确失败并指出当前普通 outbound-link 无法满足的特定图片 Badge、HTML/script/属性或无法由当前 endpoint 表达的指定锚文本，或表单已完整准备但页面始终没有可执行 verifier 且技术要求明确不可歧义，才允许分类为 `ineligible`。验证成功则继续最终动作。
 12. **最终动作**：只有所有前置条件（包括任何 pending Badge 验证）已经解决后，才进入 Submit/Publish/Claim。
 
 最终 Submit、Publish 或 Claim 前，必须按 [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md) 完成 `before_final_action` 检查。任一项目失败都不得执行最终动作。动作完成并分类结果后，再执行 `after_result_classification` 检查；检查失败时不得把结果标记为成功。
@@ -117,11 +117,11 @@ while true:
 2. 运行：
 
    ```bash
-   python3 scripts/shipmore_queue_client.py add-outbound-link --run-item-id <id> --product-url <productUrl> --directory-url <directoryUrl>
+   python3 scripts/shipmore_queue_client.py add-outbound-link --run-item-id <id> --product-url <productUrl> --directory-url <directoryUrl> [--linked-href <verifiedExactListingUrl>]
    ```
 
-3. 命令向 `POST {BACKLINK_APP_URL}/api/outbound-links` 发送 `{runItemId, workerId}`，然后每 20 秒只抓取 Product 首页，最多 6 次，每次抓取前发送 heartbeat。
-4. 只有首页解析出的 `<a href>` hostname/path 与解析后的 `directoryUrl` 完全匹配才算成功。scheme、开头 `www.` 和结尾斜杠可以不同；拒绝子字符串、伪后缀域名和不同路径。
+3. 默认向 `POST {BACKLINK_APP_URL}/api/outbound-links` 发送 `{runItemId, workerId}`。如果当前目录明确要求同 hostname 下的精确 listing URL，并且已经从实时页面/响应中验证了该 URL，则额外发送 `linkedHref`；不得猜测路径。服务端只接受与当前 Directory hostname 一致的 http(s) URL。
+4. 每 20 秒只抓取 Product 首页，最多 6 次，每次抓取前发送 heartbeat。验证目标是注册响应返回的实际 `linkedHref`，而不是固定 `directoryUrl`。只有首页解析出的 `<a href>` hostname/path 与该 `linkedHref` 完全匹配才算成功。scheme、开头 `www.` 和结尾斜杠可以不同；拒绝子字符串、伪后缀域名和不同路径。
 5. 标准 CLI 检查普通重定向后的服务器 HTML。若链接仅由客户端渲染，授权浏览器可检查最终首页 DOM，但必须使用相同的解析锚点规则。不要检查内页，也不要绕过 CAPTCHA/WAF/访问控制。
 6. 只有命令返回 `success=true` 且 `reason=backlink_verified`，或在租约有效期间取得等价的最终 DOM 证据，才能继续原始目录表单。
 7. 注册失败、租约丢失或 6 次检查都找不到链接时，在提交前停止。6 次超时记录 `backlink verification timeout`，并使用最接近事实的 blocked/ineligible 状态。
@@ -132,10 +132,11 @@ while true:
 
 1. 页面只要求 Product 网站存在指向目录的链接：无论写的是 backlink、reciprocal backlink、permanent backlink 或 link back，只要 Shipmore outbound-link 注册且首页验证为 `backlink_verified`，条件就已满足，立即继续原始提交。**此类场景不再进入 Badge 安装判断。**
 2. 页面使用 badge / install badge / permanent badge 等措辞时，仍先完成相同的 outbound-link 注册和首页验证。
+   - 如果页面明确给出当前 Product 对应的精确 listing URL，并要求 backlink 指向该 URL，先确认它与当前 Directory hostname 一致，再使用 `--linked-href` 注册该精确 URL；此能力已经支持，不能再把“要求精确 listing URL”本身判为 `ineligible`。
 3. 如果目录提供 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或语义等价的原生校验控件，但当前 disabled、隐藏在后续步骤、或明确要求先完成表单，**不要结束任务**。记录为“Badge 验证待解锁”，继续填写所有安全、可逆且有真实数据支持的表单字段，直到最终动作前的最后阶段，再重新寻找 verifier。
 4. verifier 一旦可执行，必须在当前 lease 有效时实际执行一次。执行前通过当前 provider 的 mutation guard，执行后重新读取页面/错误信息。
 5. 原生校验成功：条件已满足，继续最终动作；不得要求额外插入图片。
-6. 原生校验失败：只有失败信息明确指出普通链接不足，并要求特定 Badge 图片、指定 HTML/script/属性、endpoint 无法产生的指定锚文本或精确 listing URL，才认为需要当前能力无法完成的额外站点修改。
+6. 原生校验失败：只有失败信息明确指出普通链接不足，并要求特定 Badge 图片、指定 HTML/script/属性或 endpoint 无法产生的指定锚文本，才认为需要当前能力无法完成的额外站点修改。
 7. 表单已完整准备到最终动作前仍没有任何可执行 verifier 时，只有页面技术要求明确且不可歧义地规定上述具体结构，才允许进入额外修改判断；“永久”“互链”“reciprocal”“badge”“install our badge”、示例代码块、Badge 预览图或“verifier 尚未解锁”本身都不是充分证据。
 8. outbound-link 已验证后，禁止出现“没有安全 Badge 变更入口”“不能修改 Product 网站，所以停止”“需要完整表单所以无法验证”这类结论，除非已经完成第 3–7 条并取得决定性技术证据。
 
