@@ -93,12 +93,12 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 ## 浏览器执行规则
 
 - 所有浏览器操作必须落在当前 Run Item 已锁定的 provider 上。`agent-browser` 使用 deterministic named session + adapter；`ego-browser` 使用独立 TaskSpace/Page，并在每次可变动作前调用 `scripts/browser_action_guard.py mutation-check --run-item-id <id>`。两种 provider 都必须受同一个 Shipmore lease、final-action journal、字段真实性和结果分类规则约束；浏览器 provider 只执行页面动作，页面字段语义、Shipmore 字段映射和结果分类仍由 Codex 完成。
-- 登录状态必须以当前 `agent-browser` named session 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他浏览器/session 的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
-- 如果当前 `agent-browser` session 已显示与有效提交身份匹配的已登录账号，可以复用该 session 继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
+- 登录状态必须以当前已锁定 provider 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他 provider/浏览器会话的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
+- 如果当前 provider 上下文已显示与有效提交身份匹配的已登录账号，可以复用该会话继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。
-- 有可用的已授权会话时优先复用。Chrome 导出的 auth seed 只允许作为不透明运行时输入初始化全新 Run Item session；生产 seed 应来自专用的 “Shipmore Worker” Chrome Profile，而不是日常浏览器 Profile。worker 不得读取、解析、打印或修改 seed 内容。生产 restore state 必须设置 `AGENT_BROWSER_ENCRYPTION_KEY`。agent-browser 自带的纯年龄过期设为高 safety ceiling（`AGENT_BROWSER_STATE_EXPIRE_DAYS=36500`）；真正的清理由 Shipmore terminal lifecycle 驱动，默认 terminal 后保留 7 天。
+- 有可用的已授权会话时优先复用。对于 agent-browser，Chrome 导出的 auth seed 只允许作为不透明运行时输入初始化全新 Run Item session；已有 restore state 永远优先，不能被 seed 覆盖。生产 seed 应来自专用的 “Shipmore Worker” Chrome Profile，而不是日常浏览器 Profile。worker 不得读取、解析、打印或修改 seed 内容。ego-browser 不读取该 auth seed，而使用其自身 provider 会话。生产 restore state 必须设置 `AGENT_BROWSER_ENCRYPTION_KEY`。agent-browser 自带的纯年龄过期设为高 safety ceiling（`AGENT_BROWSER_STATE_EXPIRE_DAYS=36500`）；真正的清理由 Shipmore terminal lifecycle 驱动，默认 terminal 后保留 7 天。
 - 目录需要身份验证时，遵循 [references/account-authentication.md](references/account-authentication.md)。使用 claim 载荷中的有效 `productContactEmail` 作为账号邮箱，并按以下顺序尝试已授权方式：已有 Google 会话、已有 GitHub 会话、站点原生邮箱验证码或 magic link（对于 Google 托管邮箱，优先使用已授权的 `gws`；仅当 `gws` 不可用时，才使用 `https://mail.google.com` 上现有且匹配的 Gmail 会话），最后才使用邮箱/密码。只有站点明确报告该邮箱没有账号时，才创建一个普通免费账号；身份验证成功后继续原始提交。
 - 绝不要在 Shipmore evidence 中打印、持久化、截图或写入凭据、OTP、magic link 或邮箱内容。运行时凭据位于配置的仓库外部敏感文件中。
 - 绝不要绕过 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或站点访问控制。允许使用已授权邮箱完成站点正常的邮箱验证；不允许绕过或削弱验证。
