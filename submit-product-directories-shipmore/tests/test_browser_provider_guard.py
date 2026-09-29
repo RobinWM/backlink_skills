@@ -16,9 +16,9 @@ from browser_action_guard import (  # noqa: E402
 )
 
 
-def test_provider_defaults_to_agent_browser(monkeypatch):
+def test_provider_defaults_to_ego_browser(monkeypatch):
     monkeypatch.delenv("BACKLINK_BROWSER_PROVIDER", raising=False)
-    assert provider_from_env() == "agent-browser"
+    assert provider_from_env() == "ego-browser"
 
 
 def test_provider_lock_prevents_mid_item_switch(tmp_path, monkeypatch):
