@@ -79,7 +79,7 @@ duplicate confirmed: existing listing points to the canonical product URL
 
 ## 结果与执行边界
 
-目录出现 backlink、reciprocal/permanent backlink、link back 或 Badge 要求时，先执行 Shipmore outbound-link 并验证 Product 首页。对于纯 backlink/reciprocal/permanent backlink，验证通过后条件已经满足，直接继续，不得转而寻找 Badge 入口。对于 Badge 场景，原生 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或等价 verifier **可以依赖表单状态**：如果当前不可执行、disabled 或只在后续步骤出现，允许继续填写所有安全、可逆且由已验证 Product 数据支持的字段，把页面推进到最终动作之前，再重新寻找并实际执行 verifier。不得仅因 verifier 未解锁、看到 `reciprocal`/`permanent`/`badge`、示例代码、固定尺寸或没有图片 Badge 就阻塞/判 `ineligible`。只有在表单已经准备到最终动作前后，原生校验明确失败并指出普通链接不足，或始终没有 verifier 且页面技术要求明确不可歧义地要求 endpoint 无法实现的特定图片、HTML/script/属性、指定锚文本或精确 listing URL 时，才进入额外修改判断。
+目录出现 backlink、reciprocal/permanent backlink、link back 或 Badge 要求时，先执行 Shipmore outbound-link 并验证 Product 首页。对于纯 backlink/reciprocal/permanent backlink，验证通过后条件已经满足，直接继续，不得转而寻找 Badge 入口。对于 Badge 场景，原生 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或等价 verifier **可以依赖表单状态**：如果当前不可执行、disabled 或只在后续步骤出现，允许继续填写所有安全、可逆且由已验证 Product 数据支持的字段，把页面推进到最终动作之前，再重新寻找并实际执行 verifier。不得仅因 verifier 未解锁、看到 `reciprocal`/`permanent`/`badge`、示例代码、固定尺寸或没有图片 Badge 就阻塞/判 `ineligible`。如果目录明确要求链接到当前 Directory hostname 下的精确 listing URL，并且该 URL 能从实时页面/响应中验证，则使用 outbound-link 自定义 `linkedHref`，不得把这一要求视为能力缺失。只有在表单已经准备到最终动作前后，原生校验明确失败并指出普通链接不足，或始终没有 verifier 且页面技术要求明确不可歧义地要求 endpoint 无法实现的特定图片、HTML/script/属性或指定锚文本时，才进入额外修改判断。
 
 入口发现和站内去重必须发生在以下动作之前：
 

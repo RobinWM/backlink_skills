@@ -124,3 +124,15 @@ def test_badge_pending_blocks_final_action_not_form_preparation():
 
     assert "不要执行最终 Submit/Publish/Claim" in worker
     assert "当前不存在尚未解决的 Badge 验证 pending 状态" in checklist
+
+
+def test_exact_listing_url_uses_custom_linked_href_instead_of_ineligible():
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    worker = (SKILL_ROOT / "references" / "worker-loop.md").read_text(encoding="utf-8")
+    status = (SKILL_ROOT / "references" / "status-mapping.md").read_text(encoding="utf-8")
+    checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
+
+    assert "--linked-href <verifiedExactListingUrl>" in skill
+    assert "不能再把“要求精确 listing URL”本身判为 `ineligible`" in worker
+    assert "精确 listing URL 若与当前 Directory hostname 一致" in status
+    assert "通过 `--linked-href` 注册" in checklist

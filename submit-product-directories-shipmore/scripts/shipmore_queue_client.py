@@ -327,14 +327,18 @@ class ShipmoreQueueClient:
             }
         )
 
-    def register_outbound_link(self, run_item_id: str) -> dict[str, Any]:
-        return self.post(
-            {
-                'runItemId': run_item_id,
-                'workerId': self.require_worker_id(),
-            },
-            url=self.outbound_links_url,
-        )
+    def register_outbound_link(
+        self,
+        run_item_id: str,
+        linked_href: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            'runItemId': run_item_id,
+            'workerId': self.require_worker_id(),
+        }
+        if linked_href is not None:
+            payload['linkedHref'] = normalize_http_url(linked_href)
+        return self.post(payload, url=self.outbound_links_url)
 
     def add_outbound_link(
         self,
@@ -343,6 +347,7 @@ class ShipmoreQueueClient:
         directory_url: str,
         lease_seconds: int,
         *,
+        linked_href: str | None = None,
         attempts: int = BACKLINK_POLL_ATTEMPTS,
         interval_seconds: int = BACKLINK_POLL_INTERVAL_SECONDS,
         fetcher=fetch_homepage_html,
@@ -355,12 +360,18 @@ class ShipmoreQueueClient:
             )
         product_url = normalize_http_url(product_url)
         directory_url = normalize_http_url(directory_url)
+        requested_linked_href = (
+            normalize_http_url(linked_href) if linked_href is not None else None
+        )
 
         heartbeat = self.heartbeat(run_item_id, lease_seconds)
         if heartbeat.get('success') is False:
             raise ShipmoreClientError('Heartbeat failed before backlink registration')
 
-        registration = self.register_outbound_link(run_item_id)
+        registration = self.register_outbound_link(
+            run_item_id,
+            requested_linked_href,
+        )
         if registration.get('success') is False:
             raise ShipmoreClientError('Outbound-link registration was rejected')
 
@@ -383,6 +394,25 @@ class ShipmoreQueueClient:
             )
         directory_url = registered_directory_url
 
+        registered_linked_href = (
+            registration_data.get('linkedHref')
+            if isinstance(registration_data, dict)
+            else None
+        )
+        if not isinstance(registered_linked_href, str):
+            raise ShipmoreClientError(
+                'Outbound-link registration response is missing linkedHref'
+            )
+        registered_linked_href = normalize_http_url(registered_linked_href)
+        if (
+            requested_linked_href is not None
+            and normalized_link_identity(registered_linked_href)
+            != normalized_link_identity(requested_linked_href)
+        ):
+            raise ShipmoreClientError(
+                'Outbound-link registration linkedHref does not match the requested URL'
+            )
+
         last_fetch_error: str | None = None
         for attempt in range(1, attempts + 1):
             heartbeat = self.heartbeat(run_item_id, lease_seconds)
@@ -398,7 +428,7 @@ class ShipmoreQueueClient:
                 matched_url = find_matching_outbound_link(
                     html,
                     final_product_url,
-                    directory_url,
+                    registered_linked_href,
                 )
             except ShipmoreClientError as exc:
                 last_fetch_error = str(exc)
@@ -412,6 +442,7 @@ class ShipmoreQueueClient:
                     'attempt': attempt,
                     'productUrl': final_product_url,
                     'directoryUrl': directory_url,
+                    'linkedHref': registered_linked_href,
                     'matchedUrl': matched_url,
                     'registration': registration,
                 }
@@ -421,8 +452,8 @@ class ShipmoreQueueClient:
 
         detail = f'; last fetch error: {last_fetch_error}' if last_fetch_error else ''
         raise ShipmoreClientError(
-            'backlink verification timeout: directory link was not found on the '
-            f'product homepage after {attempts} attempts{detail}'
+            'backlink verification timeout: registered outbound link was not found '
+            f'on the product homepage after {attempts} attempts{detail}'
         )
 
     def recover(self, run_id: str | None = None) -> dict[str, Any]:
@@ -555,6 +586,13 @@ def build_parser() -> argparse.ArgumentParser:
     add_outbound_link.add_argument('--run-item-id', required=True)
     add_outbound_link.add_argument('--product-url', required=True)
     add_outbound_link.add_argument('--directory-url', required=True)
+    add_outbound_link.add_argument(
+        '--linked-href',
+        help=(
+            'Optional exact outbound URL on the current directory hostname; '
+            'defaults to --directory-url'
+        ),
+    )
     add_lease_arg(add_outbound_link)
 
     recover = subparsers.add_parser('recover', help='Recover expired Run Item leases')
@@ -629,6 +667,7 @@ def main() -> int:
                 args.product_url,
                 args.directory_url,
                 args.lease_seconds,
+                linked_href=args.linked_href,
             )
         elif args.command == 'recover':
             result = client.recover(args.run_id)

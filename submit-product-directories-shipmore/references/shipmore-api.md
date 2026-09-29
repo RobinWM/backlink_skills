@@ -25,13 +25,16 @@ Content-Type: application/json
 ```json
 {
   "runItemId": "<leased-run-item-id>",
-  "workerId": "<same-worker-id-used-to-claim>"
+  "workerId": "<same-worker-id-used-to-claim>",
+  "linkedHref": "<optional-verified-exact-url-on-current-directory-hostname>"
 }
 ```
 
+`linkedHref` 可选；省略时服务端继续使用当前 Run Item 的 `directoryUrl`。提供时必须是 http(s) URL，且 hostname（忽略开头 `www.`）必须与当前 Directory hostname 一致。它用于目录明确要求精确 listing URL 的场景，必须来自当前实时页面/响应，不能猜测。
+
 调用前发送 heartbeat。非成功响应或租约丢失/归属异常/过期都是本 worker 尝试的终止条件：停止，不要继续提交目录。
 
-随附的 `add-outbound-link` 命令会完成注册和验证：只抓取 Product 首页，跟随普通 HTTP 重定向，解析 `<a href>`，每 20 秒轮询，最多 6 次。hostname/path 必须精确匹配；`http/https`、开头 `www.` 和结尾斜杠可不同。超时输出 `backlink verification timeout` 并以非零状态退出。
+随附的 `add-outbound-link` 命令会完成注册和验证，可通过 `--linked-href` 传入精确目标 URL。命令只抓取 Product 首页，跟随普通 HTTP 重定向，解析 `<a href>`，每 20 秒轮询，最多 6 次；验证目标以 API 返回的实际 `linkedHref` 为准。hostname/path 必须精确匹配；`http/https`、开头 `www.` 和结尾斜杠可不同。超时输出 `backlink verification timeout` 并以非零状态退出。
 
 ## Claim
 

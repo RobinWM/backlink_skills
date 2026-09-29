@@ -27,6 +27,7 @@ class RecordingClient(ShipmoreQueueClient):
         self,
         worker_id: str | None = 'worker-01',
         registered_directory_url: str = 'https://directory.example',
+        registered_linked_href: str | None = None,
     ):
         super().__init__(
             base_url='https://shipmore.example',
@@ -37,6 +38,7 @@ class RecordingClient(ShipmoreQueueClient):
         self.last_url = None
         self.calls = []
         self.registered_directory_url = registered_directory_url
+        self.registered_linked_href = registered_linked_href
 
     def post(self, payload, url=None):
         self.last_payload = payload
@@ -47,7 +49,11 @@ class RecordingClient(ShipmoreQueueClient):
                 'success': True,
                 'data': {
                     'directoryUrl': self.registered_directory_url,
-                    'linkedHref': self.registered_directory_url,
+                    'linkedHref': (
+                        self.registered_linked_href
+                        or payload.get('linkedHref')
+                        or self.registered_directory_url
+                    ),
                 },
             }
         return payload
@@ -224,6 +230,27 @@ class ShipmoreQueueClientTests(unittest.TestCase):
             'https://shipmore.example/api/outbound-links',
         )
 
+    def test_register_outbound_link_posts_custom_linked_href(self):
+        client = RecordingClient()
+
+        result = client.register_outbound_link(
+            'item-1',
+            'https://directory.example/listing/img-enhancer',
+        )
+
+        self.assertEqual(
+            client.last_payload,
+            {
+                'runItemId': 'item-1',
+                'workerId': 'worker-01',
+                'linkedHref': 'https://directory.example/listing/img-enhancer',
+            },
+        )
+        self.assertEqual(
+            result['data']['linkedHref'],
+            'https://directory.example/listing/img-enhancer',
+        )
+
     def test_register_outbound_link_requires_worker_id(self):
         client = RecordingClient(worker_id=None)
 
@@ -284,6 +311,65 @@ class ShipmoreQueueClientTests(unittest.TestCase):
                 'product.example',
                 'other-directory.example',
                 300,
+                attempts=1,
+                interval_seconds=0,
+                fetcher=lambda url, timeout: ('', url),
+            )
+
+    def test_add_outbound_link_custom_href_verifies_exact_registered_path(self):
+        client = RecordingClient(
+            registered_directory_url='https://directory.example',
+        )
+
+        result = client.add_outbound_link(
+            'item-1',
+            'https://product.example',
+            'https://directory.example',
+            300,
+            linked_href='https://directory.example/listing/img-enhancer',
+            attempts=1,
+            interval_seconds=0,
+            fetcher=lambda url, timeout: (
+                '<a href="https://directory.example/listing/img-enhancer">Badge</a>',
+                url,
+            ),
+        )
+
+        self.assertEqual(
+            client.calls[1],
+            (
+                'https://shipmore.example/api/outbound-links',
+                {
+                    'runItemId': 'item-1',
+                    'workerId': 'worker-01',
+                    'linkedHref': 'https://directory.example/listing/img-enhancer',
+                },
+            ),
+        )
+        self.assertEqual(
+            result['linkedHref'],
+            'https://directory.example/listing/img-enhancer',
+        )
+        self.assertEqual(
+            result['matchedUrl'],
+            'https://directory.example/listing/img-enhancer',
+        )
+
+    def test_add_outbound_link_rejects_custom_href_response_mismatch(self):
+        client = RecordingClient(
+            registered_linked_href='https://directory.example/other',
+        )
+
+        with self.assertRaisesRegex(
+            ShipmoreClientError,
+            'linkedHref does not match the requested URL',
+        ):
+            client.add_outbound_link(
+                'item-1',
+                'https://product.example',
+                'https://directory.example',
+                300,
+                linked_href='https://directory.example/listing/img-enhancer',
                 attempts=1,
                 interval_seconds=0,
                 fetcher=lambda url, timeout: ('', url),
@@ -380,6 +466,8 @@ class ShipmoreQueueClientTests(unittest.TestCase):
                 'https://product.example',
                 '--directory-url',
                 'https://directory.example',
+                '--linked-href',
+                'https://directory.example/listing/img-enhancer',
             ]
         )
 
@@ -387,6 +475,10 @@ class ShipmoreQueueClientTests(unittest.TestCase):
         self.assertEqual(args.run_item_id, 'item-1')
         self.assertEqual(args.product_url, 'https://product.example')
         self.assertEqual(args.directory_url, 'https://directory.example')
+        self.assertEqual(
+            args.linked_href,
+            'https://directory.example/listing/img-enhancer',
+        )
         self.assertEqual(args.lease_seconds, 300)
 
     def test_recover_does_not_require_worker_id(self):
