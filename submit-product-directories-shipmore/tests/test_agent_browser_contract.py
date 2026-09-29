@@ -98,6 +98,29 @@ def test_badge_requires_native_verifier_before_unsupported_classification():
 
     assert "不得仅凭说明文字" in skill
     assert "原生校验明确失败" in routing
-    assert "未执行目录原生校验时" in checklist
+    assert "当前不存在尚未解决的 Badge 验证 pending 状态" in checklist
     assert "没有安全 Badge 变更入口" in worker
     assert "不能修改 Product 网站" in worker
+
+
+def test_badge_verification_can_be_deferred_until_form_ready():
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    worker = (SKILL_ROOT / "references" / "worker-loop.md").read_text(encoding="utf-8")
+    status = (SKILL_ROOT / "references" / "status-mapping.md").read_text(encoding="utf-8")
+    routing = (SKILL_ROOT / "references" / "entry-and-content-routing.md").read_text(encoding="utf-8")
+    checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
+
+    assert "必须继续完成安全、可逆的表单准备以解锁 verifier" in skill
+    assert "安全表单准备" in worker
+    assert "延后的 Badge/Backlink 原生验证" in worker
+    assert "要求先填完整表单" in status
+    assert "可以依赖表单状态" in routing
+    assert "verifier 之前 disabled、隐藏或要求先完整填表时，没有因此提前停止" in checklist
+
+
+def test_badge_pending_blocks_final_action_not_form_preparation():
+    worker = (SKILL_ROOT / "references" / "worker-loop.md").read_text(encoding="utf-8")
+    checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
+
+    assert "不要执行最终 Submit/Publish/Claim" in worker
+    assert "当前不存在尚未解决的 Badge 验证 pending 状态" in checklist

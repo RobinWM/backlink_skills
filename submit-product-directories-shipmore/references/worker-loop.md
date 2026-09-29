@@ -34,6 +34,10 @@ while true:
   if mandatory backlink/badge:
     register outbound link; poll and verify Product homepage
     if verification fails: complete truthfully; do not submit
+    if badge verifier is not actionable yet:
+      mark badge verification pending; continue safe reversible form preparation
+  fill verified form fields without final Submit/Publish
+  resolve any pending native badge/backlink verification
   run EXEC-CHECKLIST.md before final action
   final-click(actionType, selector)  # synchronous heartbeat + durable journal + one click
   inspect exact final result
@@ -90,18 +94,20 @@ while true:
 
 1. **路由/站点不可用**：官方提交路由消失、关闭或不可用时，分类为 `unavailable`。
 2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。
-3. **必需 backlink/badge**：页面出现 backlink、reciprocal link/backlink、permanent backlink、badge required 或同义措辞时，不得仅凭这些文字分类为 `ineligible`。先执行下方 Shipmore outbound-link 注册和首页验证。对于纯 backlink/reciprocal/permanent backlink，验证成功后直接继续原始任务；不要再寻找 Badge 安装入口。对于 badge 场景，如果目录提供 `Verify Badge` / `Check Backlink` / `Verify` / `Continue` 等原生校验控件，首页验证成功后必须实际执行一次目录原生校验并读取实时结果。
-4. **其他不符合资格**：只有 outbound-link 已成功后，目录原生校验明确失败并给出“普通链接不够”的技术证据，或页面在没有校验控件的情况下明确且不可歧义地要求 Shipmore 当前无法生成的特定图片 Badge、指定 HTML/script/属性、指定锚文本或精确 listing URL，才把该额外要求作为 `ineligible` 候选。不得把“reciprocal”“permanent”“badge”“install our badge”等措辞、示例代码或图片展示本身当作额外修改证据。其他真实资格不符或无关商业/社区动作仍按 `ineligible` 处理。
+3. **必需 backlink/badge 的首页链接阶段**：页面出现 backlink、reciprocal link/backlink、permanent backlink、badge required 或同义措辞时，不得仅凭这些文字分类为 `ineligible`。先执行下方 Shipmore outbound-link 注册和 Product 首页验证。对于纯 backlink/reciprocal/permanent backlink，首页验证成功后条件已满足，直接继续原始任务；不要再寻找 Badge 安装入口。对于 badge 场景，首页验证成功只表示“基础链接已就绪”，目录原生 Badge/Backlink 校验允许延后到表单已经填写到可验证阶段。
+4. **其他不符合资格（不含 Badge 技术能力判断）**：此阶段只处理与 Badge 无关、已经有决定性证据的真实资格不符或无关商业/社区动作。**不得在预检阶段仅因为 Badge verifier 尚未出现、按钮 disabled、要求先填完整表单、页面展示固定 SVG/Badge 示例或说明需要 permanent/dofollow badge，就提前输出 `ineligible`。** Badge 技术能力判断必须延后到第 10 步的表单准备和第 11 步的原生验证阶段。
 5. **重复项/既有生命周期保护**：正常模式检查既有 Shipmore 状态和明确的现有列表，绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。当 `debugHistoryIgnored=true` 时，不使用被屏蔽的 Shipmore 生命周期做业务判断，但仍必须从当前站点实时检查是否已经存在列表/提交；final-action journal 仍可阻止重复最终动作。
 6. **入口和内容面分类**：按照 [entry-and-content-routing.md](entry-and-content-routing.md) 从首页、导航、页脚、站内搜索和真实控件确认当前入口；在填写字段前完成站内重复查询，并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方 Contact 邮件必须分别分类。`short note — no action`、`long post — no action` 和 `unknown — no action` 立即停止该站的内容动作；只有内容编辑器的站点使用 `ineligible`。
 7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前已锁定 provider 会话中的现有身份、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交；不得通过中途换 provider 绕过认证/挑战。
 8. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
 9. **验证挑战**：暴露 CAPTCHA、Turnstile、邮箱挑战等原生验证。未解决的人工验证使用 `blocked_manual_verification`。
-10. **表单执行**：只有现在才能填写可变的产品目录字段并走向最终动作。
+10. **安全表单准备**：填写所有能够由已验证 Shipmore Product 数据支持的普通字段、选择合法分类、上传已授权素材，并推进到最终 Submit/Publish/Claim 之前的最后可逆阶段。此阶段允许为了**解锁目录原生 Badge/Backlink verifier**而填写表单；不得把“verifier 需要先完整填表”当作停止理由。不要执行最终 Submit/Publish/Claim。
+11. **延后的 Badge/Backlink 原生验证**：如果第 3 步识别到 badge 场景，重新读取当前页面。若出现 `Verify Badge` / `Check Backlink` / `Verify` / `Continue` 或语义等价控件，在 lease 有效且 mutation guard 通过后实际执行一次，并读取实时结果。若按钮此前 disabled，表单准备后必须重新检查。只有此时原生校验明确失败并指出当前普通 outbound-link 无法满足的特定图片 Badge、HTML/script/属性、指定锚文本或精确 listing URL，或表单已完整准备但页面始终没有可执行 verifier 且技术要求明确不可歧义，才允许分类为 `ineligible`。验证成功则继续最终动作。
+12. **最终动作**：只有所有前置条件（包括任何 pending Badge 验证）已经解决后，才进入 Submit/Publish/Claim。
 
 最终 Submit、Publish 或 Claim 前，必须按 [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md) 完成 `before_final_action` 检查。任一项目失败都不得执行最终动作。动作完成并分类结果后，再执行 `after_result_classification` 检查；检查失败时不得把结果标记为成功。
 
-例如，目录同时要求联系邮箱和 reciprocal badge 时，先注册并验证 badge。验证超时则停止并记录包含 `backlink verification timeout` 的真实 blocked/ineligible 结果，不要改写成缺少邮箱，也不要提交。
+例如，目录同时要求联系邮箱和 reciprocal badge 时，先注册并验证 Product 首页 backlink；如果目录自己的 Badge verifier 需要完整表单才解锁，则继续完成安全表单准备，等 verifier 可用后再验证。只有 Product 首页 backlink 本身验证超时才停止并记录 `backlink verification timeout`；不要因为目录 verifier 尚未解锁而提前结束。
 
 ## 必需 backlink 注册与验证
 
@@ -126,11 +132,12 @@ while true:
 
 1. 页面只要求 Product 网站存在指向目录的链接：无论写的是 backlink、reciprocal backlink、permanent backlink 或 link back，只要 Shipmore outbound-link 注册且首页验证为 `backlink_verified`，条件就已满足，立即继续原始提交。**此类场景不再进入 Badge 安装判断。**
 2. 页面使用 badge / install badge / permanent badge 等措辞时，仍先完成相同的 outbound-link 注册和首页验证。
-3. 如果目录提供 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或语义等价的原生校验控件，必须在当前 lease 有效时实际执行一次。执行前通过当前 provider 的 mutation guard，执行后重新读取页面/错误信息。
-4. 原生校验成功：条件已满足，继续账号认证、重复检查、表单和最终动作；不得要求额外插入图片。
-5. 原生校验失败：只有失败信息明确指出普通链接不足，并要求特定 Badge 图片、指定 HTML/script/属性、endpoint 无法产生的指定锚文本或精确 listing URL，才认为需要当前能力无法完成的额外站点修改。
-6. 页面没有任何可执行校验控件时，只有其技术要求明确且不可歧义地规定上述具体结构，才允许直接进入额外修改判断；“永久”“互链”“reciprocal”“badge”“install our badge”、示例代码块或 Badge 预览图本身都不是充分证据。
-7. outbound-link 已验证后，禁止出现“没有安全 Badge 变更入口”“不能修改 Product 网站，所以停止”这类结论，除非第 5/6 条的技术证据已经成立。
+3. 如果目录提供 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或语义等价的原生校验控件，但当前 disabled、隐藏在后续步骤、或明确要求先完成表单，**不要结束任务**。记录为“Badge 验证待解锁”，继续填写所有安全、可逆且有真实数据支持的表单字段，直到最终动作前的最后阶段，再重新寻找 verifier。
+4. verifier 一旦可执行，必须在当前 lease 有效时实际执行一次。执行前通过当前 provider 的 mutation guard，执行后重新读取页面/错误信息。
+5. 原生校验成功：条件已满足，继续最终动作；不得要求额外插入图片。
+6. 原生校验失败：只有失败信息明确指出普通链接不足，并要求特定 Badge 图片、指定 HTML/script/属性、endpoint 无法产生的指定锚文本或精确 listing URL，才认为需要当前能力无法完成的额外站点修改。
+7. 表单已完整准备到最终动作前仍没有任何可执行 verifier 时，只有页面技术要求明确且不可歧义地规定上述具体结构，才允许进入额外修改判断；“永久”“互链”“reciprocal”“badge”“install our badge”、示例代码块、Badge 预览图或“verifier 尚未解锁”本身都不是充分证据。
+8. outbound-link 已验证后，禁止出现“没有安全 Badge 变更入口”“不能修改 Product 网站，所以停止”“需要完整表单所以无法验证”这类结论，除非已经完成第 3–7 条并取得决定性技术证据。
 
 ## Product 字段映射
 

@@ -108,8 +108,9 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 - 不得订阅 newsletter、接受可选推广、支付费用、手动修改 Product 网站、修改 DNS 或创建无关公开内容。必需的 backlink/badge 只能通过 Shipmore 已授权的 outbound-link endpoint 及下方验证流程处理。
 - 当目录出现 `backlink`、`reciprocal link`、`reciprocal backlink`、`permanent backlink`、`badge required` 或同义要求时，**这些文字本身绝不能作为 `ineligible` 依据**。必须先把它们视为 Shipmore outbound-link 候选：发送 heartbeat，使用当前 `runItemId` / `workerId` 调用 `POST /api/outbound-links`，并在任何目录表单操作前验证 Product 首页。
 - 如果 outbound-link 注册并验证成功，且目录要求本质上只是“Product 网站存在指向目录的链接”，无论页面使用 backlink、reciprocal、permanent、badge 等措辞，都视为该前置条件已满足，**必须继续原始登录/表单/提交流程**，不得因为“需要互链”再次改判 `ineligible`。对于只要求 backlink/reciprocal/permanent backlink 的页面，禁止再寻找“Badge 变更入口”，也禁止以“不能修改 Product 网站”为理由停止。
-- 当页面使用 `badge` / `install badge` / `permanent badge` 等措辞且提供原生 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或等价校验控件时，**outbound-link 首页验证成功后必须回到目录实际执行一次该原生校验**，再根据目录返回的实时结果判断。不得仅凭说明文字、示例 Badge HTML、图片展示或“permanent”措辞推断普通链接一定不足。
-- 只有满足以下任一条件，才允许进入“当前能力无法满足的额外站点修改”判断：① outbound-link 已成功且目录原生 Badge/Backlink 校验已实际执行并明确失败，失败信息指出缺少特定图片 Badge、指定 HTML/script/属性、指定锚文本或精确 listing URL；② 页面没有可执行校验控件，但其技术要求明确且不可歧义地规定了上述具体结构。任何情况下，`badge`、`permanent`、`reciprocal`、`install our badge` 等词本身都不是充分证据。
+- 当页面使用 `badge` / `install badge` / `permanent badge` 等措辞时，outbound-link 首页验证成功后进入“Badge 验证待确认”阶段。若原生 `Verify Badge`、`Check Backlink`、`Verify`、`Continue` 或等价控件当前不可用、disabled、隐藏在后续步骤，或页面要求先填完整表单，**必须继续完成安全、可逆的表单准备以解锁 verifier**；不得因为 verifier 尚未解锁就停止。
+- 目录原生 Badge/Backlink 校验可以延后，但**必须发生在最终 Submit/Publish/Claim 之前**。verifier 可执行后实际执行一次，再根据实时结果判断。不得仅凭说明文字、示例 Badge HTML、图片展示、“permanent/dofollow”措辞或固定尺寸描述推断本次一定失败。
+- 只有满足以下任一条件，才允许进入“当前能力无法满足的额外站点修改”判断：① 表单已经准备到最终动作前，目录原生 Badge/Backlink 校验已实际执行并明确失败，失败信息指出缺少特定图片 Badge、指定 HTML/script/属性、指定锚文本或精确 listing URL；② 表单已经准备到最终动作前仍不存在可执行 verifier，且页面技术要求明确且不可歧义地规定了上述具体结构。任何情况下，`badge`、`permanent`、`reciprocal`、`install our badge`、verifier disabled/未解锁等本身都不是充分证据。
 - 如果目录原生校验通过，立即把 backlink/badge 前置条件视为满足并继续提交，不得因为当前 Product 页面展示的是普通链接而再次阻塞。
 - 每 20 秒轮询一次 `productUrl` 首页 HTML，最多 6 次。注册前和每次尝试前都发送 heartbeat；一旦失去租约所有权立即停止。只有在首页 HTML（或客户端渲染 HTML 时的最终浏览器 DOM）中看到与 `directoryUrl` 完全匹配的已解析 `<a href>` 后，才能继续原始目录提交。
 - 链接比较使用解析后的 hostname 和 path：scheme 以及 query/fragment 不参与身份判断，开头的 `www.` 和结尾斜杠会被规范化；除此之外 hostname 和 path 必须完全匹配。绝不能使用子字符串匹配。不要绕过 CAPTCHA、WAF 或访问控制来验证页面。
