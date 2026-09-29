@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / 'scripts'
@@ -14,6 +16,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from shipmore_queue_client import (  # noqa: E402
     ShipmoreClientError,
     ShipmoreQueueClient,
+    apply_debug_history_view,
     build_parser,
     find_matching_outbound_link,
 )
@@ -63,6 +66,82 @@ class ShipmoreQueueClientTests(unittest.TestCase):
                 'leaseSeconds': 300,
             },
         )
+
+    def test_debug_history_view_masks_business_history_only(self):
+        original = {
+            'success': True,
+            'reason': 'reused',
+            'data': {
+                'id': 'item-1',
+                'status': 'running',
+                'claimedBy': 'worker-01',
+                'leaseExpiresAt': '2026-09-29T09:00:00Z',
+                'productDirectoryId': 'pd-1',
+                'submissionStatus': 'blocked_manual_verification',
+                'verificationStatus': 'awaiting_manual_verification',
+                'route': 'submit',
+                'accountAlias': 'old-account',
+                'submittedAt': '2026-09-28T10:00:00Z',
+                'exactResult': 'old result',
+                'evidenceReference': 'ev-old',
+                'publicListingUrl': 'https://directory.example/item',
+                'backendCheckedAt': '2026-09-28T11:00:00Z',
+                'mailboxCheckedAt': '2026-09-28T11:05:00Z',
+                'publicPageCheckedAt': '2026-09-28T11:10:00Z',
+                'lastCheckedAt': '2026-09-28T11:15:00Z',
+                'followUpAt': '2026-09-30T10:00:00Z',
+                'followUpNote': 'old follow-up',
+                'actionChannel': 'web_form',
+                'contentSurface': 'directory_listing',
+                'contentSurfaceEvidence': 'old content evidence',
+                'recipientContactAlias': 'old alias',
+                'contactSourceEvidence': 'old contact evidence',
+                'mailboxPreSendCheck': 'old mailbox check',
+                'mailboxPreSendEvidence': 'old mailbox evidence',
+                'emailSendAttempts': 1,
+                'gmailSendReceipt': 'old receipt',
+                'productName': 'Current Product',
+                'directoryName': 'Current Directory',
+            },
+        }
+
+        with patch.dict(os.environ, {'SHIPMORE_DEBUG_IGNORE_HISTORY': '1'}):
+            result = apply_debug_history_view(original)
+
+        self.assertTrue(result['debugHistoryIgnored'])
+        self.assertEqual(result['reason'], 'reused')
+        self.assertEqual(result['data']['id'], 'item-1')
+        self.assertEqual(result['data']['status'], 'running')
+        self.assertEqual(result['data']['claimedBy'], 'worker-01')
+        self.assertEqual(
+            result['data']['leaseExpiresAt'],
+            '2026-09-29T09:00:00Z',
+        )
+        self.assertEqual(result['data']['submissionStatus'], 'not_attempted')
+        self.assertEqual(result['data']['verificationStatus'], 'not_checked')
+        self.assertIsNone(result['data']['exactResult'])
+        self.assertIsNone(result['data']['publicListingUrl'])
+        self.assertIsNone(result['data']['route'])
+        self.assertIsNone(result['data']['accountAlias'])
+        self.assertEqual(result['data']['emailSendAttempts'], 0)
+        self.assertEqual(result['data']['productName'], 'Current Product')
+        self.assertEqual(result['data']['directoryName'], 'Current Directory')
+
+    def test_debug_history_view_is_off_by_default(self):
+        original = {
+            'success': True,
+            'reason': 'claimed',
+            'data': {
+                'productDirectoryId': 'pd-1',
+                'submissionStatus': 'published',
+                'verificationStatus': 'automatic_verification_passed',
+            },
+        }
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('SHIPMORE_DEBUG_IGNORE_HISTORY', None)
+            result = apply_debug_history_view(original)
+        self.assertIs(result, original)
+        self.assertEqual(result['data']['submissionStatus'], 'published')
 
     def test_heartbeat_payload(self):
         client = RecordingClient()
