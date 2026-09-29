@@ -7,12 +7,13 @@ RUNTIME_MD = SKILL_ROOT / "references" / "agent-browser-runtime.md"
 ROUTING_MD = SKILL_ROOT / "references" / "browser-control-routing.md"
 
 
-def test_skill_routes_browser_work_to_agent_browser():
+def test_skill_routes_browser_work_through_locked_provider():
     skill = SKILL_MD.read_text(encoding="utf-8")
+    assert "BACKLINK_BROWSER_PROVIDER" in skill
     assert "references/agent-browser-runtime.md" in skill
-    assert "agent-browser" in skill
-    assert "ego-browser" not in skill
-    assert "TaskSpace" not in skill
+    assert "references/ego-browser-runtime.md" in skill
+    assert "browser_action_guard.py select" in skill
+    assert "同一个 Run Item" in skill
 
 
 def test_runtime_requires_named_session_restore_and_readback():
@@ -36,14 +37,15 @@ def test_runtime_requires_named_session_restore_and_readback():
         assert phrase in runtime
 
 
-def test_browser_contract_has_no_ego_runtime_dependency():
-    for path in SKILL_ROOT.rglob("*"):
-        if not path.is_file() or path.suffix not in {".md", ".yaml"}:
-            continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        assert "ego-browser" not in text, path
-        assert "Citro Labs" not in text, path
-        assert "TaskSpace" not in text, path
+def test_ego_provider_is_explicit_and_experimental():
+    routing = ROUTING_MD.read_text(encoding="utf-8")
+    ego = (SKILL_ROOT / "references" / "ego-browser-runtime.md").read_text(encoding="utf-8")
+    assert "agent-browser   # 默认生产 provider" in routing
+    assert "ego-browser     # 实验 provider" in routing
+    assert "不得中途切换" in routing
+    assert "browser_action_guard.py mutation-check" in ego
+    assert "browser_action_guard.py final-begin" in ego
+    assert "blocked_manual_verification" in ego
 
 
 def test_routing_keeps_codex_as_business_decision_agent():
@@ -68,6 +70,8 @@ def test_production_runtime_files_exist():
     assert (SKILL_ROOT / "runtime" / "agent-browser.version").read_text(encoding="utf-8").strip() == "0.38.1"
     assert (SKILL_ROOT / "scripts" / "runtime_cleanup.py").is_file()
     assert (SKILL_ROOT / "scripts" / "diagnostic_sanitizer.py").is_file()
+    assert (SKILL_ROOT / "scripts" / "browser_action_guard.py").is_file()
+    assert (SKILL_ROOT / "references" / "ego-browser-runtime.md").is_file()
 
 
 def test_backlink_wording_cannot_be_used_as_ineligible_shortcut():
