@@ -64,7 +64,7 @@ Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Produ
 | 只有未获授权的付费入口 | `completed` | `paid_only` | 不得付款 |
 | backlink / reciprocal / permanent backlink / badge 要求可由 Shipmore outbound-link 满足，且首页验证通过 | 继续当前任务 | 保留当前生命周期 | 不要提前 Complete；这些措辞本身绝不是 `ineligible`，继续原始目录提交 |
 | 6 次首页检查仍找不到 backlink | `blocked` | `ineligible` | exact result/error 必须包含 `backlink verification timeout` |
-| 有明确页面证据证明除已验证普通 backlink 外还强制要求 Shipmore endpoint 无法完成的特定站点修改 | `completed` | `ineligible` | 例如特定 Badge 图片/HTML/script/属性、无法生成的指定锚文本或精确 listing URL；不得仅凭 reciprocal/permanent/badge 字样判断 |
+| outbound-link 已验证后，目录原生 Badge/Backlink 校验实际失败并明确指出普通链接不足，或无校验控件但页面明确且不可歧义地要求 Shipmore endpoint 无法完成的特定站点修改 | `completed` | `ineligible` | 例如特定 Badge 图片/HTML/script/属性、无法生成的指定锚文本或精确 listing URL；不得仅凭 reciprocal/permanent/badge/install badge 字样、示例代码或图片预览判断 |
 | Product 不符合目录资格 | `completed` | `ineligible` | 记录原因 |
 | 目录确认已有列表且无需操作 | `completed` 或 `skipped` | `duplicate_no_action` | 只有实际确认重复时使用 |
 | 用户明确停止该任务 | `skipped` | `terminated_by_user` | 没有新 Run/action 不得继续 |
@@ -128,7 +128,7 @@ unavailable
 
 首先区分“页面措辞”和“实际技术要求”。`reciprocal`、`permanent`、`link back`、`badge required` 等文字不改变标准流程，也不能单独产生 `ineligible`。只要目录实际接受 Product 首页存在指向目录的普通链接，Shipmore outbound-link 就是授权实现方式。
 
-注册 API 成功不等于验证成功。只有 Product 首页 HTML 或最终 DOM 中的 `<a href>` 解析后 hostname/path 与目录 URL 完全匹配，才允许继续表单。允许 scheme、开头 `www.` 和结尾斜杠不同；不允许子字符串、伪后缀域名或不同路径。验证成功后必须继续原始提交，不得再次因 reciprocal/permanent/badge 要求提前 Complete。
+注册 API 成功不等于首页验证成功。只有 Product 首页 HTML 或最终 DOM 中的 `<a href>` 解析后 hostname/path 与目录 URL 完全匹配，才进入下一步。对于普通 backlink/reciprocal/permanent backlink，首页验证成功后必须直接继续原始提交；对于 badge 场景，如果目录存在原生 Verify Badge / Check Backlink / Verify / Continue 控件，还必须实际执行一次目录校验。目录校验成功后必须继续原始提交，不得再次因 reciprocal/permanent/badge 要求提前 Complete。目录校验失败时，也只有明确的技术错误证据才能进入额外站点修改 / `ineligible` 判断。
 
 轮询期间每次检查前都发送 heartbeat。若收到 409 或证明租约已过期/归属他人，立即停止，不得继续提交或 Complete。
 
