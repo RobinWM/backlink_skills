@@ -127,6 +127,37 @@ class ShipmoreQueueClientTests(unittest.TestCase):
         self.assertEqual(result['data']['productName'], 'Current Product')
         self.assertEqual(result['data']['directoryName'], 'Current Directory')
 
+    def test_claim_applies_debug_history_view_when_enabled(self):
+        client = RecordingClient()
+        client.post = lambda payload, url=None: {
+            'success': True,
+            'reason': 'claimed',
+            'data': {
+                'id': 'item-debug',
+                'status': 'claimed',
+                'claimedBy': 'worker-01',
+                'leaseExpiresAt': '2026-09-29T09:00:00Z',
+                'productDirectoryId': 'pd-debug',
+                'submissionStatus': 'published',
+                'verificationStatus': 'automatic_verification_passed',
+                'exactResult': 'old published result',
+                'publicListingUrl': 'https://directory.example/published',
+                'productName': 'Debug Product',
+            },
+        }
+
+        with patch.dict(os.environ, {'SHIPMORE_DEBUG_IGNORE_HISTORY': '1'}):
+            result = client.claim('run-debug', 300)
+
+        self.assertTrue(result['debugHistoryIgnored'])
+        self.assertEqual(result['reason'], 'claimed')
+        self.assertEqual(result['data']['status'], 'claimed')
+        self.assertEqual(result['data']['submissionStatus'], 'not_attempted')
+        self.assertEqual(result['data']['verificationStatus'], 'not_checked')
+        self.assertIsNone(result['data']['exactResult'])
+        self.assertIsNone(result['data']['publicListingUrl'])
+        self.assertEqual(result['data']['productName'], 'Debug Product')
+
     def test_debug_history_view_is_off_by_default(self):
         original = {
             'success': True,
