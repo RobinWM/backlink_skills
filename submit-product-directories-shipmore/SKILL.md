@@ -39,6 +39,7 @@ AGENT_BROWSER_STATE_EXPIRE_DAYS=36500
 AGENT_BROWSER_NAMESPACE=shipmore
 SHIPMORE_TERMINAL_STATE_RETENTION_DAYS=7
 SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
+SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 0
 ```
 
 调用方还必须提供 Shipmore `runId`。
@@ -61,7 +62,7 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 
 1. 在打开或修改目录提交流程前，必须先执行 `claim`。
 2. 将成功 claim 返回的 `data.id` 视为 `runItemId`。
-3. 将 claim 载荷视为已验证的任务信封。不要用猜测替换其中的 Product、Directory 或既有 Submission 字段，也不要在 Skill 中重新实现 Shipmore 内部的默认值/覆盖值逻辑。
+3. 将 claim 载荷视为已验证的任务信封。正常模式下保留既有 Submission 字段；当 `SHIPMORE_DEBUG_IGNORE_HISTORY=1` 时，Queue client 会给 worker 返回去历史化视图（`debugHistoryIgnored=true`），此时只把 Product、Directory、有效提交身份和实时网页事实用于业务判断，不得自行找回/使用被屏蔽的历史 Submission 字段。
 4. 优先使用明确的 Product 事实（`productTagline`、`productPricingModel`、`productTwitterUrl`、`productGithubRepoUrl`）和有效提交身份（`productContactEmail`、`productCompanyName`、`productFounderName`、`productLinkedinUrl`、`productFounderGithubUrl`），再从 `productDescription` 或 `productMarkdown` 推导内容。
 5. `productGithubRepoUrl` 是 Product 仓库地址；`productFounderGithubUrl` 是个人资料地址。绝不能互相替换。旧字段 `productGithubUrl` 仅用于兼容，并表示创始人的 GitHub 地址。
 6. 仅凭 GitHub 仓库地址不能证明开源状态、许可证或 OSS 资格。
@@ -77,8 +78,8 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 
 1. 从指定 Run claim 一个任务。
 2. 如果 Run 已暂停、已结束或为空，按照 API 参考中的说明停止或等待。
-3. 在浏览器操作前检查返回的既有 Submission 快照。
-4. 如果快照已经证明不应进行新的表单操作，则将 Run Item 以 `skipped` 完成，同时保留当前 submission status。
+3. 正常模式下，在浏览器操作前检查返回的既有 Submission 快照；调试模式（`debugHistoryIgnored=true`）跳过历史生命周期判断，从当前网站重新观察。
+4. 正常模式下，如果快照已经证明不应进行新的表单操作，则将 Run Item 以 `skipped` 完成并保留当前 submission status；调试模式不得因为被屏蔽的历史状态提前跳过，但仍必须执行当前站点的实时重复项检查。
 5. Managed runtime（`SHIPMORE_MANAGED_LEASE=1`）必须由 `scripts/lease_keeper.py` 自动维护 heartbeat，并通过 lease guard 阻止失去租约后的浏览器可变操作；direct/manual 模式仍需在任何可变操作前和耗时步骤后显式 heartbeat。300 秒租约默认每 60 秒自动 heartbeat。
 6. 按 [references/worker-loop.md](references/worker-loop.md) 的强制预检顺序执行：不可用 → 仅付费 → 必需 backlink 注册与验证 → 其他不符合资格 → 既有生命周期/重复项 → 入口和内容面分类 → 已授权的账号登录/注册/邮箱验证 → 缺少已验证资料 → 其他验证 → 可变表单操作。
 7. 只执行真实且已授权的表单操作。可选的未知字段保持为空；只有在前置的终止性资格/政策检查通过后，才因必填未知字段阻塞任务。
@@ -93,7 +94,7 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 ## 浏览器执行规则
 
 - 所有浏览器操作必须落在当前 Run Item 已锁定的 provider 上。`agent-browser` 使用 deterministic named session + adapter；`ego-browser` 使用独立 TaskSpace/Page，并在每次可变动作前调用 `scripts/browser_action_guard.py mutation-check --run-item-id <id>`。两种 provider 都必须受同一个 Shipmore lease、final-action journal、字段真实性和结果分类规则约束；浏览器 provider 只执行页面动作，页面字段语义、Shipmore 字段映射和结果分类仍由 Codex 完成。
-- 登录状态必须以当前已锁定 provider 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他 provider/浏览器会话的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。
+- 登录状态必须以当前已锁定 provider 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他 provider/浏览器会话的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。调试模式下历史 `exactResult` 本身会被屏蔽，禁止从其他接口或日志重新补回用于当前决策。
 - 如果当前 provider 上下文已显示与有效提交身份匹配的已登录账号，可以复用该会话继续执行。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
