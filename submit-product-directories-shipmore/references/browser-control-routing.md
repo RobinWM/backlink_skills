@@ -1,18 +1,30 @@
 # Shipmore worker 的浏览器控制路由
 
-## 唯一浏览器执行通道
+## 浏览器 Provider 路由
 
-所有目录网页、登录、表单、验证码交接、站点原生验证、截图，以及 Gmail 网页操作（验证邮件读取回退与已授权 Contact 邮件发送）必须通过 `agent-browser` 完成。
+浏览器执行通过 `BACKLINK_BROWSER_PROVIDER` 选择：
+
+```text
+agent-browser   # 默认生产 provider
+ego-browser     # 实验 provider，主要用于账号/OAuth/安全检查兼容性实验
+```
+
+claim 成功后、第一次浏览器动作前，必须执行：
+
+```bash
+python3 scripts/browser_action_guard.py select --run-item-id <runItemId> --provider <provider>
+```
+
+该 provider lock 属于 Run Item 生命周期的一部分。同一个 Run Item 不得中途切换 provider：不得从 agent-browser 切到 ego-browser，也不得反向切换。账号阻塞若要换 provider，必须创建新的 Run / Run Item。
 
 浏览器执行前先读取：
 
-- [agent-browser-runtime.md](agent-browser-runtime.md)
+- 当前 provider 为 `agent-browser`：[agent-browser-runtime.md](agent-browser-runtime.md)
+- 当前 provider 为 `ego-browser`：[ego-browser-runtime.md](ego-browser-runtime.md)
 - [account-authentication.md](account-authentication.md)
 - [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md)
 
-Queue API/CLI 只负责 claim、heartbeat、outbound-link 注册、recover 和 complete，不代替可见页面交互。
-
-同一个 Run Item 一旦开始浏览器执行，就不得切换到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use、共享的人类 Chrome 或其他浏览器自动化通道。若 `agent-browser` 无法安全完成当前页面，保留真实 Shipmore 状态并交接，不得为了继续任务而换后端。
+Queue API/CLI 只负责 claim、heartbeat、outbound-link 注册、recover 和 complete，不代替可见页面交互。无论 provider 如何选择，都不得转到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use 或共享的人类 Chrome。
 
 ## 角色边界
 
@@ -26,7 +38,7 @@ Codex 负责：
 - 决定是否允许执行可变动作和最终动作；
 - 根据页面、账号、邮箱和公开证据分类最终结果。
 
-`agent-browser` 只负责：
+已锁定的浏览器 provider 只负责：
 
 - 导航和标签页管理；
 - snapshot 和页面状态读取；
@@ -36,7 +48,11 @@ Codex 负责：
 
 不得把 Product 事实、字段业务含义、提交状态或重试决策交给浏览器后端自行推断。
 
-## Session 绑定
+## Session / TaskSpace 绑定
+
+provider 通用要求：一个 Run Item 只对应一个 provider 上下文，且 provider 已由 `browser_action_guard.py select` 锁定。
+
+agent-browser provider：
 
 1. 成功 claim 后，必须用 `scripts/agent_browser_adapter.py session-id --run-item-id <id>` 派生 deterministic named session；不得由模型自行拼接。
 2. 整个 Run Item 必须复用同一个 named session，并启用 `--restore`。
@@ -47,9 +63,13 @@ Codex 负责：
 7. worker 恢复任务时，先恢复同一个 session，再执行只读检查；未确认页面和服务器事实前不得继续可变操作。
 8. 只有 Shipmore complete 已明确成功后，才关闭该 Run Item 的 browser session。complete 超时或响应丢失时先使用同一个 eventId 完成幂等重试，不要提前销毁浏览器证据。
 
+对于 ego-browser provider，TaskSpace/Page 绑定、恢复和 mutation/final-action guard 规则见 [ego-browser-runtime.md](ego-browser-runtime.md)。
+
 ## 能力预检
 
-任何可变浏览器操作前确认：
+任何可变浏览器操作前先确认 provider lock 与当前 Run Item 一致。
+
+agent-browser provider 还必须确认：
 
 - `agent-browser` 精确版本为 `0.38.1`，且 adapter `preflight` 通过；
 - runtime 支持 named session、`--restore`、snapshot、标准表单交互、tabs、screenshot、Console 和 Network 诊断；
@@ -61,6 +81,8 @@ Codex 负责：
 - 当前 tab 没有意外切换或恢复到无关页面。
 
 版本由 `runtime/agent-browser.version` 固定为 0.38.1。任何升级必须先修改 pin、跑 unit + E2E CI，并通过 Windows/Linux smoke 后再进入生产 worker。
+
+ego-browser provider 不复用本节的 agent-browser CLI contract；它必须遵循 `ego-browser-runtime.md`，并在每次可变动作前执行 provider-independent mutation guard。
 
 ## 页面读取与 refs
 
@@ -115,12 +137,12 @@ checkbox/radio 必须只选择业务必需选项。不得勾选可选 newsletter
 
 认证业务顺序由 [account-authentication.md](account-authentication.md) 决定。
 
-- 只复用当前 named session 中可由页面证据确认的授权登录状态。
+- 只复用当前已锁定 provider 上下文中可由页面证据确认的授权登录状态。
 - 不读取、复制、导出或打印 Cookie、localStorage、session ID、密码、OTP、magic link 或其他隐藏认证材料。
-- Google/GitHub OAuth 只有在当前 session 已明确存在匹配的授权身份时才使用。
-- 邮箱验证码或 magic link 的邮件读取优先通过 `gws`；仅当 `gws` 不可用时，才在同一个 named session 里新开 Gmail tab。
-- 当 `actionChannel=official_contact_email` 且当前 Run 明确授权发送时，Gmail Web 发送也必须在同一 named session 中执行；Gmail Send 属于最终动作，只能执行一次。
-- Gmail 网页回退建议给目录页和 Gmail 页使用固定 tab label，例如 `directory` 和 `gmail`；每次切换后重新 snapshot。
+- Google/GitHub OAuth 只有在当前 provider 上下文已明确存在匹配的授权身份时才使用。
+- 邮箱验证码或 magic link 的邮件读取优先通过 `gws`；仅当 `gws` 不可用时，才在同一个 provider 浏览器上下文中打开 Gmail。
+- 当 `actionChannel=official_contact_email` 且当前 Run 明确授权发送时，Gmail Web 发送也必须在同一 provider 上下文中执行；Gmail Send 属于最终动作，只能执行一次。
+- provider 页面/标签切换后必须重新读取实时页面状态，不复用旧 ref/handle。
 - CAPTCHA、Turnstile、手机验证、KYC、passkey、安全密钥或人工审批不得绕过，按业务规则交接或阻塞。
 
 ## 租约感知
