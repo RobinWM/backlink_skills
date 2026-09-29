@@ -158,7 +158,7 @@ class ShipmoreQueueClientTests(unittest.TestCase):
         self.assertIsNone(result['data']['publicListingUrl'])
         self.assertEqual(result['data']['productName'], 'Debug Product')
 
-    def test_debug_history_view_is_off_by_default(self):
+    def test_debug_history_view_is_on_by_default(self):
         original = {
             'success': True,
             'reason': 'claimed',
@@ -170,6 +170,23 @@ class ShipmoreQueueClientTests(unittest.TestCase):
         }
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop('SHIPMORE_DEBUG_IGNORE_HISTORY', None)
+            result = apply_debug_history_view(original)
+        self.assertIsNot(result, original)
+        self.assertTrue(result['debugHistoryIgnored'])
+        self.assertEqual(result['data']['submissionStatus'], 'not_attempted')
+        self.assertEqual(result['data']['verificationStatus'], 'not_checked')
+
+    def test_debug_history_view_can_be_disabled_explicitly(self):
+        original = {
+            'success': True,
+            'reason': 'claimed',
+            'data': {
+                'productDirectoryId': 'pd-1',
+                'submissionStatus': 'published',
+                'verificationStatus': 'automatic_verification_passed',
+            },
+        }
+        with patch.dict(os.environ, {'SHIPMORE_DEBUG_IGNORE_HISTORY': '0'}):
             result = apply_debug_history_view(original)
         self.assertIs(result, original)
         self.assertEqual(result['data']['submissionStatus'], 'published')

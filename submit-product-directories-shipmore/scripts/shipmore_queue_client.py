@@ -133,7 +133,7 @@ DEBUG_HISTORY_NULL_FIELDS = (
 
 
 def debug_ignore_history_enabled() -> bool:
-    value = env(DEBUG_HISTORY_ENV, '0')
+    value = env(DEBUG_HISTORY_ENV, '1')
     return str(value).lower() in {'1', 'true', 'yes', 'on'}
 
 

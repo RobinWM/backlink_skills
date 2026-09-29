@@ -63,7 +63,7 @@ while true:
 
 ## 调试：忽略历史业务状态
 
-当 `SHIPMORE_DEBUG_IGNORE_HISTORY=1` 时，`shipmore_queue_client.py claim` 会返回 `debugHistoryIgnored=true`，并把既有 Submission 业务历史归一化为新的调试视图：
+当前默认 `SHIPMORE_DEBUG_IGNORE_HISTORY=1`；如需使用正常历史生命周期，显式设为 `0`。当该值为 `1` 时，`shipmore_queue_client.py claim` 会返回 `debugHistoryIgnored=true`，并把既有 Submission 业务历史归一化为新的调试视图：
 
 - `submissionStatus=not_attempted`
 - `verificationStatus=not_checked`
