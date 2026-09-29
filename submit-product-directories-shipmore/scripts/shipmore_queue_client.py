@@ -107,6 +107,62 @@ def compact_optional(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if value is not None}
 
 
+DEBUG_HISTORY_ENV = 'SHIPMORE_DEBUG_IGNORE_HISTORY'
+DEBUG_HISTORY_NULL_FIELDS = (
+    'actionChannel',
+    'contentSurface',
+    'contentSurfaceEvidence',
+    'recipientContactAlias',
+    'contactSourceEvidence',
+    'mailboxPreSendCheck',
+    'mailboxPreSendEvidence',
+    'gmailSendReceipt',
+    'route',
+    'accountAlias',
+    'submittedAt',
+    'exactResult',
+    'evidenceReference',
+    'publicListingUrl',
+    'backendCheckedAt',
+    'mailboxCheckedAt',
+    'publicPageCheckedAt',
+    'lastCheckedAt',
+    'followUpAt',
+    'followUpNote',
+)
+
+
+def debug_ignore_history_enabled() -> bool:
+    value = env(DEBUG_HISTORY_ENV, '0')
+    return str(value).lower() in {'1', 'true', 'yes', 'on'}
+
+
+def apply_debug_history_view(result: dict[str, Any]) -> dict[str, Any]:
+    """Mask business-history fields while preserving queue and lease safety state."""
+    if not debug_ignore_history_enabled():
+        return result
+
+    data = result.get('data')
+    if not isinstance(data, dict):
+        return result
+    if 'productDirectoryId' not in data and 'submissionStatus' not in data:
+        return result
+
+    debug_data = dict(data)
+    debug_data['submissionStatus'] = 'not_attempted'
+    debug_data['verificationStatus'] = 'not_checked'
+    for field in DEBUG_HISTORY_NULL_FIELDS:
+        if field in debug_data:
+            debug_data[field] = None
+    if 'emailSendAttempts' in debug_data:
+        debug_data['emailSendAttempts'] = 0
+
+    debug_result = dict(result)
+    debug_result['data'] = debug_data
+    debug_result['debugHistoryIgnored'] = True
+    return debug_result
+
+
 def normalize_http_url(url: str) -> str:
     trimmed = url.strip()
     if not trimmed:
@@ -251,7 +307,7 @@ class ShipmoreQueueClient:
         return parsed
 
     def claim(self, run_id: str, lease_seconds: int) -> dict[str, Any]:
-        return self.post(
+        result = self.post(
             {
                 'operation': 'claim',
                 'runId': run_id,
@@ -259,6 +315,7 @@ class ShipmoreQueueClient:
                 'leaseSeconds': lease_seconds,
             }
         )
+        return apply_debug_history_view(result)
 
     def heartbeat(self, run_item_id: str, lease_seconds: int) -> dict[str, Any]:
         return self.post(
