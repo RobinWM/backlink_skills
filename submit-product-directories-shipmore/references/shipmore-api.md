@@ -61,13 +61,13 @@ Content-Type: application/json
 
 ### 调试模式：屏蔽历史 Submission 业务字段
 
-设置：
+当前 Queue client 默认启用该调试行为：
 
 ```text
 SHIPMORE_DEBUG_IGNORE_HISTORY=1
 ```
 
-后，随附的 Queue client 会在 **claim 响应交给 worker 前**生成一个去历史化视图，并增加：
+如需恢复正常历史生命周期判断，显式设置 `SHIPMORE_DEBUG_IGNORE_HISTORY=0`。启用时，随附的 Queue client 会在 **claim 响应交给 worker 前**生成一个去历史化视图，并增加：
 
 ```json
 {"debugHistoryIgnored": true}
