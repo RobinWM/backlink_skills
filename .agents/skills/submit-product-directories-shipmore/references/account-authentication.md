@@ -67,6 +67,22 @@ DIRECTORY_ACCOUNT_PASSWORD
 
 `Login Required`、登录墙或提交入口重定向到登录页不是阻塞结果。必须先打开登录页，读取实际提供的认证选项，并按下列顺序尝试安全、已授权的路径；只有所有适用路径都失败后才能阻塞。
 
+### auth-preflight 记录
+
+在回写 `blocked_account_or_email_policy` 前，必须保存不含秘密的认证预检摘要：
+
+```text
+auth-preflight: PASS
+existing-session: reused|unavailable|failed
+google-oauth: attempted|unavailable|failed|succeeded|not-offered
+github-oauth: attempted|unavailable|failed|succeeded|not-offered
+email-code-or-magic-link: attempted|unavailable|failed|succeeded|not-offered
+runtime-password: attempted|unavailable|failed|succeeded|not-configured
+block-reason: <具体政策或页面结果>
+```
+
+`attempted` 只表示执行了正常、已授权的一次尝试；不得把点击登录按钮、打开登录页或看到 OAuth 控件单独记为成功。若当前 provider 没有可见的已登录 Google/GitHub 会话，OAuth 路径应记录为 `unavailable`，不得输入或猜测第三方凭据。只有所有适用路径都记录为 `unavailable` 或 `failed` 后，才允许使用 `blocked_account_or_email_policy`。
+
 1. 有明确授权的现有目录会话时优先复用。
 2. 站点提供 Google 登录时，复用当前 provider 中已登录的 Google 会话；不要输入 Google 凭据、授予额外权限或创建/绑定新身份。成功后发送 heartbeat 并继续提交。
 3. 否则，站点提供 GitHub 登录时，复用当前 provider 中已登录的 GitHub 会话；不要输入凭据、授予额外权限或创建/绑定新身份。成功后发送 heartbeat 并继续。

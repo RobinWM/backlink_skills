@@ -97,12 +97,12 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 
 - 所有浏览器操作必须落在当前 Run Item 已锁定的 provider 上。`agent-browser` 使用 deterministic named session + adapter；`ego-browser` 使用独立 TaskSpace/Page，并在每次可变动作前调用 `scripts/browser_action_guard.py mutation-check --run-item-id <id>`。两种 provider 都必须受同一个 Shipmore lease、final-action journal、字段真实性和结果分类规则约束；浏览器 provider 只执行页面动作，页面字段语义、Shipmore 字段映射和结果分类仍由 Codex 完成。
 - 登录状态必须以当前已锁定 provider 的实时页面证据为准：优先检查当前站点的账号菜单、用户标识、Dashboard/Logout 入口和受保护提交页面是否可用。claim 返回的历史 `exactResult`、其他 provider/浏览器会话的登录状态、公开页面或 URL 本身都不能单独证明当前会话已登录。调试模式下历史 `exactResult` 本身会被屏蔽，禁止从其他接口或日志重新补回用于当前决策。
-- 如果当前 provider 上下文已由实时页面明确显示账号已登录，可以复用该会话继续执行；不要求登录账号邮箱与 `productContactEmail` 一致。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，必须打开登录页并按 [references/account-authentication.md](references/account-authentication.md) 尝试已授权的现有会话、Google/GitHub OAuth、邮箱验证码或 magic link；只有所有安全授权路径都不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
+- 如果当前 provider 上下文已由实时页面明确显示账号已登录，可以复用该会话继续执行；不要求登录账号邮箱与 `productContactEmail` 一致。提交入口重定向到登录页或显示 `Login Required` 时，只能视为进入账号认证阶段，不得立即回写阻塞。必须先执行 [references/account-authentication.md](references/account-authentication.md) 的 `auth-preflight`：读取当前页面提供的认证方式，检查当前 provider 中是否已有可见的 Google/GitHub 会话，并按适用顺序尝试已授权现有会话、Google/GitHub OAuth、邮箱验证码或 magic link、已配置的运行时密码。每个适用路径最多尝试一次；成功后继续原始提交。只有所有适用路径都已检查且不可用或失败后，才可回写 `blocked_account_or_email_policy`。不得猜测、导出或复制 Cookie/会话材料。
 - 按 [references/entry-and-content-routing.md](references/entry-and-content-routing.md) 从规范首页、导航、页脚、站内搜索和真实控件确认入口；在填写字段前完成站内重复查询并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方联系邮件必须分别分类。
 - 按 [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md) 在最终动作前和结果判断后各执行一次检查单，并记录检查结果和 evidence reference。
 - 优先使用提供的 `submitUrl`；如果站点发生重定向，先检查并规范化目标地址再导航。
 - 有可用的已授权会话时优先复用。对于 agent-browser，Chrome 导出的 auth seed 只允许作为不透明运行时输入初始化全新 Run Item session；已有 restore state 永远优先，不能被 seed 覆盖。生产 seed 应来自专用的 “Shipmore Worker” Chrome Profile，而不是日常浏览器 Profile。worker 不得读取、解析、打印或修改 seed 内容。ego-browser 不读取该 auth seed，而使用其自身 provider 会话。生产 restore state 必须设置 `AGENT_BROWSER_ENCRYPTION_KEY`。agent-browser 自带的纯年龄过期设为高 safety ceiling（`AGENT_BROWSER_STATE_EXPIRE_DAYS=36500`）；真正的清理由 Shipmore terminal lifecycle 驱动，默认 terminal 后保留 7 天。
-- 目录需要身份验证时，遵循 [references/account-authentication.md](references/account-authentication.md)。当前 provider 已明确显示的已登录目录会话可以直接复用，不要求其邮箱与 `productContactEmail` 一致。`productContactEmail` 仅作为目录表单、邮箱验证码或 magic link 的输入来源；需要邮箱验证时，优先使用已授权的 `gws`，仅当 `gws` 不可用时，才使用 `https://mail.google.com` 上与该邮箱匹配的 Gmail 会话。没有可复用会话时，再按顺序尝试 Google/GitHub OAuth、站点原生邮箱验证码或 magic link、邮箱/密码；只有站点明确报告该邮箱没有账号时，才创建一个普通免费账号；身份验证成功后继续原始提交。
+- 目录需要身份验证时，遵循 [references/account-authentication.md](references/account-authentication.md)。当前 provider 已明确显示的已登录目录会话可以直接复用，不要求其邮箱与 `productContactEmail` 一致。`productContactEmail` 仅作为目录表单、邮箱验证码或 magic link 的输入来源；需要邮箱验证时，优先使用已授权的 `gws`，仅当 `gws` 不可用时，才使用 `https://mail.google.com` 上与该邮箱匹配的 Gmail 会话。必须在 evidence 中记录 `auth-preflight` 的适用路径、尝试结果和阻塞原因，但不得记录邮箱、凭据、OTP 或 magic link。只有 auth-preflight 完成后，才可创建普通免费账号或回写 `blocked_account_or_email_policy`；身份验证成功后继续原始提交。
 - 绝不要在 Shipmore evidence 中打印、持久化、截图或写入凭据、OTP、magic link 或邮箱内容。运行时凭据位于配置的仓库外部敏感文件中。
 - 绝不要绕过 CAPTCHA、Turnstile、邮箱验证、浏览器安全警告或站点访问控制。允许使用已授权邮箱完成站点正常的邮箱验证；不允许绕过或削弱验证。
 - 不得订阅 newsletter、接受可选推广、支付费用、手动修改 Product 网站、修改 DNS 或创建无关公开内容。必需的 backlink/badge 只能通过 Shipmore 已授权的 outbound-link endpoint 及下方验证流程处理。
@@ -117,7 +117,7 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 - 链接比较使用解析后的 hostname 和 path：scheme 以及 query/fragment 不参与身份判断，开头的 `www.` 和结尾斜杠会被规范化；除此之外 hostname 和 path 必须完全匹配。绝不能使用子字符串匹配。不要绕过 CAPTCHA、WAF 或访问控制来验证页面。
 - 如果 6 次检查全部失败，不得提交。使用最接近事实的 blocked/ineligible 状态完成任务，并在 exact result/error 中包含 `backlink verification timeout`。
 - 不得虚构创始人、公司、地址、上线时间、价格、联系方式、法律身份、所有权或开源事实。
-- 使用返回的已验证 Product 字段作为表单主要输入。`productDescription` 和 `productMarkdown` 可以用于生成符合长度限制的真实文案，但不得用来捏造独立的身份或联系方式事实。
+- 使用返回的已验证 Product 字段作为表单主要输入。`productDescription` 和 `productMarkdown` 可以用于生成符合长度限制的真实文案，包括目录表单要求的长篇 Introduction，只要源材料包含足够的真实内容；目录表单中的长描述仍属于 `directory_listing`，不属于 `long_post_no_action`。不得用这些字段捏造独立的身份、联系方式、价格、所有权或法律事实。`productPricingModel`、社交账号、仓库地址等非必填字段为空时保持为空，不得仅因此阻塞；只有页面明确要求某个独立事实且无法从已验证来源取得时，才使用 `blocked_missing_verified_data`。
 - 将 `productContactEmail` 视为表单输入，而不是日志材料。不要仅因为提交过它，就把它复制到 `exactResult`、证据标签或可分享的尝试记录中。
 - 点击、导航、清空表单、按钮禁用或普通感谢页本身都不能证明提交成功。
 - `submitted` 不等于 `published`。

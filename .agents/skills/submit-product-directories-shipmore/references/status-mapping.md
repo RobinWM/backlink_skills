@@ -72,6 +72,8 @@ Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Produ
 | 有意义表单操作前发生浏览器/后端故障 | `failed` | 保留当前真实状态，通常为 `not_attempted` | 必须提供 `lastError` |
 | 已填写字段但最终动作前发生故障 | `failed` | `form_in_progress` 或真实保存后的 `draft_saved` | 不得标记为 submitted |
 
+`blocked_missing_verified_data` 只适用于页面明确要求且无法从已验证来源取得的独立事实，例如身份、联系方式、所有权、价格或法律信息。目录表单中的描述、Introduction、FAQ、Use Cases、标签和类别可以从 `productDescription`/`productMarkdown` 真实改写或按语义映射；专用字段为空本身不是阻塞理由。
+
 ## 内容编辑器 no-action
 
 以下入口只记录观察结果，不得填写、预填、保存草稿、提交、发布或自动交给人工继续写作：

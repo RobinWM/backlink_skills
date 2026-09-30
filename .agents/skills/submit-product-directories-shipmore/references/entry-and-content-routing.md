@@ -50,6 +50,8 @@ unknown — no action
 - `long_post`：文章、博客、Guest Post 或长文编辑器；
 - `unknown_content_editor`：无法确认是目录资料页还是内容编辑器的入口。
 
+目录收录表单中的 `Description`、`Introduction`、FAQ、Use Cases 或其他产品说明字段，仍属于 `directory_listing`，即使字段要求 Markdown 或较长篇幅。只有独立的文章、Guest Post、短贴或动态发布编辑器才使用 `long_post_no_action`、`short_note_no_action` 或 `unknown_no_action`；不能因为表单出现 `Publish` 或要求长文案，就把目录收录误分类为内容编辑器。
+
 只有内容编辑器的站点，结果分类为 `ineligible`，不能分类为 `unavailable` 或 `submission_failed`。页面上的 `Post`、`Publish` 或 `Submit` 按钮不构成例外。
 
 ## 站内重复检查
