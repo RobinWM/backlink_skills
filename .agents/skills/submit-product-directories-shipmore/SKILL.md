@@ -5,6 +5,23 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 
 # Shipmore 目录提交 Worker
 
+## 工作流入口
+
+每个 Run Item 都按 [references/workflow-and-feedback.md](references/workflow-and-feedback.md)
+执行。将其中的检查项复制到工作记录，并在有证据引用时记录不透明的引用值。
+
+### 执行顺序
+
+1. **分流**：确定 managed 或 direct/manual 模式，锁定一个浏览器 provider，只读取通用参考文件和当前任务需要的条件参考文件。
+2. **领取**：浏览器操作前先 claim；用 `claim.data.id` 设置 `runItemId`，核对租约与所有权，并从当前 Product / Directory / Submission 数据建立任务事实。
+3. **预检**：按 `references/worker-loop.md` 的顺序检查，在第一个有决定性证据的终止条件处停止；可逆的表单准备不等于最终动作。
+4. **验证**：最终动作前执行 `EXEC-CHECKLIST.md` 的 `before_final_action` 检查，通过 provider 对应的 durable fence 只执行一次最终动作，然后读取实际结果。
+5. **分类与完成**：分类后再次执行 `after_result_classification` 检查；需要时复用 journal 的 `completionEventId`，只将已观察到的事实写回 Shipmore。
+
+### 反馈回路
+
+关口失败后，记录精确错误和证据；仅在对应参考文件允许、且下一步安全并与上次实质不同的情况下修正或检查，再重新核验该关口。若最终动作可能已发生，只做只读核验；无法证明被接受时使用 `submission_outcome_unknown`。响应不明时不得再次点击最终动作。
+
 ## 角色
 
 本 Skill 是执行 worker，不是队列所有者。
@@ -46,17 +63,24 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 
 调用方还必须提供 Shipmore `runId`。
 
-在任何可变操作前阅读以下参考文件：
+参考文件按需读取：先读通用文件，再读当前任务触发的条件文件，不要默认加载全部参考文件。
 
-1. [references/shipmore-api.md](references/shipmore-api.md)
-2. [references/status-mapping.md](references/status-mapping.md)
-3. [references/worker-loop.md](references/worker-loop.md)
-4. [references/browser-control-routing.md](references/browser-control-routing.md)
-5. [references/account-authentication.md](references/account-authentication.md)
-6. [references/entry-and-content-routing.md](references/entry-and-content-routing.md)
-7. [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
-8. [references/parallel-execution.md](references/parallel-execution.md)（仅并发执行时）
-9. [references/production-hardening.md](references/production-hardening.md)（生产边界和未解决缺口）
+**每个 Run Item 必读**
+
+- [references/shipmore-api.md](references/shipmore-api.md)
+- [references/status-mapping.md](references/status-mapping.md)
+- [references/worker-loop.md](references/worker-loop.md)
+- [references/browser-control-routing.md](references/browser-control-routing.md)
+- [references/workflow-and-feedback.md](references/workflow-and-feedback.md)
+- [EXEC-CHECKLIST.md](EXEC-CHECKLIST.md)
+
+**按条件读取**
+
+- 只读取已锁定 provider 对应的 [references/agent-browser-runtime.md](references/agent-browser-runtime.md) 或 [references/ego-browser-runtime.md](references/ego-browser-runtime.md)。
+- 登录、注册、邮箱验证或 magic link 时读取 [references/account-authentication.md](references/account-authentication.md)。
+- 需要确认提交入口、站内去重或内容类型时读取 [references/entry-and-content-routing.md](references/entry-and-content-routing.md)。
+- 运行 worker pool 时读取 [references/parallel-execution.md](references/parallel-execution.md)。
+- 处理生产边界或尚未解决的加固问题时读取 [references/production-hardening.md](references/production-hardening.md)。
 
 浏览器前置要求：先读取 [references/browser-control-routing.md](references/browser-control-routing.md)，随后按 provider 读取 [references/agent-browser-runtime.md](references/agent-browser-runtime.md) 或 [references/ego-browser-runtime.md](references/ego-browser-runtime.md)。claim 后先用 `scripts/browser_action_guard.py select --run-item-id <id> --provider <provider>` 锁定 provider。`ego-browser` 为默认 provider；`agent-browser` 可显式选择，仍固定为 0.38.1 并执行 adapter preflight。整个 Run Item 不得切换 provider，也不得转到 browser-harness、CUA、Playwright、Chrome DevTools MCP、Browser Use 或共享的人类 Chrome。账号类阻塞若需要换 provider，必须创建新的 Run / Run Item。
 
