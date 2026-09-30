@@ -281,7 +281,7 @@ SSE、WebSocket、轮询页面不要依赖 networkidle。
 
 ### OAuth
 
-仅在当前 session 已有匹配授权身份、且页面提供正常 OAuth 流程时使用。不得输入或暴露第三方账号秘密，不得绑定不同身份。
+仅在当前 session 已有已登录授权身份、且页面提供正常 OAuth 流程时使用；不要求该账号邮箱与 `productContactEmail` 一致。不得输入或暴露第三方账号秘密，不得绑定不同身份。
 
 ### 邮件 OTP / Magic link
 

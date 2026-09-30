@@ -17,7 +17,7 @@
 - [ ] 租约未过期；managed runtime 的 LeaseKeeper 正在运行且 lease guard 为 valid，direct/manual 模式必要时已显式 heartbeat；
 - [ ] 当前 Run Item 已通过 `browser_action_guard.py select` 锁定 provider；若为 agent-browser，0.38.1 / doctor preflight 已通过且 deterministic named session 与 `runItemId` 绑定；若为 ego-browser，当前独立 TaskSpace/Page 与本 Run Item 绑定；
 - [ ] 当前页面使用最新 provider 页面证据；agent-browser 标准写入已通过 adapter safe 方法和 read-back 校验；ego-browser 的每次可变动作前已通过 `browser_action_guard.py mutation-check`，写入后重新读取页面确认；
-- [ ] Product、Directory、账号别名和当前提交路由相互匹配；
+- [ ] Product、Directory、当前已登录会话和当前提交路由已核对；无需将登录账号邮箱与 `productContactEmail` 比对；
 - [ ] 既有 `submissionStatus` 不属于禁止盲目重投的状态；
 - [ ] 入口已经从首页、导航、页脚、站内搜索或真实控件确认；
 - [ ] 入口类型已分类为目录表单、产品资料页、claim listing、内容编辑器或官方联系邮件；

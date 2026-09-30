@@ -98,7 +98,7 @@ while true:
 4. **其他不符合资格（不含 Badge 技术能力判断）**：此阶段只处理与 Badge 无关、已经有决定性证据的真实资格不符或无关商业/社区动作。**不得在预检阶段仅因为 Badge verifier 尚未出现、按钮 disabled、要求先填完整表单、页面展示固定 SVG/Badge 示例或说明需要 permanent/dofollow badge，就提前输出 `ineligible`。** Badge 技术能力判断必须延后到第 10 步的表单准备和第 11 步的原生验证阶段。
 5. **重复项/既有生命周期保护**：正常模式检查既有 Shipmore 状态和明确的现有列表，绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。当 `debugHistoryIgnored=true` 时，不使用被屏蔽的 Shipmore 生命周期做业务判断，但仍必须从当前站点实时检查是否已经存在列表/提交；final-action journal 仍可阻止重复最终动作。
 6. **入口和内容面分类**：按照 [entry-and-content-routing.md](entry-and-content-routing.md) 从首页、导航、页脚、站内搜索和真实控件确认当前入口；在填写字段前完成站内重复查询，并核对候选实际出站 URL。目录表单、产品资料页、claim listing、内容编辑器和官方 Contact 邮件必须分别分类。`short note — no action`、`long post — no action` 和 `unknown — no action` 立即停止该站的内容动作；只有内容编辑器的站点使用 `ineligible`。
-7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。使用 claim 载荷中的有效 `productContactEmail`，遵循 `account-authentication.md` 依次尝试当前已锁定 provider 会话中的现有身份、Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用匹配 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交；不得通过中途换 provider 绕过认证/挑战。
+7. **账号认证**：`Login Required`、登录墙或登录重定向只表示进入认证阶段，不是立即阻塞。当前已锁定 provider 页面明确显示的已登录目录会话可以直接复用，不要求其邮箱与 `productContactEmail` 一致。没有可复用会话时，按 `account-authentication.md` 依次尝试 Google OAuth、GitHub OAuth、原生邮箱验证码/magic link（Google 托管邮箱优先使用已授权 `gws`，不可用时使用与 `productContactEmail` 匹配的 Gmail 会话），之后才使用运行时密码。只有所有安全授权路径都不可用或失败，或站点要求超出授权范围的手机/KYC/付费/人工批准，才使用 `blocked_account_or_email_policy`。认证成功后必须继续原始提交；不得通过中途换 provider 绕过认证/挑战。
 8. **必需的已验证 Product 资料**：路由仍符合资格时，将表单必填项与明确的 Shipmore Product 字段比较。缺失的独立事实使用 `blocked_missing_verified_data`。
 9. **验证挑战**：暴露 CAPTCHA、Turnstile、邮箱挑战等原生验证。未解决的人工验证使用 `blocked_manual_verification`。
 10. **安全表单准备**：填写所有能够由已验证 Shipmore Product 数据支持的普通字段、选择合法分类、上传已授权素材，并推进到最终 Submit/Publish/Claim 之前的最后可逆阶段。此阶段允许为了**解锁目录原生 Badge/Backlink verifier**而填写表单；不得把“verifier 需要先完整填表”当作停止理由。不要执行最终 Submit/Publish/Claim。
@@ -198,7 +198,7 @@ while true:
 4. 只通过 `gws`，或在 `gws` 不可用时通过匹配 Gmail 会话获取验证邮件；OTP/magic link 只临时使用，不写入日志/证据；
 5. 登录/注册导航和等待邮件期间发送 heartbeat；
 6. 认证成功后继续当前 Run Item 和原始目录提交，不要标记为 blocked；
-7. CAPTCHA、手机/KYC/passkey/人工审批、付费注册、邮箱匹配不明、缺少必需身份、凭据拒绝且无安全注册路径或租约丢失时停止。
+7. CAPTCHA、手机/KYC/passkey/人工审批、付费注册、验证码邮件匹配不明、缺少必需身份、凭据拒绝且无安全注册路径或租约丢失时停止。
 
 ### 最终提交结果不明
 

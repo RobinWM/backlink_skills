@@ -139,7 +139,7 @@ checkbox/radio 必须只选择业务必需选项。不得勾选可选 newsletter
 
 - 只复用当前已锁定 provider 上下文中可由页面证据确认的授权登录状态。
 - 不读取、复制、导出或打印 Cookie、localStorage、session ID、密码、OTP、magic link 或其他隐藏认证材料。
-- Google/GitHub OAuth 只有在当前 provider 上下文已明确存在匹配的授权身份时才使用。
+- Google/GitHub OAuth 只有在当前 provider 上下文已明确存在已登录的授权身份时才使用；不要求该账号邮箱与 `productContactEmail` 一致。
 - 邮箱验证码或 magic link 的邮件读取优先通过 `gws`；仅当 `gws` 不可用时，才在同一个 provider 浏览器上下文中打开 Gmail。
 - 当 `actionChannel=official_contact_email` 且当前 Run 明确授权发送时，Gmail Web 发送也必须在同一 provider 上下文中执行；Gmail Send 属于最终动作，只能执行一次。
 - provider 页面/标签切换后必须重新读取实时页面状态，不复用旧 ref/handle。
