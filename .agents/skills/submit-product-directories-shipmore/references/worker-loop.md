@@ -93,7 +93,7 @@ while true:
 按以下顺序执行只读检查，避免后续较弱的缺失字段掩盖更早的终止性政策结果：
 
 1. **路由/站点不可用**：官方提交路由消失、关闭、硬维护、DNS/SSL 失效或不可达时，分类为 `unavailable`（含义见 [status-mapping.md](status-mapping.md)；不含 CAPTCHA、登录墙、内容类型不符）。分类后、Complete 前执行下方 **Directory Admin：连续 unavailable** 副作用。
-2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。分类前或完成该项时，把实时观察映射为 `directoryPricing` 枚举并与 claim 快照比对；不一致则执行下方 **Directory Admin：定价同步**。不得付款、不得发明美元金额。
+2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。分类前或完成该项时，把实时观察映射为 `directoryPricing` 枚举（多路径优先级 **`free` > `backlink` > `paid`**）并与 claim 快照比对；不一致则执行下方 **Directory Admin：定价同步**。存在免费路径时不得因同页付费档记成 `paid`。不得付款、不得发明美元金额。
 3. **必需 backlink/badge 的首页链接阶段**：页面出现 backlink、reciprocal link/backlink、permanent backlink、badge required 或同义措辞时，不得仅凭这些文字分类为 `ineligible`。先执行下方 Shipmore outbound-link 注册和 Product 首页验证。对于纯 backlink/reciprocal/permanent backlink，首页验证成功后条件已满足，直接继续原始任务；不要再寻找 Badge 安装入口。对于 badge 场景，首页验证成功只表示“基础链接已就绪”，目录原生 Badge/Backlink 校验允许延后到表单已经填写到可验证阶段。
 4. **其他不符合资格（不含 Badge 技术能力判断）**：此阶段只处理与 Badge 无关、已经有决定性证据的真实资格不符或无关商业/社区动作。**不得在预检阶段仅因为 Badge verifier 尚未出现、按钮 disabled、要求先填完整表单、页面展示固定 SVG/Badge 示例或说明需要 permanent/dofollow badge，就提前输出 `ineligible`。** Badge 技术能力判断必须延后到第 10 步的表单准备和第 11 步的原生验证阶段。
 5. **重复项/既有生命周期保护**：正常模式检查既有 Shipmore 状态和明确的现有列表，绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。当 `debugHistoryIgnored=true` 时，不使用被屏蔽的 Shipmore 生命周期做业务判断，但仍必须从当前站点实时检查是否已经存在列表/提交；final-action journal 仍可阻止重复最终动作。
@@ -115,13 +115,13 @@ Admin API 与 Queue/`BACKLINK_AGENT_TOKEN` 分离，使用 `DIRECTORY_ADMIN_API_
 
 ### 定价观察 → 枚举
 
-将实时站点要求映射为与 claim `directoryPricing` 相同的枚举：
+将实时站点要求映射为与 claim `directoryPricing` 相同的枚举。页面同时提供多条路径时，按优先级 **`free` > `backlink` > `paid`** 只取一条观察结果（helper：`resolve_observed_pricing`）：
 
-| 实时观察 | 枚举 |
-| --- | --- |
-| 免费 listing / free queue / free submit，存在免费路径 | `free` |
-| 仅付费/加急/付费档且无免费路径 | `paid` |
-| 以 reciprocal/backlink/badge 作为上架代价（不是另收付费） | `backlink` |
+| 优先级 | 实时观察 | 枚举 |
+| --- | --- | --- |
+| 1（最高） | 存在免费 listing / free queue / free submit 路径 | `free`（即使同时有付费加急或 backlink 选项） |
+| 2 | 无现金免费路径，但 reciprocal/backlink/badge 可作为上架代价 | `backlink`（即使同时有付费档） |
+| 3（最低） | 仅有付费/加急/付费档，无免费路径也无 backlink 代价路径 | `paid` |
 
 ### 定价不一致时同步
 

@@ -18,6 +18,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from directory_admin_client import (  # noqa: E402
     DirectoryAdminClient,
     DirectoryAdminError,
+    OBSERVED_PRICING_PRIORITY,
     admin_sync_note,
     build_parser,
     map_observed_pricing,
@@ -25,6 +26,7 @@ from directory_admin_client import (  # noqa: E402
     read_local_unavailable_streak,
     record_unavailable_outcome,
     reset_unavailable_streak,
+    resolve_observed_pricing,
     sync_pricing_if_mismatch,
 )
 
@@ -62,6 +64,60 @@ class DirectoryAdminClientTests(unittest.TestCase):
         # Explicit free-path wording collapses via aliases / enum only.
         self.assertEqual(map_observed_pricing('free'), 'free')
         self.assertEqual(map_observed_pricing('FREE'), 'free')
+
+    def test_observed_pricing_priority_constant(self):
+        self.assertEqual(OBSERVED_PRICING_PRIORITY, ('free', 'backlink', 'paid'))
+
+    def test_resolve_observed_pricing_prefers_free_over_paid_and_backlink(self):
+        self.assertEqual(
+            resolve_observed_pricing(['free', 'paid', 'backlink']),
+            'free',
+        )
+        self.assertEqual(
+            resolve_observed_pricing('free_listing,expedite,reciprocal'),
+            'free',
+        )
+        self.assertEqual(
+            resolve_observed_pricing(['paid', 'free_submit']),
+            'free',
+        )
+
+    def test_resolve_observed_pricing_prefers_backlink_over_paid(self):
+        self.assertEqual(
+            resolve_observed_pricing(['backlink', 'paid']),
+            'backlink',
+        )
+        self.assertEqual(
+            resolve_observed_pricing('badge_required,paid_tier,expedite'),
+            'backlink',
+        )
+        self.assertEqual(
+            resolve_observed_pricing(['paid_only', 'reciprocal_link']),
+            'backlink',
+        )
+
+    def test_resolve_observed_pricing_paid_only_when_no_higher_path(self):
+        self.assertEqual(resolve_observed_pricing('paid'), 'paid')
+        self.assertEqual(resolve_observed_pricing(['expedite', 'paid_tier']), 'paid')
+
+    def test_sync_pricing_applies_multi_path_priority(self):
+        client = DirectoryAdminClient('https://shipmore.example', 'admin-secret')
+        captured = {}
+
+        def fake_urlopen(request, timeout=30):
+            captured['body'] = json.loads(request.data.decode('utf-8'))
+            return FakeHTTPResponse('{"ok":true}', status=200)
+
+        with patch('directory_admin_client.urlopen', side_effect=fake_urlopen):
+            result = sync_pricing_if_mismatch(
+                client,
+                directory_id='dir-priority',
+                claim_pricing='paid',
+                observed_pricing='paid,backlink,free',
+            )
+        self.assertTrue(result['mismatch'])
+        self.assertEqual(result['observedPricing'], 'free')
+        self.assertEqual(captured['body']['pricing'], 'free')
 
     def test_admin_sync_note_never_embeds_secrets(self):
         note = admin_sync_note('pricing', ok=False, status_code=401)

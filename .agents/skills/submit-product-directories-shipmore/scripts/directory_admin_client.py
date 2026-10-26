@@ -24,6 +24,9 @@ DEFAULT_UNAVAILABLE_STREAK_ROOT = Path.home() / '.shipmore' / 'directory-unavail
 UNAVAILABLE_REJECT_THRESHOLD = 3
 
 DIRECTORY_PRICING = ('free', 'paid', 'backlink')
+# When a page offers more than one listing path, observe the highest-priority one.
+# free listing beats backlink-as-price, which beats cash-only paid tiers.
+OBSERVED_PRICING_PRIORITY = ('free', 'backlink', 'paid')
 DIRECTORY_STATUSES = ('active', 'pending', 'rejected')
 
 ADMIN_TOKEN_ENV = 'DIRECTORY_ADMIN_API_TOKEN'
@@ -55,7 +58,11 @@ def sanitize_directory_id(directory_id: str) -> str:
 
 
 def map_observed_pricing(observation: str) -> str:
-    """Map free-text live-site observation into directoryPricing enum."""
+    """Map one free-text live-site path into directoryPricing enum.
+
+    For pages that offer multiple paths, use resolve_observed_pricing() so the
+    priority free > backlink > paid is applied.
+    """
     raw = require(observation, 'observed pricing text is required').strip().lower()
     # Normalize "free listing" / "free-listing" / "free_listing" to one key form.
     text = '_'.join(raw.replace('-', ' ').replace('_', ' ').split())
@@ -83,6 +90,52 @@ def map_observed_pricing(observation: str) -> str:
     raise DirectoryAdminError(
         f'Unsupported observed pricing "{observation}"; '
         f'expected one of {", ".join(DIRECTORY_PRICING)} or a documented alias'
+    )
+
+
+def _split_observed_pricing_inputs(
+    observations: str | list[str] | tuple[str, ...],
+) -> list[str]:
+    if isinstance(observations, str):
+        parts = [part.strip() for part in observations.split(',')]
+        return [part for part in parts if part]
+    if isinstance(observations, (list, tuple)):
+        parts: list[str] = []
+        for item in observations:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if not text:
+                continue
+            if ',' in text:
+                parts.extend(_split_observed_pricing_inputs(text))
+            else:
+                parts.append(text)
+        return parts
+    raise DirectoryAdminError('observed pricing must be a string or list of strings')
+
+
+def resolve_observed_pricing(
+    observations: str | list[str] | tuple[str, ...],
+) -> str:
+    """Collapse one or more live paths to a single directoryPricing enum.
+
+    Priority when multiple paths exist on the page: **free > backlink > paid**.
+    - free listing / free queue / free submit present → `free`
+      (even if paid expedite or backlink options are also offered)
+    - else only cash-free path is reciprocal/backlink/badge → `backlink`
+      (even if paid tiers exist)
+    - else only paid paths → `paid`
+    """
+    parts = _split_observed_pricing_inputs(observations)
+    if not parts:
+        raise DirectoryAdminError('at least one observed pricing path is required')
+    mapped = {map_observed_pricing(part) for part in parts}
+    for candidate in OBSERVED_PRICING_PRIORITY:
+        if candidate in mapped:
+            return candidate
+    raise DirectoryAdminError(
+        f'Unable to resolve observed pricing from {sorted(mapped)!r}'
     )
 
 
@@ -370,7 +423,9 @@ def sync_pricing_if_mismatch(
     returns a non-secret note for exactResult/followUpNote.
     """
     claim = require(claim_pricing, 'claim directoryPricing is required').strip().lower()
-    observed = map_observed_pricing(observed_pricing)
+    # Accept a single enum/alias or multiple paths (list / comma-separated);
+    # multi-path pages resolve with free > backlink > paid.
+    observed = resolve_observed_pricing(observed_pricing)
     if claim not in DIRECTORY_PRICING:
         raise DirectoryAdminError(
             f'claim directoryPricing must be one of {", ".join(DIRECTORY_PRICING)}'
@@ -515,7 +570,10 @@ def build_parser() -> argparse.ArgumentParser:
     sync_pricing.add_argument(
         '--observed-pricing',
         required=True,
-        help='Observed enum or alias (free|paid|backlink|...)',
+        help=(
+            'Observed enum/alias, or comma-separated paths when the page offers '
+            'more than one (resolved with priority free > backlink > paid)'
+        ),
     )
 
     note_unavailable = subparsers.add_parser(

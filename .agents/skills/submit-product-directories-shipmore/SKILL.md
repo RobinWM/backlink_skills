@@ -116,7 +116,7 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 9. 记录准确的页面/服务器结果，并在有证据时记录不透明的 evidence reference。
 10. 使用 [references/status-mapping.md](references/status-mapping.md) 对结果分类。
 11. 结果分类后再次执行检查单；未通过时不得把结果标记为成功。
-12. **Directory Admin 副作用（可选、可失败）**：若实时观察的定价枚举与 claim `directoryPricing` 不一致，或本次将以站点不可达含义的 `unavailable` 完成，则在 Complete 之前按 [references/shipmore-api.md](references/shipmore-api.md) 的 Directory Admin 规则调用 `scripts/directory_admin_client.py`；Admin 同步失败只记非机密 note，仍继续 Complete。不得为无关状态调用 Admin API；不得发明美元金额。
+12. **Directory Admin 副作用（可选、可失败）**：若实时观察的定价枚举（多路径时按 **`free` > `backlink` > `paid`**）与 claim `directoryPricing` 不一致，或本次将以站点不可达含义的 `unavailable` 完成，则在 Complete 之前按 [references/shipmore-api.md](references/shipmore-api.md) 的 Directory Admin 规则调用 `scripts/directory_admin_client.py`；Admin 同步失败只记非机密 note，仍继续 Complete。不得为无关状态调用 Admin API；不得发明美元金额。
 13. 有 Final Action 时，优先使用 durable final-action journal 返回的 `completionEventId` 作为稳定 Complete `eventId`；没有 Final Action 的 blocked/skipped/failed 路径才生成新的稳定 event ID。HTTP 响应丢失时重复使用同一个 ID。
 14. 完成该任务。同一个逻辑完成操作绝不能生成新的 event ID。
 15. 只有在前一个任务得到终止性 Run Item 结果后，才能 claim 下一个任务。
@@ -212,10 +212,11 @@ Directory Admin 同步（与 Queue token 分离）：
 
 ```bash
 # 定价观察 ≠ claim directoryPricing 时纠正 Admin 元数据（仍按 paid_only 等完成 Run Item）
+# 多路径并存时观察优先级：free > backlink > paid（可用逗号分隔多条路径）
 python3 scripts/directory_admin_client.py sync-observed-pricing \
   --directory-id <directoryId> \
   --claim-pricing <free|paid|backlink> \
-  --observed-pricing <free|paid|backlink|alias>
+  --observed-pricing <free|paid|backlink|alias[,path...]>
 
 # 本次为站点不可达含义的 unavailable 时累计连续次数；第 3 次将目录 status 设为 rejected
 python3 scripts/directory_admin_client.py note-unavailable \

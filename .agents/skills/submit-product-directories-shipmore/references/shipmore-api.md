@@ -261,7 +261,7 @@ productFounderGithubUrl
 
 `directoryDofollow` 只是目录元数据，不能作为操纵排名或索要 followed link 的指令。
 
-`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正；不得用 Queue token 调用 Admin 端点。
+`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正；不得用 Queue token 调用 Admin 端点。页面多路径并存时，观察结果按 **`free` > `backlink` > `paid`** 收敛为单一枚举（见 `resolve_observed_pricing` / `sync-observed-pricing`）。
 
 
 ## Directory Admin API
@@ -297,6 +297,12 @@ python3 scripts/directory_admin_client.py sync-observed-pricing \
   --directory-id <directoryId> \
   --claim-pricing free \
   --observed-pricing paid
+
+# 同页多路径时可用逗号分隔；会按 free > backlink > paid 收敛（下例结果为 free）
+python3 scripts/directory_admin_client.py sync-observed-pricing \
+  --directory-id <directoryId> \
+  --claim-pricing paid \
+  --observed-pricing free,paid,backlink
 ```
 
 ### 仅更新状态
