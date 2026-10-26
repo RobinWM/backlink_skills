@@ -42,12 +42,11 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 
 ## 必需配置
 
-使用非敏感的运行时环境变量。绝不要打印 agent token。
+使用非敏感的运行时环境变量。绝不要打印 API key。
 
 ```text
 BACKLINK_APP_URL=https://shipmore.app
-BACKLINK_AGENT_TOKEN=<secret>
-DIRECTORY_ADMIN_API_TOKEN=<secret; separate from Queue agent token>
+SHIPMORE_API_KEY=<personal dashboard API key>
 BACKLINK_WORKER_ID=<stable worker alias; managed runtime may generate a persistent unique ID>
 BACKLINK_BROWSER_PROVIDER=ego-browser|agent-browser  # default ego-browser
 BACKLINK_EGO_BROWSER_SKILL=<optional local ego-browser SKILL.md path>
@@ -60,7 +59,7 @@ SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 ```
 
-`DIRECTORY_ADMIN_API_TOKEN` 仅用于 Directory Admin API（纠正 `directoryPricing`、连续 `unavailable` ×3 时将目录 `status` 设为 `rejected`）。它与 Queue 的 `BACKLINK_AGENT_TOKEN` 完全分离；缺失或调用失败不得阻断 Run Item 完成。绝不要打印任一 token。
+`SHIPMORE_API_KEY` 是 Dashboard 个人 API key。Queue（claim/heartbeat/complete/recover）与 `POST /api/outbound-links` 必须发送 `x-api-key: <SHIPMORE_API_KEY>`；生产不再接受共享 `BACKLINK_AGENT_TOKEN` 或 `Authorization: Bearer`。Directory Admin（纠正 `directoryPricing`、连续 `unavailable` ×3 → `rejected`）可选：优先复用同一 `SHIPMORE_API_KEY` + `x-api-key`，由服务端做 admin-role 校验（仍在落地）；缺失或调用失败不得阻断 Run Item 完成。不要配置共享 `DIRECTORY_ADMIN_API_TOKEN`。绝不要打印 API key。
 
 完整环境变量模板见 [`example.env`](example.env)。其中包含用户配置项、可选路径覆盖项以及 managed runtime 自动注入的内部变量。
 
@@ -206,9 +205,9 @@ python3 scripts/shipmore_queue_client.py complete \
   --exact-result "Submission accepted and queued for review"
 ```
 
-环境变量可用时，不要把 `BACKLINK_AGENT_TOKEN` 或 `DIRECTORY_ADMIN_API_TOKEN` 放在命令行中。
+环境变量可用时，不要把 `SHIPMORE_API_KEY` 放在命令行中。
 
-Directory Admin 同步（与 Queue token 分离）：
+Directory Admin 同步（可选；与 Queue 同用 `SHIPMORE_API_KEY` + `x-api-key`，失败不阻断）：
 
 ```bash
 # 定价观察 ≠ claim directoryPricing 时纠正 Admin 元数据（仍按 paid_only 等完成 Run Item）
@@ -271,7 +270,7 @@ python3 scripts/directory_admin_client.py admin-update-directory-status \
 - `scripts/shipmore_worker.py`：真正长驻的 managed Queue/lease runtime。
 - `scripts/shipmore_worker_pool.py`：跨 Windows/Linux 的 wait-any 并发进程 supervisor。
 - `scripts/shipmore_queue_client.py`：Queue/outbound-link API 客户端；Complete 明确成功后登记 terminal session cleanup。
-- `scripts/directory_admin_client.py`：Directory Admin API 客户端（定价纠正、连续 unavailable ×3 → `rejected`）；使用 `DIRECTORY_ADMIN_API_TOKEN`，失败不阻断 Complete。
+- `scripts/directory_admin_client.py`：Directory Admin API 客户端（定价纠正、连续 unavailable ×3 → `rejected`）；优先 `SHIPMORE_API_KEY` + `x-api-key`，失败不阻断 Complete。
 - `scripts/runtime_cleanup.py`：只清理本机已确认 terminal 的 agent-browser restore state。
 - `scripts/diagnostic_sanitizer.py`：在 Console/Network/Snapshot diagnostics 离开 adapter 前做结构化脱敏。
 - `runtime/agent-browser.version`：生产 agent-browser 精确版本。

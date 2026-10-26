@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Directory Admin API helpers for Shipmore directory metadata sync.
 
-Uses DIRECTORY_ADMIN_API_TOKEN (separate from BACKLINK_AGENT_TOKEN / Queue API).
-Never print the admin token.
+Auth: prefer personal dashboard API key via SHIPMORE_API_KEY + x-api-key
+(same key shape as Queue). Shared DIRECTORY_ADMIN_API_TOKEN is deprecated
+pending ShipMore Admin redesign (personal keys + server-side admin-role checks).
+Never print the API key.
 """
 
 from __future__ import annotations
@@ -29,8 +31,11 @@ DIRECTORY_PRICING = ('free', 'paid', 'backlink')
 OBSERVED_PRICING_PRIORITY = ('free', 'backlink', 'paid')
 DIRECTORY_STATUSES = ('active', 'pending', 'rejected')
 
-ADMIN_TOKEN_ENV = 'DIRECTORY_ADMIN_API_TOKEN'
+SHIPMORE_API_KEY_ENV = 'SHIPMORE_API_KEY'
+# Deprecated shared admin secret; do not document minting new values.
+_DEPRECATED_ADMIN_TOKEN_ENV = 'DIRECTORY_ADMIN_API_TOKEN'
 UNAVAILABLE_STREAK_DIR_ENV = 'SHIPMORE_DIRECTORY_UNAVAILABLE_DIR'
+_ADMIN_DEPRECATION_WARNED = False
 
 
 class DirectoryAdminError(RuntimeError):
@@ -48,6 +53,34 @@ def require(value: str | None, message: str) -> str:
     if value is None or not value.strip():
         raise DirectoryAdminError(message)
     return value.strip()
+
+
+def resolve_admin_api_key(explicit: str | None = None) -> str | None:
+    """Resolve Admin auth: SHIPMORE_API_KEY first; deprecated env only as fallback.
+
+    Never print the key. Soft Admin paths treat a missing key as non-blocking.
+    """
+    global _ADMIN_DEPRECATION_WARNED
+    if explicit is not None and str(explicit).strip():
+        return str(explicit).strip()
+    primary = env(SHIPMORE_API_KEY_ENV)
+    if primary:
+        return primary
+    legacy = env(_DEPRECATED_ADMIN_TOKEN_ENV)
+    if legacy:
+        if not _ADMIN_DEPRECATION_WARNED:
+            print(
+                (
+                    f'WARNING: {_DEPRECATED_ADMIN_TOKEN_ENV} is deprecated. '
+                    f'Use personal dashboard API key via {SHIPMORE_API_KEY_ENV} '
+                    f'and header x-api-key. Shared Directory Admin secrets are '
+                    f'being removed; ShipMore Admin will check admin role server-side.'
+                ),
+                file=sys.stderr,
+            )
+            _ADMIN_DEPRECATION_WARNED = True
+        return legacy
+    return None
 
 
 def sanitize_directory_id(directory_id: str) -> str:
@@ -140,11 +173,11 @@ def resolve_observed_pricing(
 
 
 def admin_sync_note(kind: str, *, ok: bool, status_code: int | None = None) -> str:
-    """Non-secret note for exactResult / followUpNote. Never includes tokens."""
+    """Non-secret note for exactResult / followUpNote. Never includes secrets."""
     if ok:
         return f'admin {kind} sync ok'
     if status_code is None:
-        return f'admin {kind} sync failed: missing token or network error'
+        return f'admin {kind} sync failed: missing API key or network error'
     return f'admin {kind} sync failed: HTTP {status_code}'
 
 
@@ -269,11 +302,11 @@ class DirectoryAdminClient:
     def __init__(
         self,
         base_url: str,
-        token: str,
+        api_key: str,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
     ):
         self.base_url = base_url.rstrip('/')
-        self.token = token
+        self.api_key = require(api_key, f'Missing ShipMore API key. Set {SHIPMORE_API_KEY_ENV}.')
         self.timeout = timeout
 
     @property
@@ -283,6 +316,15 @@ class DirectoryAdminClient:
     @property
     def directories_status_url(self) -> str:
         return f'{self.base_url}/api/admin/directories/status'
+
+    def auth_headers(self) -> dict[str, str]:
+        """Personal API key header; matches Queue/outbound-links auth shape."""
+        return {
+            'x-api-key': self.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'shipmore-directory-admin-skill/1.0',
+        }
 
     def _request(
         self,
@@ -295,12 +337,7 @@ class DirectoryAdminClient:
             url,
             data=body,
             method=method,
-            headers={
-                'Authorization': f'Bearer {self.token}',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'shipmore-directory-admin-skill/1.0',
-            },
+            headers=self.auth_headers(),
         )
         try:
             with urlopen(request, timeout=self.timeout) as response:
@@ -513,8 +550,8 @@ def build_parser() -> argparse.ArgumentParser:
         help='Shipmore base URL; defaults to BACKLINK_APP_URL',
     )
     common.add_argument(
-        '--token',
-        default=env(ADMIN_TOKEN_ENV),
+        '--api-key',
+        default=None,
         help=argparse.SUPPRESS,
     )
     common.add_argument(
@@ -527,7 +564,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             'Shipmore Directory Admin API client '
-            '(DIRECTORY_ADMIN_API_TOKEN; never logs the token)'
+            f'({SHIPMORE_API_KEY_ENV} + x-api-key; never logs the key)'
         ),
         parents=[common],
     )
@@ -614,13 +651,13 @@ def _client_from_args(args: argparse.Namespace) -> DirectoryAdminClient:
         args.base_url,
         'Missing Shipmore base URL. Set BACKLINK_APP_URL or pass --base-url.',
     )
-    token = require(
-        args.token,
-        f'Missing Directory Admin token. Set {ADMIN_TOKEN_ENV}.',
+    api_key = require(
+        resolve_admin_api_key(getattr(args, 'api_key', None)),
+        f'Missing ShipMore API key. Set {SHIPMORE_API_KEY_ENV}.',
     )
     return DirectoryAdminClient(
         base_url=base_url,
-        token=token,
+        api_key=api_key,
         timeout=args.timeout,
     )
 
@@ -646,15 +683,15 @@ def main() -> int:
             client = _client_from_args(args)
             result = client.update_directory_status(args.directory_id, args.status)
         elif args.command == 'sync-observed-pricing':
-            token = env(ADMIN_TOKEN_ENV) if args.token is None else args.token
+            api_key = resolve_admin_api_key(getattr(args, 'api_key', None))
             client = None
-            if token and args.base_url:
+            if api_key and args.base_url:
                 client = DirectoryAdminClient(
                     base_url=require(args.base_url, 'Missing Shipmore base URL.'),
-                    token=token,
+                    api_key=api_key,
                     timeout=args.timeout,
                 )
-            elif token:
+            elif api_key:
                 client = _client_from_args(args)
             result = sync_pricing_if_mismatch(
                 client,
@@ -669,15 +706,15 @@ def main() -> int:
                     shipmore_consecutive_count=args.shipmore_consecutive_count,
                 )
             else:
-                token = env(ADMIN_TOKEN_ENV) if args.token is None else args.token
+                api_key = resolve_admin_api_key(getattr(args, 'api_key', None))
                 client = None
-                if token and args.base_url:
+                if api_key and args.base_url:
                     try:
                         client = DirectoryAdminClient(
                             base_url=require(
                                 args.base_url, 'Missing Shipmore base URL.'
                             ),
-                            token=token,
+                            api_key=api_key,
                             timeout=args.timeout,
                         )
                     except DirectoryAdminError:

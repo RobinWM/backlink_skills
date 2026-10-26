@@ -111,7 +111,7 @@ while true:
 
 ## Directory Admin 副作用（Complete 前）
 
-Admin API 与 Queue/`BACKLINK_AGENT_TOKEN` 分离，使用 `DIRECTORY_ADMIN_API_TOKEN`。只在下列两种分类后调用；其他 submission status 不得调用。同步失败只写非机密 note（最多含 HTTP 状态码），**仍照常 Complete**。绝不要打印 token。
+Admin API 可选：优先复用 Queue 的个人 `SHIPMORE_API_KEY` + `x-api-key`（服务端 admin-role 校验；共享 `DIRECTORY_ADMIN_API_TOKEN` 已废弃）。只在下列两种分类后调用；其他 submission status 不得调用。同步失败只写非机密 note（最多含 HTTP 状态码），**仍照常 Complete**。绝不要打印 API key。
 
 ### 定价观察 → 枚举
 

@@ -20,8 +20,7 @@ def test_example_env_lists_all_shipmore_runtime_variables():
     values = parse_env_keys(EXAMPLE_ENV.read_text(encoding="utf-8"))
     expected = {
         "BACKLINK_APP_URL",
-        "BACKLINK_AGENT_TOKEN",
-        "DIRECTORY_ADMIN_API_TOKEN",
+        "SHIPMORE_API_KEY",
         "BACKLINK_WORKER_ID",
         "BACKLINK_WORKER_ID_PREFIX",
         "BACKLINK_BROWSER_PROVIDER",
@@ -74,7 +73,16 @@ def test_example_env_defaults_match_runtime():
 def test_example_env_does_not_ship_real_secrets():
     values = parse_env_keys(EXAMPLE_ENV.read_text(encoding="utf-8"))
 
-    assert values["BACKLINK_AGENT_TOKEN"] == ""
-    assert values["DIRECTORY_ADMIN_API_TOKEN"] == ""
+    assert values["SHIPMORE_API_KEY"] == ""
+    assert "BACKLINK_AGENT_TOKEN" not in values
+    assert "DIRECTORY_ADMIN_API_TOKEN" not in values
     assert values["AGENT_BROWSER_ENCRYPTION_KEY"] == ""
     assert values["DIRECTORY_ACCOUNT_PASSWORD"] == ""
+
+
+def test_example_env_documents_x_api_key_migration():
+    text = EXAMPLE_ENV.read_text(encoding="utf-8")
+    assert "x-api-key" in text
+    assert "SHIPMORE_API_KEY" in text
+    assert "BACKLINK_AGENT_TOKEN" in text  # mentioned as removed / no longer accepted
+    assert "DIRECTORY_ADMIN_API_TOKEN" in text  # mentioned as deprecated only

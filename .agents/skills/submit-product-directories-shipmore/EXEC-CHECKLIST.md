@@ -77,7 +77,7 @@ unknown — no action
 - [ ] 若实时定价枚举与 claim `directoryPricing` 不一致，已在 Complete 前调用 Directory Admin 定价同步（或已记录非机密失败 note）；多路径观察已按 `free` > `backlink` > `paid` 收敛；未发明金额；
 - [ ] 若本次为站点不可达含义的 `unavailable`，已累计连续次数（优先 Shipmore 历史，否则本地计数）；第 3 次已尝试 Admin `status=rejected`（或已记录失败 note）；Run Item 仍 Complete 为 `unavailable`；
 - [ ] 若本次为成功的非 `unavailable` 结果，已重置该 `directoryId` 的连续 unavailable 计数；
-- [ ] 未对无关 submission status 调用 Directory Admin API；未打印 `DIRECTORY_ADMIN_API_TOKEN`；
+- [ ] 未对无关 submission status 调用 Directory Admin API；未打印 `SHIPMORE_API_KEY`；
 - [ ] 记录 `checklist PASS` 或 `checklist FAIL: <reason>`。
 - [ ] 如果发生受控重试，已记录唯一的 `retryDiagnostic`，并且下一步操作与上次实质不同；最终 Submit、Publish、Claim 和 Gmail Send 不得重试。
 

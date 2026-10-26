@@ -151,7 +151,7 @@ def test_complete_success_registers_terminal_cleanup(monkeypatch):
     monkeypatch.setattr(shipmore_queue_client, "mark_terminal_session", fake_mark)
     client = shipmore_queue_client.ShipmoreQueueClient(
         "https://shipmore.test",
-        "token",
+        "test-api-key",
         "worker-a",
     )
     client.post = lambda payload, url=None: {"success": True, "reason": "completed"}
