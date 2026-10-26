@@ -1,0 +1,141 @@
+version: "0.16.6"
+name: "scalable-seo-blog-workflow"
+execution_boundary: "HUMAN_CONTENT_RELEASE_WITH_OWNER_AUTHORIZED_ACCOUNT_PREPARATION"
+account_preparation:
+  mode: OWNER_AUTHORIZED_MINIMAL_SETUP
+  authorization: TARGET_IDENTITY_ACTION_BROWSER_RECEIPT_REQUIRED
+  service_role: CAMPAIGN_OPERATIONS_STEWARD
+  service_reuse: ONE_PER_CAMPAIGN
+  guide: docs/account-preparation.md
+  local_guard: skills/blog-harness/scripts/check_account_preparation.py
+  default_setup: EXISTING_BRAND_ASSETS_AND_PLATFORM_DEFAULTS_ONLY
+  content_writes: PROHIBITED
+  account_readiness_is_publication: false
+editorial_purpose_policy:
+  mode: "READER_VALUE_FIRST"
+  primary_purpose: "STANDALONE_ANSWER_TO_READER_TASK"
+  cta_role: "REQUIRED_SECONDARY_TRANSPARENT_RECOMMENDATION"
+  cta_must_be_present: true
+  cta_requires_identifiable_product_and_claim_basis: true
+  cta_requires_relationship_disclosure_when_applicable: true
+  cta_must_not_replace_or_dominate_reader_value: true
+  moderation_risk: "RISK_REDUCTION_NOT_RETENTION_GUARANTEE"
+keyword_evidence_policy:
+  google_trends: "OPTIONAL_ENGLISH_GLOBAL_RELATIVE_CONTEXT_ONLY"
+  insufficient_data_route: "TARGET_PLATFORM_AUDIENCE_NEED_WITH_EXPLICIT_BOUNDARY"
+  prohibited_inferences:
+    - "SEARCH_VOLUME"
+    - "LOW_BASE_HIGH_MOMENTUM"
+    - "LOCAL_DEMAND"
+    - "POPULARITY"
+    - "COMMERCIAL_INTENT"
+    - "MODEL_CAPABILITY"
+minimum_runtime:
+  python: "3.9"
+  dependencies: "standard-library legacy tools; markdown-it-py==3.0.0 for Markdown release building"
+environment_profiles:
+  - human_native_release_only
+read_only_evidence_capability: OPTIONAL_WITHIN_HUMAN_NATIVE_RELEASE_ONLY
+orchestration:
+  live_execution_profile: HUMAN_RELEASE_ONLY_V1
+  owner_confirmation: REAL_OWNER_REPLY_WITH_SINGLE_LOCAL_BINDING
+  prewrite_plan: CAMPAIGN_G_SCOPE_AND_EDITORIAL_BRIEF
+  owner_prewrite_confirmation_required: true
+  prewrite_manifest: task-plan.json
+  historical_prewrite_manifest: prewrite-plan.json
+  topic_governance: G_FREEZES_TOPIC_SLOT_W_EVIDENCE_BOUNDARY
+  topic_conflict: SAME_CAMPAIGN_G_EXCEPTION_DECISION_ONLY
+  no_article_roles_before_prewrite_confirmation: true
+  model_first_execution: MODEL_CONTINUOUS_CREATION_THEN_REQUIRED_INDEPENDENT_R
+  default_review_route: WR
+  author_qa_protocol: ORDINARY_EDITING_AND_MECHANICAL_CHECK_ONLY
+  independent_review_route: REQUIRED_SOLE_QUALITY_ROUTE
+  independent_review_input: FINAL_BUILT_AND_MECHANICALLY_CHECKED_VISUAL_PAYLOAD_PAIR_AND_IMAGES
+  independent_review_timing: AFTER_PAYLOAD_BUILD_BEFORE_G_ACCEPTANCE_AND_OWNER_RELEASE_HANDOFF
+  separate_research_review: NOT_A_DEFAULT_STAGE
+  final_independent_review: REQUIRED_FOR_ALL_NEW_ARTICLES
+  unresolved_material_risk: OWNER_DECISION_REQUIRED
+  gate_mode: CAMPAIGN_G_BATCH_CONTRACT_AND_EXCEPTION_ONLY
+  execution_session: CONTINUOUS_CAMPAIGN_MAIN_SESSION
+  execution_isolation: MAIN_SESSION_PATH_ISOLATED
+  article_artifact_root_template: articles/{article_id}
+  article_artifact_roots: REQUIRED_DISJOINT
+  worktree_autospawn: EXPLICIT_EXCEPTION_ONLY
+  worktree_dispatch_decision: REQUIRED_FOR_GIT_WORKTREE_ONLY
+  worktree_allowed_reasons:
+    - TRUE_CONCURRENT_WRITE
+    - HIGH_RISK_REWRITE_OR_ROLLBACK
+    - OWNER_REQUESTED_GIT_ISOLATION
+  fallback: NOT_APPLICABLE_MAIN_SESSION_PATH_ISOLATED
+  silent_fallback: false
+  article_role_bundle: REUSABLE_W_AND_INDEPENDENT_R_PLUS_SHARED_G
+  article_artifact_root_role: ARTICLE_ARTIFACT_ROOT
+  contract_acceptance: CAMPAIGN_G_BATCH_CONTRACT_ACCEPTANCE
+  public_qa: REUSE_REGISTERED_CAMPAIGN_GATEKEEPER_BATCH_READONLY
+  public_qa_input: STRUCTURED_HUMAN_RETURN_RECEIPT_AND_READONLY_SNAPSHOT
+  public_qa_repair: SAME_CAMPAIGN_G_BATCH_RECHECK_ONLY
+  canonical_reopen: OWNER_EXPLICIT_CANONICAL_OR_PAYLOAD_CHANGE_ONLY
+  heading_hierarchy_authority: PUBLIC_READER_PAGE_VISUAL_ONLY
+  article_context: ORIGINAL_CONFIRMED_PLAN_CURRENT_DRAFT_AND_REAL_ISSUES
+  ordinary_turn_context: ARTICLE_REQUIREMENTS_CURRENT_ARTIFACTS_AND_REAL_ISSUES
+  workflow_core: docs/workflow-core.md
+  after_context_compaction: REREAD_SHORT_CORE_THEN_ORIGINAL_REQUIREMENTS_CURRENT_ARTIFACTS_AND_REAL_ISSUES
+  full_history_rehydration: ON_HASH_DRIFT_UNRESOLVED_LINEAGE_AGENT_REPLACEMENT_OR_OWNER_DECISION
+  execution_economy:
+    role_context: FROZEN_CONTRACT_PLUS_ACTIVE_ARTIFACTS_PLUS_ON_DEMAND_COLD_HISTORY
+    review_preflight: ONE_LOCAL_BUILD_AND_INTEGRITY_CHECK
+    author_qa: NO_ADDITIONAL_FORMAL_FULL_SELF_REVIEW
+    independent_wr_review: ONE_FULL_FINAL_PAYLOAD_REVIEW_THEN_SAME_R_TARGETED_RECHECK
+    material_claims: SELECTIVE_HIGH_IMPACT_OR_VOLATILE_SOURCE_CHECK
+    normal_approved_report: EXCEPTION_AND_HASH_BUNDLE_ONLY
+    extra_debate_or_pass_recitation: PROHIBITED
+    model_routing: SHADOW_EVALUATION_BEFORE_ANY_LOWER_COST_ROUTE
+    telemetry: OPTIONAL_OBSERVATION_ONLY_NOT_A_RELEASE_GATE
+skills:
+  - id: blog-gate
+    role: gatekeeper_controller
+    requires: []
+    consults: [skills/blog-gate/references/platform-matching.md]
+  - id: blog-writer
+    role: sole_executable_research_writer
+    requires: [blog-gate]
+    consults: [skills/blog-writer/references/editorial-standard.md]
+  - id: blog-review
+    role: independent_reviewer
+    activation: REQUIRED_AFTER_FINAL_PAYLOAD_BUILD
+    requires: [blog-writer]
+internal_components:
+  - path: skills/blog-harness
+    role: LEGACY_WORKSPACE_TOOLS_NOT_A_SKILL
+  - path: skills/blog-human-handoff
+    role: REUSABLE_PAYLOAD_COMPILER_NOT_A_SKILL
+  - path: skills/blog-platform-matching/REFERENCE.md
+    role: LEGACY_MATCHING_FIELDS_NOT_A_SKILL
+  - path: skills/blog-writer-merged/REFERENCE.md
+    role: LEGACY_REFERENCE_ENTRY_NOT_A_SKILL
+lightweight_release:
+  builder: skills/blog-writer/scripts/build_release.py
+  plan: task-plan.json
+  source: articles/{article_id}/canonical/article.md
+  outputs: [handoff/visual-payload.html, handoff/visual-payload.md]
+  mechanical_result_is_quality_approval: false
+  old_workspaces: NO_SILENT_MIGRATION
+  g_r_roles: G_REQUIREMENT_ACCEPTANCE_AND_REQUIRED_INDEPENDENT_R
+  image_hosting:
+    selection: MODEL_SELECTS_AVAILABLE_PUBLIC_IMAGE_HOST
+    uploads: ONLY_FINAL_INTENDED_PUBLIC_ARTICLE_IMAGES
+    extra_payment_or_account_access: OWNER_CONFIRMATION
+    verification: ANONYMOUS_HTTPS_DIRECT_IMAGE_MIME_AND_BYTES
+    payloads: COMPLETE_HTML_AND_MARKDOWN_WITH_PUBLIC_IMAGES
+    public_image_urls_default: REQUIRED_FOR_FINAL_EVEN_IF_PLAN_OMITS_FIELD
+    body_content: READER_TEXT_IMAGES_AND_CAPTIONS_ONLY
+    image_reference: OUTSIDE_ARTICLE_BODY
+    local_preview: EXPLICIT_FLAG_PREVIEW_DIRECTORY_NOT_FINAL_HANDOFF
+    guide: skills/blog-writer/references/image-hosting.md
+forbidden_capabilities:
+  - editor_input
+  - blog_platform_media_upload
+  - publication
+  - deletion
+  - rollback
+  - credential_persistence_or_delegation_to_writers_reviewers

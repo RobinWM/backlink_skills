@@ -1,0 +1,4 @@
+interface:
+  display_name: "博客 需求与交付把关"
+  short_description: "统筹博客写作与独立审稿，交付带公开图片的完整双格式全文"
+  default_prompt: "使用 $blog-gate 统筹博客任务，交付正文原位带公开图片 URL 的完整 HTML 和 Markdown 全文，供人工发布。"

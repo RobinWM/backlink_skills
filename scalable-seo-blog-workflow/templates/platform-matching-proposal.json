@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "REPLACE_ME",
+  "researcher_role": "CAMPAIGN_PLATFORM_MATCHING_RESEARCHER",
+  "status": "RECOMMENDED_PENDING_OWNER_CONFIRMATION",
+  "proposals": [
+    {
+      "article_id": "A1",
+      "language": "REPLACE_ME",
+      "market": "REPLACE_ME",
+      "platform": "REPLACE_ME",
+      "candidate_source_id": "owner-xlsx-001",
+      "candidate_locator": "Sheet: REPLACE_ME; row: REPLACE_ME; column: REPLACE_ME",
+      "rationale": "用一段话说明本篇的推荐理由与主要代价；不保证收录、排名或外链效果。",
+      "selection_notes": {
+        "brand_identity": "实际展示方式与本次用户要求是否相符；founder 披露不等于品牌账号。",
+        "article_discovery_and_links": "独立公开网址、实际栏目/标签/作者页入口、正文链接与属性的观察；未核验项写明。",
+        "manual_effort_and_risks": "区分直接发文、现成资料与默认设置即可发文、需要额外建设；明确已知限制和未知项，账号准备另凭用户授权。",
+        "uncertainties": [],
+        "evidence_refs": []
+      },
+      "eligibility_evidence_path": "evidence/platform-matching/A1-eligibility.md",
+      "audience_compatibility": {
+        "primary_reader_languages": ["REPLACE_PRIMARY_READER_LANGUAGE"],
+        "primary_reader_markets": ["REPLACE_PRIMARY_READER_MARKET"],
+        "primary_audience_evidence_path": "evidence/platform-matching/A1-primary-audience.md",
+        "transport_supported_content_languages": ["REPLACE_TRANSPORT_LANGUAGE"],
+        "transport_evidence_path": "evidence/platform-matching/A1-transport.md",
+        "fit_mode": "PRIMARY_AUDIENCE_MATCH",
+        "cross_language_exception_required": false
+      },
+      "account_status": "OWNER_CONFIRMATION_REQUIRED"
+    }
+  ]
+}
