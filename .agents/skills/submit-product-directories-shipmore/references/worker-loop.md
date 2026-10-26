@@ -48,7 +48,7 @@ while true:
 
 ## 打开浏览器前
 
-所有目录网页、登录、原生验证、表单，以及已授权的 Gmail 网页读取/发送操作必须通过当前 Run Item 已锁定的浏览器 provider 完成。`agent-browser` 遵循 [agent-browser-runtime.md](agent-browser-runtime.md)；`ego-browser` 遵循 [ego-browser-runtime.md](ego-browser-runtime.md)。Google 托管邮箱邮件读取仍优先使用已授权 `gws`。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete，不代替页面点击或填写。
+所有目录网页、登录、原生验证、表单，以及已授权的 Gmail 网页读取/发送操作必须通过当前 Run Item 已锁定的浏览器 provider 完成。`agent-browser` 遵循 [agent-browser-runtime.md](agent-browser-runtime.md)；`ego-browser` 遵循 [ego-browser-runtime.md](ego-browser-runtime.md)。Google 托管邮箱邮件读取仍优先使用已授权 `gws`。Queue API/CLI 只负责 Shipmore 的 claim、heartbeat、outbound-link、recover 和 complete；Directory Admin CLI 仅用于定价/目录 status 元数据同步。二者都不代替页面点击或填写。
 
 确认：
 
@@ -92,8 +92,8 @@ while true:
 
 按以下顺序执行只读检查，避免后续较弱的缺失字段掩盖更早的终止性政策结果：
 
-1. **路由/站点不可用**：官方提交路由消失、关闭或不可用时，分类为 `unavailable`。
-2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。
+1. **路由/站点不可用**：官方提交路由消失、关闭、硬维护、DNS/SSL 失效或不可达时，分类为 `unavailable`（含义见 [status-mapping.md](status-mapping.md)；不含 CAPTCHA、登录墙、内容类型不符）。分类后、Complete 前执行下方 **Directory Admin：连续 unavailable** 副作用。
+2. **仅付费**：路由要求未获授权的付款时，分类为 `paid_only` 并停止。分类前或完成该项时，把实时观察映射为 `directoryPricing` 枚举并与 claim 快照比对；不一致则执行下方 **Directory Admin：定价同步**。不得付款、不得发明美元金额。
 3. **必需 backlink/badge 的首页链接阶段**：页面出现 backlink、reciprocal link/backlink、permanent backlink、badge required 或同义措辞时，不得仅凭这些文字分类为 `ineligible`。先执行下方 Shipmore outbound-link 注册和 Product 首页验证。对于纯 backlink/reciprocal/permanent backlink，首页验证成功后条件已满足，直接继续原始任务；不要再寻找 Badge 安装入口。对于 badge 场景，首页验证成功只表示“基础链接已就绪”，目录原生 Badge/Backlink 校验允许延后到表单已经填写到可验证阶段。
 4. **其他不符合资格（不含 Badge 技术能力判断）**：此阶段只处理与 Badge 无关、已经有决定性证据的真实资格不符或无关商业/社区动作。**不得在预检阶段仅因为 Badge verifier 尚未出现、按钮 disabled、要求先填完整表单、页面展示固定 SVG/Badge 示例或说明需要 permanent/dofollow badge，就提前输出 `ineligible`。** Badge 技术能力判断必须延后到第 10 步的表单准备和第 11 步的原生验证阶段。
 5. **重复项/既有生命周期保护**：正常模式检查既有 Shipmore 状态和明确的现有列表，绝不盲目重投 `submitted`、`submission_outcome_unknown`、`awaiting_approval`、`awaiting_email_verification` 或 `published`。当 `debugHistoryIgnored=true` 时，不使用被屏蔽的 Shipmore 生命周期做业务判断，但仍必须从当前站点实时检查是否已经存在列表/提交；final-action journal 仍可阻止重复最终动作。
@@ -108,6 +108,49 @@ while true:
 最终 Submit、Publish 或 Claim 前，必须按 [../EXEC-CHECKLIST.md](../EXEC-CHECKLIST.md) 完成 `before_final_action` 检查。任一项目失败都不得执行最终动作。动作完成并分类结果后，再执行 `after_result_classification` 检查；检查失败时不得把结果标记为成功。
 
 例如，目录同时要求联系邮箱和 reciprocal badge 时，先注册并验证 Product 首页 backlink；如果目录自己的 Badge verifier 需要完整表单才解锁，则继续完成安全表单准备，等 verifier 可用后再验证。只有 Product 首页 backlink 本身验证超时才停止并记录 `backlink verification timeout`；不要因为目录 verifier 尚未解锁而提前结束。
+
+## Directory Admin 副作用（Complete 前）
+
+Admin API 与 Queue/`BACKLINK_AGENT_TOKEN` 分离，使用 `DIRECTORY_ADMIN_API_TOKEN`。只在下列两种分类后调用；其他 submission status 不得调用。同步失败只写非机密 note（最多含 HTTP 状态码），**仍照常 Complete**。绝不要打印 token。
+
+### 定价观察 → 枚举
+
+将实时站点要求映射为与 claim `directoryPricing` 相同的枚举：
+
+| 实时观察 | 枚举 |
+| --- | --- |
+| 免费 listing / free queue / free submit，存在免费路径 | `free` |
+| 仅付费/加急/付费档且无免费路径 | `paid` |
+| 以 reciprocal/backlink/badge 作为上架代价（不是另收付费） | `backlink` |
+
+### 定价不一致时同步
+
+若 `observed ≠ claim.directoryPricing`，在完成 Run Item（例如 `paid_only`）之前或同时：
+
+```bash
+python3 scripts/directory_admin_client.py sync-observed-pricing \
+  --directory-id <claim.directoryId> \
+  --claim-pricing <claim.directoryPricing> \
+  --observed-pricing <observed>
+```
+
+等价于 `PATCH {BACKLINK_APP_URL}/api/admin/directories`，Body：`{"directoryId","pricing"}`。Admin 同步是附加动作；Run Item 仍用常规 submission status 完成，不发明金额。
+
+### 连续 unavailable ×3 → 目录 rejected
+
+仅当本次分类为站点不可达含义的 `unavailable` 时：
+
+1. **计数来源（优先 Shipmore）**：若 claim / product-directory 历史能给出该 `directoryId` 上连续 `unavailable` 次数（含本次），传入 `--shipmore-consecutive-count <n>`。
+2. **本地回退**：否则由 helper 在 `~/.shipmore/directory-unavailable/`（或 `SHIPMORE_DIRECTORY_UNAVAILABLE_DIR`）按 `directoryId` 维护持久计数。
+3. 第 **3** 次连续时调用 `PATCH .../api/admin/directories/status`，Body：`{"directoryId","status":"rejected"}`（优先 status-only；若需原因可用全量 update 写短句如 `unreachable x3`）。
+4. Run Item 仍以 `unavailable` 完成。
+5. 该目录任意一次**成功的非 unavailable** 尝试后必须：
+
+```bash
+python3 scripts/directory_admin_client.py note-reachable-attempt --directory-id <directoryId>
+```
+
+以重置连续计数。CAPTCHA、登录墙、内容类型 `ineligible` 等**不是**本规则中的 `unavailable`，不得累计或触发 rejected。
 
 ## 必需 backlink 注册与验证
 
@@ -308,6 +351,32 @@ shipmore:<runItemId>:complete:<opaque-random-id>
   "exactResult": "Submission accepted and queued for review"
 }
 ```
+
+完成前若本次不是 `unavailable`，先 `note-reachable-attempt` 重置该目录的连续不可达计数。
+
+### 仅付费（含定价 Admin 同步）
+
+```json
+{
+  "status": "completed",
+  "submissionStatus": "paid_only",
+  "exactResult": "Only paid submit tiers; no free path. admin pricing sync ok"
+}
+```
+
+若 Admin 定价同步失败，将 note 追加到 `exactResult` 或 `followUpNote`，例如 `admin pricing sync failed: HTTP 401`；仍 Complete 为 `paid_only`。
+
+### 站点不可达（含连续 ×3 Admin rejected）
+
+```json
+{
+  "status": "completed",
+  "submissionStatus": "unavailable",
+  "exactResult": "Official submit URL unreachable (DNS/SSL). admin status sync ok"
+}
+```
+
+第 3 次连续不可达时 helper 会尝试将目录标为 `rejected`；失败时同样只记 `admin status sync failed: HTTP <code>`，Run Item 仍为 `unavailable`。
 
 ### 人工挑战
 

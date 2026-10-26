@@ -39,6 +39,11 @@
 - [ ] 通过 provider 对应的最终动作 guard，对选定的 `submit`、`publish`、`claim` 或 `gmail_send` 只执行一次。
 - [ ] 重新读取页面、服务端或邮箱的精确结果。点击成功或收到 HTTP 响应本身都不能证明已发布。
 - [ ] 执行 `EXEC-CHECKLIST.md` 的 `after_result_classification` 阶段。
+- [ ] **Complete 副作用（Directory Admin，可失败）**：
+  - 预检/表单观察得到的定价枚举（`free`/`paid`/`backlink`）与 claim `directoryPricing` 不一致时，先 `sync-observed-pricing`；
+  - 本次为站点不可达含义的 `unavailable` 时，先 `note-unavailable`（优先传入 Shipmore 连续次数）；第 3 次会尝试将目录标为 `rejected`；
+  - 本次为成功的非 `unavailable` 结果时，先 `note-reachable-attempt` 重置该目录连续计数；
+  - Admin 失败只记非机密 note，仍 Complete；不得对无关状态调用 Admin API。
 - [ ] 根据已观察到的事实完成 Run Item；最终动作已发生时复用 journal 的 `completionEventId`。
 
 ## 反馈回路
@@ -55,4 +60,4 @@
 
 ## 完成条件
 
-终态记录须包含真实的 Run Item 状态、submission status、已观察到的精确结果、检查单阶段与结果；有可用证据引用时记录不透明引用值。不得为了通过检查而虚构 Product 事实、凭据、公开 URL 或成功状态。
+终态记录须包含真实的 Run Item 状态、submission status、已观察到的精确结果、检查单阶段与结果；有可用证据引用时记录不透明引用值。不得为了通过检查而虚构 Product 事实、凭据、公开 URL 或成功状态。Directory Admin 定价/状态同步是附加副作用，失败不得伪装成站点提交成功，也不得因此跳过 Complete。

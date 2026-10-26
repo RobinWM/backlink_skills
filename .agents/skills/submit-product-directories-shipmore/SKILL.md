@@ -47,6 +47,7 @@ description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue
 ```text
 BACKLINK_APP_URL=https://shipmore.app
 BACKLINK_AGENT_TOKEN=<secret>
+DIRECTORY_ADMIN_API_TOKEN=<secret; separate from Queue agent token>
 BACKLINK_WORKER_ID=<stable worker alias; managed runtime may generate a persistent unique ID>
 BACKLINK_BROWSER_PROVIDER=ego-browser|agent-browser  # default ego-browser
 BACKLINK_EGO_BROWSER_SKILL=<optional local ego-browser SKILL.md path>
@@ -58,6 +59,8 @@ SHIPMORE_TERMINAL_STATE_RETENTION_DAYS=7
 SHIPMORE_CONCURRENCY=<optional worker-pool size, default 4>
 SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 ```
+
+`DIRECTORY_ADMIN_API_TOKEN` 仅用于 Directory Admin API（纠正 `directoryPricing`、连续 `unavailable` ×3 时将目录 `status` 设为 `rejected`）。它与 Queue 的 `BACKLINK_AGENT_TOKEN` 完全分离；缺失或调用失败不得阻断 Run Item 完成。绝不要打印任一 token。
 
 完整环境变量模板见 [`example.env`](example.env)。其中包含用户配置项、可选路径覆盖项以及 managed runtime 自动注入的内部变量。
 
@@ -95,7 +98,7 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 7. 可以概括或缩短已支持的产品文案，但不得虚构邮箱、创始人、公司、法律身份、价格、社交账号或开源状态等独立事实。
 8. `reason=claimed` 表示新任务已租给本 worker；`reason=reused` 表示本 worker 已经持有一个有效任务，应恢复该任务，不得推进队列。
 9. 租约过期后绝不能继续操作 Run Item。有任何疑问时先发送 heartbeat。
-10. 本 Skill 绝不能通过直接访问数据库改变 Shipmore 状态。必须使用 Queue API 和已授权的 outbound-link endpoint。
+10. 本 Skill 绝不能通过直接访问数据库改变 Shipmore 状态。必须使用 Queue API、已授权的 outbound-link endpoint，以及（仅在定价不一致或连续不可达 ×3 时）Directory Admin API。
 11. 当前 Run Item 被跳过时，不得仅因为跳过就把此前真实的 `published` 或 `awaiting_approval` 状态改成 `not_attempted`。
 
 ## Worker 生命周期
@@ -113,9 +116,10 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 9. 记录准确的页面/服务器结果，并在有证据时记录不透明的 evidence reference。
 10. 使用 [references/status-mapping.md](references/status-mapping.md) 对结果分类。
 11. 结果分类后再次执行检查单；未通过时不得把结果标记为成功。
-12. 有 Final Action 时，优先使用 durable final-action journal 返回的 `completionEventId` 作为稳定 Complete `eventId`；没有 Final Action 的 blocked/skipped/failed 路径才生成新的稳定 event ID。HTTP 响应丢失时重复使用同一个 ID。
-13. 完成该任务。同一个逻辑完成操作绝不能生成新的 event ID。
-14. 只有在前一个任务得到终止性 Run Item 结果后，才能 claim 下一个任务。
+12. **Directory Admin 副作用（可选、可失败）**：若实时观察的定价枚举与 claim `directoryPricing` 不一致，或本次将以站点不可达含义的 `unavailable` 完成，则在 Complete 之前按 [references/shipmore-api.md](references/shipmore-api.md) 的 Directory Admin 规则调用 `scripts/directory_admin_client.py`；Admin 同步失败只记非机密 note，仍继续 Complete。不得为无关状态调用 Admin API；不得发明美元金额。
+13. 有 Final Action 时，优先使用 durable final-action journal 返回的 `completionEventId` 作为稳定 Complete `eventId`；没有 Final Action 的 blocked/skipped/failed 路径才生成新的稳定 event ID。HTTP 响应丢失时重复使用同一个 ID。
+14. 完成该任务。同一个逻辑完成操作绝不能生成新的 event ID。
+15. 只有在前一个任务得到终止性 Run Item 结果后，才能 claim 下一个任务。
 
 ## 浏览器执行规则
 
@@ -202,7 +206,32 @@ python3 scripts/shipmore_queue_client.py complete \
   --exact-result "Submission accepted and queued for review"
 ```
 
-环境变量可用时，不要把 `BACKLINK_AGENT_TOKEN` 放在命令行中。
+环境变量可用时，不要把 `BACKLINK_AGENT_TOKEN` 或 `DIRECTORY_ADMIN_API_TOKEN` 放在命令行中。
+
+Directory Admin 同步（与 Queue token 分离）：
+
+```bash
+# 定价观察 ≠ claim directoryPricing 时纠正 Admin 元数据（仍按 paid_only 等完成 Run Item）
+python3 scripts/directory_admin_client.py sync-observed-pricing \
+  --directory-id <directoryId> \
+  --claim-pricing <free|paid|backlink> \
+  --observed-pricing <free|paid|backlink|alias>
+
+# 本次为站点不可达含义的 unavailable 时累计连续次数；第 3 次将目录 status 设为 rejected
+python3 scripts/directory_admin_client.py note-unavailable \
+  --directory-id <directoryId> \
+  [--shipmore-consecutive-count <n>]
+
+# 任意成功的非 unavailable 尝试后重置连续计数
+python3 scripts/directory_admin_client.py note-reachable-attempt \
+  --directory-id <directoryId>
+
+# 底层 Admin PATCH（一般由上述 helper 调用）
+python3 scripts/directory_admin_client.py admin-update-directory \
+  --directory-id <directoryId> --pricing <free|paid|backlink>
+python3 scripts/directory_admin_client.py admin-update-directory-status \
+  --directory-id <directoryId> --status rejected
+```
 
 ## 停止条件
 
@@ -241,6 +270,7 @@ python3 scripts/shipmore_queue_client.py complete \
 - `scripts/shipmore_worker.py`：真正长驻的 managed Queue/lease runtime。
 - `scripts/shipmore_worker_pool.py`：跨 Windows/Linux 的 wait-any 并发进程 supervisor。
 - `scripts/shipmore_queue_client.py`：Queue/outbound-link API 客户端；Complete 明确成功后登记 terminal session cleanup。
+- `scripts/directory_admin_client.py`：Directory Admin API 客户端（定价纠正、连续 unavailable ×3 → `rejected`）；使用 `DIRECTORY_ADMIN_API_TOKEN`，失败不阻断 Complete。
 - `scripts/runtime_cleanup.py`：只清理本机已确认 terminal 的 agent-browser restore state。
 - `scripts/diagnostic_sanitizer.py`：在 Console/Network/Snapshot diagnostics 离开 adapter 前做结构化脱敏。
 - `runtime/agent-browser.version`：生产 agent-browser 精确版本。
