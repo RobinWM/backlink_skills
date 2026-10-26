@@ -1,0 +1,42 @@
+{
+  "shared": {
+    "brand_url": "https://example.com/product",
+    "brand_style": "Use the owner's supplied brand reference.",
+    "focus_keyword": "example workflow",
+    "review_route": "WR",
+    "cta": {
+      "mode": "SECONDARY_RECOMMENDATION",
+      "product_name": "Example Product",
+      "anchor_text": "Try Example Product",
+      "product_destination_url": "https://example.com/product",
+      "relationship_disclosure": "Disclosure: I am the founder of Example Product."
+    },
+    "delivery_requirements": {
+      "minimum_body_images": 3,
+      "cover_required": true,
+      "public_image_urls_required": true
+    },
+    "keyword_requirements": [
+      {
+        "phrase": "example workflow",
+        "language": "en",
+        "title_mode": "MEANING_PRESERVING",
+        "protected_meanings": [
+          "example",
+          "workflow"
+        ]
+      }
+    ]
+  },
+  "articles": [
+    {
+      "article_id": "A01",
+      "platform": "owner-confirmed-platform",
+      "language": "en",
+      "reader_task": "Explain the confirmed reader's specific problem and the useful answer this article provides.",
+      "angle": "A useful proposed topic and content direction within the owner's search goal, reader task and supported product capabilities; identify the product's concrete step. Titles, structure and examples remain creative starting points unless explicitly locked.",
+      "platform_source": "Original owner candidate row/message.",
+      "audience_evidence": "Relevant destination/channel, date and representative article links: who reads it, what they need, why this article helps; distinguish observation from inference."
+    }
+  ]
+}

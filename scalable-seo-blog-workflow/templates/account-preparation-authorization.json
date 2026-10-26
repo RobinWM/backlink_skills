@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "campaign_id": "REPLACE_ME",
+  "mode": "OWNER_AUTHORIZED_MINIMAL_SETUP",
+  "targets": [
+    {
+      "target_id": "ACCOUNT-01",
+      "platform": "REPLACE_OWNER_SOURCE_PLATFORM",
+      "account": "REPLACE_SAFE_IDENTITY_LABEL",
+      "candidate_source": {
+        "source_type": "OWNER_MESSAGE",
+        "path": "evidence/owner-selection/candidates.md",
+        "sha256": "REPLACE_SHA256",
+        "source_locator": "REPLACE_EXACT_LOCATION",
+        "platform_source_literal": "REPLACE_OWNER_SOURCE_PLATFORM"
+      },
+      "owner_authorization": {
+        "source_type": "OWNER_MESSAGE",
+        "path": "evidence/owner-confirmations/account-preparation.md",
+        "sha256": "REPLACE_SHA256",
+        "confirmation_id": "REPLACE_OWNER_AUTHORIZATION_ID",
+        "source_locator": "REPLACE_EXACT_LOCATION",
+        "literal": "REPLACE_EXACT_NON_SECRET_OWNER_AUTHORIZATION"
+      },
+      "allowed_actions": ["REGISTER", "LOGIN", "CHECK_PUBLISHING_ACCESS"],
+      "browser_ref": "REPLACE_OWNER_AUTHORIZED_BROWSER_PROFILE",
+      "credential_ref": "REPLACE_SECRET_STORE_ALIAS_NOT_PASSWORD",
+      "brand_profile_ref": "REPLACE_EXISTING_BRAND_PROFILE_CARD"
+    }
+  ]
+}

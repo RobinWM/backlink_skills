@@ -1,0 +1,4 @@
+interface:
+  display_name: "博客 研究与写作"
+  short_description: "调研写作、选择图床并制作带公开图片的完整双格式图文全文"
+  default_prompt: "使用 $blog-writer 写作并制作带公开图片 URL 的完整 HTML/Markdown 全文，正文仅含文章与读者图注。"

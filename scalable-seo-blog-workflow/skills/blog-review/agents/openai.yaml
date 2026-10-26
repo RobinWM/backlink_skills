@@ -1,0 +1,4 @@
+interface:
+  display_name: "博客 独立审稿"
+  short_description: "审核完整双格式图文全文、公开图片及来源，复核相关修改"
+  default_prompt: "使用 $blog-review 审核完整 HTML/Markdown 全文及公开图片，检查正文无操作说明，核对重要来源。"
