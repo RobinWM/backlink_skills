@@ -261,6 +261,92 @@ productFounderGithubUrl
 
 `directoryDofollow` 只是目录元数据，不能作为操纵排名或索要 followed link 的指令。
 
+`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正；不得用 Queue token 调用 Admin 端点。页面多路径并存时，观察结果按 **`free` > `backlink` > `paid`** 收敛为单一枚举（见 `resolve_observed_pricing` / `sync-observed-pricing`）。
+
+
+## Directory Admin API
+
+与 Queue / outbound-link **完全分离**。认证使用 `DIRECTORY_ADMIN_API_TOKEN`（不是 `BACKLINK_AGENT_TOKEN`）。完整契约见 shipmore-app-nextjs `docs/apis/DIRECTORY-ADMIN-API.md`。Skill 侧通过 `scripts/directory_admin_client.py` 调用，避免在 shell 历史中手写带 secret 的 curl。
+
+### 全量更新
+
+```text
+PATCH {BACKLINK_APP_URL}/api/admin/directories
+Authorization: Bearer {DIRECTORY_ADMIN_API_TOKEN}
+Content-Type: application/json
+```
+
+定价纠正示例：
+
+```json
+{
+  "directoryId": "<claim directoryId>",
+  "pricing": "paid"
+}
+```
+
+`pricing` 仅允许 `free` | `paid` | `backlink`。存在 `backlinkDirsItemId` 时服务端会同步 BLDirs。也可携带 `status`、`rejectedReason`、`dofollow` 等字段；本 Skill 默认定价只用 `pricing`，拒绝目录优先用下方 status-only 端点。
+
+CLI：
+
+```bash
+python3 scripts/directory_admin_client.py admin-update-directory \
+  --directory-id <directoryId> --pricing paid
+
+python3 scripts/directory_admin_client.py sync-observed-pricing \
+  --directory-id <directoryId> \
+  --claim-pricing free \
+  --observed-pricing paid
+
+# 同页多路径时可用逗号分隔；会按 free > backlink > paid 收敛（下例结果为 free）
+python3 scripts/directory_admin_client.py sync-observed-pricing \
+  --directory-id <directoryId> \
+  --claim-pricing paid \
+  --observed-pricing free,paid,backlink
+```
+
+### 仅更新状态
+
+```text
+PATCH {BACKLINK_APP_URL}/api/admin/directories/status
+Authorization: Bearer {DIRECTORY_ADMIN_API_TOKEN}
+Content-Type: application/json
+```
+
+```json
+{
+  "directoryId": "<directoryId>",
+  "status": "rejected"
+}
+```
+
+`status` 允许 `active` | `pending` | `rejected`。服务端会按 Admin UI 语义同步 BLDirs `forceHidden`。
+
+CLI：
+
+```bash
+python3 scripts/directory_admin_client.py admin-update-directory-status \
+  --directory-id <directoryId> --status rejected
+
+python3 scripts/directory_admin_client.py note-unavailable \
+  --directory-id <directoryId> \
+  [--shipmore-consecutive-count 3]
+```
+
+### Worker 调用时机
+
+| 条件 | 动作 | Complete 仍使用 |
+| --- | --- | --- |
+| 实时定价枚举 ≠ claim `directoryPricing` | `pricing` PATCH（或 `sync-observed-pricing`） | 常规 submission status（如 `paid_only`） |
+| 本次为站点不可达含义的 `unavailable`，且连续第 3 次 | `status` PATCH → `rejected`（或 `note-unavailable`） | `unavailable` |
+| 其他 status | **不调用** Admin API | 按 status-mapping |
+
+连续 unavailable 计数：优先 Shipmore claim/product-directory 历史中该 `directoryId` 的连续 `unavailable` 证据（`--shipmore-consecutive-count`，含本次）；否则本地 `SHIPMORE_DIRECTORY_UNAVAILABLE_DIR`（默认 `~/.shipmore/directory-unavailable`）。任意非 unavailable 的成功尝试后调用 `note-reachable-attempt` 重置。
+
+### 失败处理
+
+Token 缺失、401 或非 2xx：在 `exactResult` / `followUpNote` 记录非机密说明，例如 `admin pricing sync failed: HTTP 401` 或 `admin status sync failed: missing token or network error`。**仍完成 Run Item**。响应 JSON/日志不得包含 token。`sync-observed-pricing` / `note-unavailable` 在 Admin 失败时仍以 exit 0 输出 JSON note，便于 worker 继续 Complete。
+
 
 ## Final Action 服务端 fencing 缺口
 

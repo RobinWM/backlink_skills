@@ -21,6 +21,7 @@ def test_example_env_lists_all_shipmore_runtime_variables():
     expected = {
         "BACKLINK_APP_URL",
         "BACKLINK_AGENT_TOKEN",
+        "DIRECTORY_ADMIN_API_TOKEN",
         "BACKLINK_WORKER_ID",
         "BACKLINK_WORKER_ID_PREFIX",
         "BACKLINK_BROWSER_PROVIDER",
@@ -40,6 +41,7 @@ def test_example_env_lists_all_shipmore_runtime_variables():
         "SHIPMORE_FINAL_ACTION_JOURNAL_DIR",
         "SHIPMORE_LEASE_GUARD_DIR",
         "SHIPMORE_TERMINAL_SESSION_DIR",
+        "SHIPMORE_DIRECTORY_UNAVAILABLE_DIR",
         "SHIPMORE_WORKER_ID_FILE",
         "SHIPMORE_WORKER_INSTANCE_ID",
         "SHIPMORE_WORKER_LOCK_DIR",
@@ -73,5 +75,6 @@ def test_example_env_does_not_ship_real_secrets():
     values = parse_env_keys(EXAMPLE_ENV.read_text(encoding="utf-8"))
 
     assert values["BACKLINK_AGENT_TOKEN"] == ""
+    assert values["DIRECTORY_ADMIN_API_TOKEN"] == ""
     assert values["AGENT_BROWSER_ENCRYPTION_KEY"] == ""
     assert values["DIRECTORY_ACCOUNT_PASSWORD"] == ""
