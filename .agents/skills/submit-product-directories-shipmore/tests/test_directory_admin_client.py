@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -16,6 +17,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from directory_admin_client import (  # noqa: E402
+    SHIPMORE_API_KEY_ENV,
     DirectoryAdminClient,
     DirectoryAdminError,
     OBSERVED_PRICING_PRIORITY,
@@ -26,6 +28,7 @@ from directory_admin_client import (  # noqa: E402
     read_local_unavailable_streak,
     record_unavailable_outcome,
     reset_unavailable_streak,
+    resolve_admin_api_key,
     resolve_observed_pricing,
     sync_pricing_if_mismatch,
 )
@@ -100,6 +103,28 @@ class DirectoryAdminClientTests(unittest.TestCase):
         self.assertEqual(resolve_observed_pricing('paid'), 'paid')
         self.assertEqual(resolve_observed_pricing(['expedite', 'paid_tier']), 'paid')
 
+    def test_resolve_admin_api_key_prefers_shipmore_api_key(self):
+        with patch.dict(
+            os.environ,
+            {
+                SHIPMORE_API_KEY_ENV: 'personal-key',
+                'DIRECTORY_ADMIN_API_TOKEN': 'legacy-secret',
+            },
+            clear=False,
+        ):
+            self.assertEqual(resolve_admin_api_key(), 'personal-key')
+
+    def test_resolve_admin_api_key_legacy_fallback_warns(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(SHIPMORE_API_KEY_ENV, None)
+            os.environ['DIRECTORY_ADMIN_API_TOKEN'] = 'legacy-secret'
+            import directory_admin_client as dac
+
+            dac._ADMIN_DEPRECATION_WARNED = False
+            with patch('sys.stderr', new=io.StringIO()) as err:
+                self.assertEqual(resolve_admin_api_key(), 'legacy-secret')
+                self.assertIn('deprecated', err.getvalue().lower())
+
     def test_sync_pricing_applies_multi_path_priority(self):
         client = DirectoryAdminClient('https://shipmore.example', 'admin-secret')
         captured = {}
@@ -123,7 +148,9 @@ class DirectoryAdminClientTests(unittest.TestCase):
         note = admin_sync_note('pricing', ok=False, status_code=401)
         self.assertEqual(note, 'admin pricing sync failed: HTTP 401')
         self.assertNotIn('Bearer', note)
-        self.assertNotIn('token', note.lower())
+        self.assertNotIn('admin-secret', note)
+        missing = admin_sync_note('pricing', ok=False, status_code=None)
+        self.assertIn('missing API key', missing)
 
     def test_update_directory_pricing_patch(self):
         client = DirectoryAdminClient('https://shipmore.example', 'admin-secret')
@@ -143,11 +170,11 @@ class DirectoryAdminClientTests(unittest.TestCase):
         self.assertEqual(result['statusCode'], 200)
         self.assertEqual(captured['url'], 'https://shipmore.example/api/admin/directories')
         self.assertEqual(captured['method'], 'PATCH')
-        self.assertEqual(
-            captured['headers'].get('Authorization')
-            or captured['headers'].get('authorization'),
-            'Bearer admin-secret',
-        )
+        header_items = {
+            str(k).lower(): v for k, v in captured['headers'].items()
+        }
+        self.assertEqual(header_items.get('x-api-key'), 'admin-secret')
+        self.assertNotIn('authorization', header_items)
         self.assertEqual(
             captured['body'],
             {'directoryId': 'dir-1', 'pricing': 'paid'},
@@ -233,7 +260,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
         self.assertFalse(result['synced'])
         self.assertEqual(
             result['note'],
-            'admin pricing sync failed: missing token or network error',
+            'admin pricing sync failed: missing API key or network error',
         )
 
     def test_sync_pricing_mismatch_calls_patch(self):

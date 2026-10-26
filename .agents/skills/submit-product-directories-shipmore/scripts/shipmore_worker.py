@@ -235,14 +235,14 @@ def main() -> int:
 
     worker_id = _resolved_worker_id()
     base_url = (os.environ.get("BACKLINK_APP_URL") or "").strip()
-    token = (os.environ.get("BACKLINK_AGENT_TOKEN") or "").strip()
-    if not base_url or not token:
-        print("BACKLINK_APP_URL and BACKLINK_AGENT_TOKEN are required", file=sys.stderr)
+    api_key = (os.environ.get("SHIPMORE_API_KEY") or "").strip()
+    if not base_url or not api_key:
+        print("BACKLINK_APP_URL and SHIPMORE_API_KEY are required", file=sys.stderr)
         return 2
 
     client = ShipmoreQueueClient(
         base_url=base_url,
-        token=token,
+        api_key=api_key,
         worker_id=worker_id,
     )
     try:

@@ -203,17 +203,17 @@ class LeaseKeeper:
 
 def client_from_env(worker_id: str | None = None) -> ShipmoreQueueClient:
     base_url = (os.environ.get("BACKLINK_APP_URL") or "").strip()
-    token = (os.environ.get("BACKLINK_AGENT_TOKEN") or "").strip()
+    api_key = (os.environ.get("SHIPMORE_API_KEY") or "").strip()
     resolved_worker_id = (worker_id or os.environ.get("BACKLINK_WORKER_ID") or "").strip()
     if not base_url:
         raise LeaseGuardError("BACKLINK_APP_URL is required")
-    if not token:
-        raise LeaseGuardError("BACKLINK_AGENT_TOKEN is required")
+    if not api_key:
+        raise LeaseGuardError("SHIPMORE_API_KEY is required")
     if not resolved_worker_id:
         raise LeaseGuardError("BACKLINK_WORKER_ID is required")
     return ShipmoreQueueClient(
         base_url=base_url,
-        token=token,
+        api_key=api_key,
         worker_id=resolved_worker_id,
     )
 

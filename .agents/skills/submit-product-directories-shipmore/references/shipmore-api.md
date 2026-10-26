@@ -6,17 +6,17 @@ Queue 的 claim/heartbeat/complete/recover 使用以下认证端点：
 
 ```text
 POST {BACKLINK_APP_URL}/api/backlinks/agent/queue
-Authorization: Bearer {BACKLINK_AGENT_TOKEN}
+x-api-key: {SHIPMORE_API_KEY}
 Content-Type: application/json
 ```
 
-不得在 campaign record、证据、截图或 completion metadata 中记录 bearer token。
+`SHIPMORE_API_KEY` 为 Dashboard 个人 API key。生产不再接受共享 `BACKLINK_AGENT_TOKEN` 或 `Authorization: Bearer`；跨用户 run 访问由服务端拒绝。不得在 campaign record、证据、截图或 completion metadata 中记录 API key。
 
-必需 backlink 注册使用独立端点：
+必需 backlink 注册使用独立端点（同一鉴权）：
 
 ```text
 POST {BACKLINK_APP_URL}/api/outbound-links
-Authorization: Bearer {BACKLINK_AGENT_TOKEN}
+x-api-key: {SHIPMORE_API_KEY}
 Content-Type: application/json
 ```
 
@@ -261,18 +261,18 @@ productFounderGithubUrl
 
 `directoryDofollow` 只是目录元数据，不能作为操纵排名或索要 followed link 的指令。
 
-`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正；不得用 Queue token 调用 Admin 端点。页面多路径并存时，观察结果按 **`free` > `backlink` > `paid`** 收敛为单一枚举（见 `resolve_observed_pricing` / `sync-observed-pricing`）。
+`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正。页面多路径并存时，观察结果按 **`free` > `backlink` > `paid`** 收敛为单一枚举（见 `resolve_observed_pricing` / `sync-observed-pricing`）。
 
 
 ## Directory Admin API
 
-与 Queue / outbound-link **完全分离**。认证使用 `DIRECTORY_ADMIN_API_TOKEN`（不是 `BACKLINK_AGENT_TOKEN`）。完整契约见 shipmore-app-nextjs `docs/apis/DIRECTORY-ADMIN-API.md`。Skill 侧通过 `scripts/directory_admin_client.py` 调用，避免在 shell 历史中手写带 secret 的 curl。
+可选、非阻断。优先与 Queue 相同：个人 `SHIPMORE_API_KEY` + 请求头 `x-api-key`；服务端应按调用方 admin 角色授权（ShipMore 仍在落地）。**不要**再配置或生成共享 `DIRECTORY_ADMIN_API_TOKEN`。完整契约见 shipmore-app-nextjs `docs/apis/DIRECTORY-ADMIN-API.md`。Skill 侧通过 `scripts/directory_admin_client.py` 调用，避免在 shell 历史中手写带 secret 的 curl。
 
 ### 全量更新
 
 ```text
 PATCH {BACKLINK_APP_URL}/api/admin/directories
-Authorization: Bearer {DIRECTORY_ADMIN_API_TOKEN}
+x-api-key: {SHIPMORE_API_KEY}
 Content-Type: application/json
 ```
 
@@ -309,7 +309,7 @@ python3 scripts/directory_admin_client.py sync-observed-pricing \
 
 ```text
 PATCH {BACKLINK_APP_URL}/api/admin/directories/status
-Authorization: Bearer {DIRECTORY_ADMIN_API_TOKEN}
+x-api-key: {SHIPMORE_API_KEY}
 Content-Type: application/json
 ```
 
@@ -345,7 +345,7 @@ python3 scripts/directory_admin_client.py note-unavailable \
 
 ### 失败处理
 
-Token 缺失、401 或非 2xx：在 `exactResult` / `followUpNote` 记录非机密说明，例如 `admin pricing sync failed: HTTP 401` 或 `admin status sync failed: missing token or network error`。**仍完成 Run Item**。响应 JSON/日志不得包含 token。`sync-observed-pricing` / `note-unavailable` 在 Admin 失败时仍以 exit 0 输出 JSON note，便于 worker 继续 Complete。
+API key 缺失、401 或非 2xx：在 `exactResult` / `followUpNote` 记录非机密说明，例如 `admin pricing sync failed: HTTP 401` 或 `admin status sync failed: missing API key or network error`。**仍完成 Run Item**。响应 JSON/日志不得包含 API key。`sync-observed-pricing` / `note-unavailable` 在 Admin 失败时仍以 exit 0 输出 JSON note，便于 worker 继续 Complete。
 
 
 ## Final Action 服务端 fencing 缺口

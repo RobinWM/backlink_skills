@@ -14,11 +14,13 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / 'scripts'
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from shipmore_queue_client import (  # noqa: E402
+    SHIPMORE_API_KEY_ENV,
     ShipmoreClientError,
     ShipmoreQueueClient,
     apply_debug_history_view,
     build_parser,
     find_matching_outbound_link,
+    resolve_shipmore_api_key,
 )
 
 
@@ -31,7 +33,7 @@ class RecordingClient(ShipmoreQueueClient):
     ):
         super().__init__(
             base_url='https://shipmore.example',
-            token='test-token',
+            api_key='test-api-key',
             worker_id=worker_id,
         )
         self.last_payload = None
@@ -60,6 +62,63 @@ class RecordingClient(ShipmoreQueueClient):
 
 
 class ShipmoreQueueClientTests(unittest.TestCase):
+    def test_auth_headers_use_x_api_key_not_bearer(self):
+        client = RecordingClient()
+        headers = client.auth_headers()
+        self.assertEqual(headers['x-api-key'], 'test-api-key')
+        self.assertNotIn('Authorization', headers)
+        self.assertFalse(
+            any(str(v).lower().startswith('bearer ') for v in headers.values())
+        )
+
+    def test_post_sends_x_api_key_header(self):
+        client = ShipmoreQueueClient(
+            base_url='https://shipmore.example',
+            api_key='secret-key-value',
+            worker_id='worker-01',
+        )
+        captured = {}
+
+        class FakeResponse:
+            def read(self):
+                return b'{"success":true}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def fake_urlopen(request, timeout=30):
+            captured['headers'] = dict(request.headers)
+            return FakeResponse()
+
+        with patch('shipmore_queue_client.urlopen', side_effect=fake_urlopen):
+            result = client.post({'operation': 'recover'})
+
+        self.assertEqual(result, {'success': True})
+        header_items = {
+            str(k).lower(): v for k, v in captured['headers'].items()
+        }
+        self.assertEqual(header_items.get('x-api-key'), 'secret-key-value')
+        self.assertNotIn('authorization', header_items)
+    def test_resolve_shipmore_api_key_prefers_env(self):
+        with patch.dict(os.environ, {SHIPMORE_API_KEY_ENV: ' from-env '}, clear=False):
+            self.assertEqual(resolve_shipmore_api_key(), 'from-env')
+            self.assertEqual(resolve_shipmore_api_key('explicit'), 'explicit')
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(SHIPMORE_API_KEY_ENV, None)
+            os.environ.pop('BACKLINK_AGENT_TOKEN', None)
+            self.assertIsNone(resolve_shipmore_api_key())
+
+    def test_missing_api_key_raises(self):
+        with self.assertRaises(ShipmoreClientError):
+            ShipmoreQueueClient(
+                base_url='https://shipmore.example',
+                api_key='',
+                worker_id='worker-01',
+            )
+
     def test_claim_payload(self):
         client = RecordingClient()
         result = client.claim('run-1', 300)

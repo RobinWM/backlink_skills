@@ -21,6 +21,8 @@ DEFAULT_LEASE_SECONDS = 300
 DEFAULT_TIMEOUT_SECONDS = 30
 BACKLINK_POLL_ATTEMPTS = 6
 BACKLINK_POLL_INTERVAL_SECONDS = 20
+SHIPMORE_API_KEY_ENV = 'SHIPMORE_API_KEY'
+# Removed: shared BACKLINK_AGENT_TOKEN + Authorization Bearer (ShipMore production).
 
 SUBMISSION_STATUSES = [
     'not_attempted',
@@ -101,6 +103,13 @@ def require(value: str | None, message: str) -> str:
     if value is None or not value.strip():
         raise ShipmoreClientError(message)
     return value.strip()
+
+
+def resolve_shipmore_api_key(explicit: str | None = None) -> str | None:
+    """Return the personal ShipMore API key. Never log the value."""
+    if explicit is not None and explicit.strip():
+        return explicit.strip()
+    return env(SHIPMORE_API_KEY_ENV)
 
 
 def compact_optional(payload: dict[str, Any]) -> dict[str, Any]:
@@ -241,12 +250,16 @@ class ShipmoreQueueClient:
     def __init__(
         self,
         base_url: str,
-        token: str,
+        api_key: str,
         worker_id: str | None = None,
         timeout: int = 30,
     ):
+        resolved = require(
+            api_key,
+            f'Missing ShipMore API key. Set {SHIPMORE_API_KEY_ENV}.',
+        )
         self.base_url = base_url.rstrip('/')
-        self.token = token
+        self.api_key = resolved
         self.worker_id = worker_id
         self.timeout = timeout
 
@@ -257,6 +270,15 @@ class ShipmoreQueueClient:
     @property
     def outbound_links_url(self) -> str:
         return f'{self.base_url}/api/outbound-links'
+
+    def auth_headers(self) -> dict[str, str]:
+        """Personal API key header for Queue and outbound-links (not Bearer)."""
+        return {
+            'x-api-key': self.api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'shipmore-backlink-skill/1.0',
+        }
 
     def require_worker_id(self) -> str:
         return require(
@@ -274,12 +296,7 @@ class ShipmoreQueueClient:
             url or self.queue_url,
             data=body,
             method='POST',
-            headers={
-                'Authorization': f'Bearer {self.token}',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'shipmore-backlink-skill/1.0',
-            },
+            headers=self.auth_headers(),
         )
 
         try:
@@ -536,8 +553,8 @@ def add_common_connection_args(parser: argparse.ArgumentParser) -> None:
         help='Shipmore base URL; defaults to BACKLINK_APP_URL',
     )
     parser.add_argument(
-        '--token',
-        default=env('BACKLINK_AGENT_TOKEN'),
+        '--api-key',
+        default=env(SHIPMORE_API_KEY_ENV),
         help=argparse.SUPPRESS,
     )
     parser.add_argument(
@@ -645,14 +662,14 @@ def main() -> int:
             args.base_url,
             'Missing Shipmore base URL. Set BACKLINK_APP_URL or pass --base-url.',
         )
-        token = require(
-            args.token,
-            'Missing agent token. Set BACKLINK_AGENT_TOKEN.',
+        api_key = require(
+            resolve_shipmore_api_key(getattr(args, 'api_key', None)),
+            f'Missing ShipMore API key. Set {SHIPMORE_API_KEY_ENV}.',
         )
 
         client = ShipmoreQueueClient(
             base_url=base_url,
-            token=token,
+            api_key=api_key,
             worker_id=args.worker_id,
             timeout=args.timeout,
         )
