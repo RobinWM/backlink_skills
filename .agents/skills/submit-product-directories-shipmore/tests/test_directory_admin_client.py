@@ -64,14 +64,34 @@ class DirectoryAdminClientTests(unittest.TestCase):
             map_observed_pricing('unknown-tier')
 
     def test_map_observed_pricing_accepts_spaced_free_listing(self):
-        # Explicit free-path wording collapses via aliases / enum only.
+        # True free path: no payment and no badge/reciprocal/backlink requirement.
         self.assertEqual(map_observed_pricing('free'), 'free')
         self.assertEqual(map_observed_pricing('FREE'), 'free')
+        self.assertEqual(map_observed_pricing('$0'), 'free')
+
+    def test_map_observed_pricing_free_plus_badge_is_backlink(self):
+        # Site may label the path Free/$0; badge/reciprocal/backlink still means
+        # observed directoryPricing is backlink, never free.
+        self.assertEqual(map_observed_pricing('free with badge'), 'backlink')
+        self.assertEqual(map_observed_pricing('free+badge'), 'backlink')
+        self.assertEqual(map_observed_pricing('free_badge_required'), 'backlink')
+        self.assertEqual(map_observed_pricing('$0 badge required'), 'backlink')
+        self.assertEqual(map_observed_pricing('$0 + badge'), 'backlink')
+        self.assertEqual(map_observed_pricing('free reciprocal'), 'backlink')
+        self.assertEqual(map_observed_pricing('free listing with backlink'), 'backlink')
+        self.assertEqual(map_observed_pricing('free link back'), 'backlink')
+
+    def test_map_observed_pricing_true_free_without_badge(self):
+        self.assertEqual(map_observed_pricing('free'), 'free')
+        self.assertEqual(map_observed_pricing('free listing'), 'free')
+        self.assertEqual(map_observed_pricing('free_submit'), 'free')
+        self.assertEqual(map_observed_pricing('free_queue'), 'free')
 
     def test_observed_pricing_priority_constant(self):
         self.assertEqual(OBSERVED_PRICING_PRIORITY, ('free', 'backlink', 'paid'))
 
     def test_resolve_observed_pricing_prefers_free_over_paid_and_backlink(self):
+        # Separate true-free path still beats distinct backlink and paid paths.
         self.assertEqual(
             resolve_observed_pricing(['free', 'paid', 'backlink']),
             'free',
@@ -97,6 +117,23 @@ class DirectoryAdminClientTests(unittest.TestCase):
         self.assertEqual(
             resolve_observed_pricing(['paid_only', 'reciprocal_link']),
             'backlink',
+        )
+
+    def test_resolve_observed_pricing_zero_plus_badge_does_not_win_as_free(self):
+        # Classify $0+badge as backlink before priority; it must not beat paid
+        # by falsely mapping to free, and must beat paid as backlink.
+        self.assertEqual(
+            resolve_observed_pricing(['$0 badge required', 'paid']),
+            'backlink',
+        )
+        self.assertEqual(
+            resolve_observed_pricing('free with badge,expedite'),
+            'backlink',
+        )
+        # A true free path alongside a $0+badge path still correctly wins as free.
+        self.assertEqual(
+            resolve_observed_pricing(['free listing', 'free with badge', 'paid']),
+            'free',
         )
 
     def test_resolve_observed_pricing_paid_only_when_no_higher_path(self):

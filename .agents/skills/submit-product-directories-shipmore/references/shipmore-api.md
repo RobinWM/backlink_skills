@@ -261,7 +261,7 @@ productFounderGithubUrl
 
 `directoryDofollow` 只是目录元数据，不能作为操纵排名或索要 followed link 的指令。
 
-`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正。页面多路径并存时，观察结果按 **`free` > `backlink` > `paid`** 收敛为单一枚举（见 `resolve_observed_pricing` / `sync-observed-pricing`）。
+`directoryPricing` 为 claim 快照中的目录定价枚举：`free` | `paid` | `backlink`。实时观察与之不一致时，通过下方 Directory Admin API 纠正。单路径分类：站点标 Free/$0 但仍要求 badge / reciprocal / backlink 时观察为 **`backlink`，绝不能记 `free`**；真 `free` 仅限无付款且无上述要求。页面多路径并存时，在正确分类后再按 **`free` > `backlink` > `paid`** 收敛为单一枚举（见 `map_observed_pricing` / `resolve_observed_pricing` / `sync-observed-pricing`）。
 
 
 ## Directory Admin API
@@ -298,11 +298,18 @@ python3 scripts/directory_admin_client.py sync-observed-pricing \
   --claim-pricing free \
   --observed-pricing paid
 
-# 同页多路径时可用逗号分隔；会按 free > backlink > paid 收敛（下例结果为 free）
+# 同页多路径时可用逗号分隔；先按路径分类，再按 free > backlink > paid 收敛
+# （下例含真 free 路径，结果为 free）
 python3 scripts/directory_admin_client.py sync-observed-pricing \
   --directory-id <directoryId> \
   --claim-pricing paid \
   --observed-pricing free,paid,backlink
+
+# Free/$0 但仍要求 badge → 单路径观察为 backlink（绝不能传 free）
+python3 scripts/directory_admin_client.py sync-observed-pricing \
+  --directory-id <directoryId> \
+  --claim-pricing free \
+  --observed-pricing 'free with badge'
 ```
 
 ### 仅更新状态
