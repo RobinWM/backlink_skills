@@ -123,7 +123,7 @@ Heartbeat 会将 claimed 任务转为 running，并从 heartbeat 时间延长租
   "status": "completed",
   "submissionStatus": "awaiting_approval",
   "verificationStatus": "no_verification_presented",
-  "exactResult": "Submission accepted and queued for review",
+  "exactResult": "提交已被接受并进入审核队列",
   "evidenceReference": "ev-opaque-123",
   "publicListingUrl": null,
   "followUpAt": null,
@@ -140,7 +140,7 @@ failed
 skipped
 ```
 
-可选字段：`verificationStatus`、`lastError`、`exactResult`、`evidenceReference`、`publicListingUrl`、`backendCheckedAt`、`mailboxCheckedAt`、`publicPageCheckedAt`、`followUpAt`、`followUpNote`。时间必须是 API 接受的 ISO 8601 日期时间。`failed` 必须有非空 `lastError`；`published` 必须有非空公开列表 URL。
+可选字段：`verificationStatus`、`lastError`、`exactResult`、`evidenceReference`、`publicListingUrl`、`backendCheckedAt`、`mailboxCheckedAt`、`publicPageCheckedAt`、`followUpAt`、`followUpNote`。时间必须是 API 接受的 ISO 8601 日期时间。`failed` 必须有非空 `lastError`；`published` 必须有非空公开列表 URL。`exactResult` / `lastError` 必须是人类可读原因，格式 `具体原因【报错信息】`（无原始报错则只写原因）；不得只贴原始站点/浏览器报错，也不得写入邮箱、密码、OTP、Cookie 等机密。
 
 ### Complete 幂等
 
@@ -352,7 +352,7 @@ python3 scripts/directory_admin_client.py note-unavailable \
 
 ### 失败处理
 
-API key 缺失、401 或非 2xx：在 `exactResult` / `followUpNote` 记录非机密说明，例如 `admin pricing sync failed: HTTP 401` 或 `admin status sync failed: missing API key or network error`。**仍完成 Run Item**。响应 JSON/日志不得包含 API key。`sync-observed-pricing` / `note-unavailable` 在 Admin 失败时仍以 exit 0 输出 JSON note，便于 worker 继续 Complete。
+API key 缺失、401 或非 2xx：在 `exactResult` / `followUpNote` 记录人类可读、非机密说明，例如 `Admin 定价同步失败【HTTP 401】` 或 `Admin 状态同步失败【缺少 API key 或网络错误】`。**仍完成 Run Item**。响应 JSON/日志不得包含 API key。`sync-observed-pricing` / `note-unavailable` 在 Admin 失败时仍以 exit 0 输出 JSON note，便于 worker 继续 Complete。
 
 
 ## Final Action 服务端 fencing 缺口

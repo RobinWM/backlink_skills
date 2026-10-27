@@ -68,11 +68,11 @@ unknown — no action
 
 ### 观察结果
 
-使用现有 `evidenceReference` 保存查询词、触发方式、结果 URL、结果数量、候选标题和实际出站 URL。`exactResult` 只保留摘要，例如：
+使用现有 `evidenceReference` 保存查询词、触发方式、结果 URL、结果数量、候选标题和实际出站 URL。`exactResult` 只保留人类可读摘要（Brennan：`具体原因【报错信息】`；无原始报错则只写原因），例如：
 
 ```text
-duplicate check cleared: 5 queries, 0 matching outbound URLs
-duplicate confirmed: existing listing points to the canonical product URL
+站内去重已通过：5 次查询，0 条匹配出站 URL
+站内已确认重复：现有列表指向规范产品 URL
 ```
 
 如果命中规范 URL 或规范域名，停止当前 Directory，使用 `duplicate_no_action`。不得继续登录、填写或提交。

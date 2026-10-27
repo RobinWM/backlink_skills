@@ -183,11 +183,12 @@ class DirectoryAdminClientTests(unittest.TestCase):
 
     def test_admin_sync_note_never_embeds_secrets(self):
         note = admin_sync_note('pricing', ok=False, status_code=401)
-        self.assertEqual(note, 'admin pricing sync failed: HTTP 401')
+        self.assertEqual(note, 'Admin 定价同步失败【HTTP 401】')
         self.assertNotIn('Bearer', note)
         self.assertNotIn('admin-secret', note)
         missing = admin_sync_note('pricing', ok=False, status_code=None)
-        self.assertIn('missing API key', missing)
+        self.assertEqual(missing, 'Admin 定价同步失败【缺少 API key 或网络错误】')
+        self.assertEqual(admin_sync_note('status', ok=True), 'Admin 状态同步成功')
 
     def test_update_directory_pricing_patch(self):
         client = DirectoryAdminClient('https://shipmore.example', 'admin-secret')
@@ -216,7 +217,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
             captured['body'],
             {'directoryId': 'dir-1', 'pricing': 'paid'},
         )
-        self.assertEqual(result['note'], 'admin pricing sync ok')
+        self.assertEqual(result['note'], 'Admin 定价同步成功')
 
     def test_update_directory_status_endpoint(self):
         client = DirectoryAdminClient('https://shipmore.example', 'admin-secret')
@@ -239,7 +240,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
             captured['body'],
             {'directoryId': 'dir-2', 'status': 'rejected'},
         )
-        self.assertEqual(result['note'], 'admin status sync ok')
+        self.assertEqual(result['note'], 'Admin 状态同步成功')
 
     def test_http_error_returns_status_only_note(self):
         client = DirectoryAdminClient('https://shipmore.example', 'admin-secret')
@@ -258,7 +259,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
 
         self.assertFalse(result['ok'])
         self.assertEqual(result['statusCode'], 401)
-        self.assertEqual(result['note'], 'admin pricing sync failed: HTTP 401')
+        self.assertEqual(result['note'], 'Admin 定价同步失败【HTTP 401】')
         dumped = json.dumps(result)
         self.assertNotIn('admin-secret', dumped)
 
@@ -273,7 +274,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
 
         self.assertFalse(result['ok'])
         self.assertIsNone(result['statusCode'])
-        self.assertIn('failed', result['note'])
+        self.assertEqual(result['note'], 'Admin 状态同步失败【缺少 API key 或网络错误】')
 
     def test_sync_pricing_skips_when_matching(self):
         result = sync_pricing_if_mismatch(
@@ -297,7 +298,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
         self.assertFalse(result['synced'])
         self.assertEqual(
             result['note'],
-            'admin pricing sync failed: missing API key or network error',
+            'Admin 定价同步失败【缺少 API key 或网络错误】',
         )
 
     def test_sync_pricing_mismatch_calls_patch(self):
@@ -316,7 +317,7 @@ class DirectoryAdminClientTests(unittest.TestCase):
         self.assertTrue(result['mismatch'])
         self.assertTrue(result['synced'])
         self.assertEqual(result['observedPricing'], 'backlink')
-        self.assertEqual(result['note'], 'admin pricing sync ok')
+        self.assertEqual(result['note'], 'Admin 定价同步成功')
 
     def test_unavailable_streak_rejects_on_third(self):
         with tempfile.TemporaryDirectory() as tmp:

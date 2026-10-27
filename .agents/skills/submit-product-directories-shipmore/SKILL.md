@@ -142,7 +142,7 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 - 如果目录明确要求链接到当前目录同 hostname 下的精确 listing URL，必须从当前目录页面/响应中读取该 URL，并通过 outbound-link 的可选 `linkedHref` 提交；不得猜测 listing 路径。未提供 `linkedHref` 时仍默认使用 `directoryUrl`。
 - 每 20 秒轮询一次 `productUrl` 首页 HTML，最多 6 次。注册前和每次尝试前都发送 heartbeat；一旦失去租约所有权立即停止。验证目标是 API 返回的实际 `linkedHref`；只有在首页 HTML（或客户端渲染 HTML 时的最终浏览器 DOM）中看到与该 `linkedHref` 完全匹配的已解析 `<a href>` 后，才能继续原始目录提交。
 - 链接比较使用解析后的 hostname 和 path：scheme 以及 query/fragment 不参与身份判断，开头的 `www.` 和结尾斜杠会被规范化；除此之外 hostname 和 path 必须完全匹配。绝不能使用子字符串匹配。不要绕过 CAPTCHA、WAF 或访问控制来验证页面。
-- 如果 6 次检查全部失败，不得提交。使用最接近事实的 blocked/ineligible 状态完成任务，并在 exact result/error 中包含 `backlink verification timeout`。
+- 如果 6 次检查全部失败，不得提交。使用最接近事实的 blocked/ineligible 状态完成任务，并在 exact result/error 中包含人类可读原因且含 `backlink verification timeout`。
 - 不得虚构创始人、公司、地址、上线时间、价格、联系方式、法律身份、所有权或开源事实。
 - 使用返回的已验证 Product 字段作为表单主要输入。`productDescription` 和 `productMarkdown` 可以用于生成符合长度限制的真实文案，包括目录表单要求的长篇 Introduction，只要源材料包含足够的真实内容；目录表单中的长描述仍属于 `directory_listing`，不属于 `long_post_no_action`。不得用这些字段捏造独立的身份、联系方式、价格、所有权或法律事实。`productPricingModel`、社交账号、仓库地址等非必填字段为空时保持为空，不得仅因此阻塞；只有页面明确要求某个独立事实且无法从已验证来源取得时，才使用 `blocked_missing_verified_data`。
 - 将 `productContactEmail` 视为表单输入，而不是日志材料。不要仅因为提交过它，就把它复制到 `exactResult`、证据标签或可分享的尝试记录中。
@@ -150,6 +150,7 @@ SHIPMORE_DEBUG_IGNORE_HISTORY=0|1  # debug only; default 1
 - `submitted` 不等于 `published`。
 - 最终动作结果不明时必须改为 `submission_outcome_unknown`；绝不能盲目再次点击 Submit。只要本机 final-action journal 已存在，无论状态为 prepared/attempting/dispatched/outcome_unknown，都不得再次执行同一 action type。
 - 当前 provider 出现超时、空响应、元素不存在、页面状态不明或写入校验失败时，不得直接重跑；按对应 runtime 文档获取新的只读证据后，只有下一步与上次实质不同才允许一次受控重试。Submit、Publish、Claim 和 Gmail Send 在任何 provider 下均不得重试。
+- **Complete `exactResult` / `lastError` 必须是人类能理解的原因**（Brennan）：格式为 `具体原因【报错信息】`。有原始站点/浏览器报错时，先写人类可读原因，再把原文放进全角方括号 `【…】`（过长则截断）；无原始报错时只写人类原因，例如 `AI 会员代充站，不是产品目录`。示例（AI Valley CF7）：`Contact Form 7 发信失败，提交未成功【There was an error trying to send your message. Please try again later. (wpcf7-form failed)】`。不得只贴原始堆栈、selector 失败串或未解释的英文报错。
 - 不得把原始邮箱、电话、密码、OTP、magic link、Cookie、session ID、token URL、本机路径或进程参数写入 `lastError`、`exactResult`、`evidenceReference`、`followUpNote` 或 retry diagnostic。
 
 ## 既有状态保护
@@ -202,7 +203,13 @@ python3 scripts/shipmore_queue_client.py complete \
   --status completed \
   --submission-status awaiting_approval \
   --verification-status no_verification_presented \
-  --exact-result "Submission accepted and queued for review"
+  --exact-result "提交已被接受并进入审核队列"
+
+# 有原始站点报错时：人类原因 + 【原文】
+# --exact-result "Contact Form 7 发信失败，提交未成功【There was an error trying to send your message. Please try again later. (wpcf7-form failed)】"
+
+# 无原始报错时：只写人类原因
+# --exact-result "AI 会员代充站，不是产品目录"
 ```
 
 环境变量可用时，不要把 `SHIPMORE_API_KEY` 放在命令行中。

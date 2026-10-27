@@ -48,6 +48,19 @@ skipped
 
 Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Product × Directory 的生命周期。两者不能混用。
 
+## exactResult / lastError 写法（Brennan）
+
+写入 Complete 的 `exactResult` 与 `lastError` 时，值必须是人类能理解的原因，不得只贴原始站点/浏览器报错。
+
+格式：`具体原因【报错信息】`
+
+| 情况 | 写法 | 示例 |
+| --- | --- | --- |
+| 有原始报错 | 人类可读原因 + 全角方括号内原文（过长截断） | `Contact Form 7 发信失败，提交未成功【There was an error trying to send your message. Please try again later. (wpcf7-form failed)】` |
+| 无原始报错（如资格不符） | 只写人类原因 | `AI 会员代充站，不是产品目录` |
+
+仍禁止把邮箱、密码、OTP、Cookie、session ID、token URL、本机路径或进程参数写入这些字段。
+
 ## 映射规则
 
 | 浏览器/站点结果 | Run Item | Submission 状态 | 说明 |
@@ -63,7 +76,7 @@ Run Item 状态描述本次执行尝试的结果；Submission 状态描述 Produ
 | 路由或站点不可用（官方提交路由消失/关闭、硬维护、DNS/SSL 失效、站点不可达；**不含** CAPTCHA、登录墙、内容类型不符） | `completed` | `unavailable` | 尽可能保留结构化证据；Complete 前累计该 `directoryId` 连续 unavailable，第 3 次调用 Directory Admin 将目录 `status` 设为 `rejected`（见下方） |
 | 只有未获授权的付费入口 | `completed` | `paid_only` | 不得付款；定价观察先正确分类（Free/$0+badge/互链/外链 → `backlink`，绝非 `free`），再按 `free` > `backlink` > `paid` 收敛；若与 claim `directoryPricing` 不一致则 PATCH Admin `pricing` 后再/同时 Complete |
 | backlink / reciprocal / permanent backlink / badge 要求可由 Shipmore outbound-link 满足，且首页验证通过 | 继续当前任务 | 保留当前生命周期 | 不要提前 Complete；这些措辞本身绝不是 `ineligible`，继续原始目录提交 |
-| 6 次首页检查仍找不到 backlink | `blocked` | `ineligible` | exact result/error 必须包含 `backlink verification timeout` |
+| 6 次首页检查仍找不到 backlink | `blocked` | `ineligible` | exact result/error 必须是人类可读原因，且包含 `backlink verification timeout` |
 | outbound-link 已验证，且已完成安全表单准备到最终动作前；此时目录原生 Badge/Backlink 校验实际失败并明确指出普通链接不足，或表单准备完成后仍无可执行 verifier 且页面明确不可歧义地要求 Shipmore endpoint 无法完成的特定站点修改 | `completed` | `ineligible` | 例如特定 Badge 图片/HTML/script/属性或无法生成的指定锚文本；精确 listing URL 若与当前 Directory hostname 一致，应通过自定义 `linkedHref` 处理，不能据此判 `ineligible`；verifier disabled/未解锁、要求先填完整表单、reciprocal/permanent/badge/install badge 字样、示例代码或图片预览都不能单独作为依据 |
 | Product 不符合目录资格 | `completed` | `ineligible` | 记录原因 |
 | 目录确认已有列表且无需操作 | `completed` 或 `skipped` | `duplicate_no_action` | 只有实际确认重复时使用 |
@@ -89,7 +102,7 @@ unknown — no action
 ```text
 Run Item status  = completed
 submissionStatus = ineligible
-exactResult      = content surface classified as no-action
+exactResult      = 内容编辑器入口，属于 no-action，不填写不提交
 ```
 
 页面显示 `Post`、`Publish` 或 `Submit` 不会改变该规则。不要将内容编辑器误分类为 `unavailable` 或 `submission_failed`。
@@ -141,7 +154,7 @@ unavailable
 ```text
 Run Item status     = blocked
 submissionStatus    = ineligible
-exactResult         = backlink verification timeout: directory link not found on product homepage after 6 attempts
+exactResult         = backlink verification timeout：首页 6 次检查仍未找到指向目录的链接
 ```
 
 这只表示本次执行被阻塞，不代表注册 API 失败或目录拒绝 Product。如果注册或运行时在验证前失败，应保留最强的既有生命周期状态，并根据事实使用 `blocked` 或 `failed`。
@@ -150,7 +163,7 @@ exactResult         = backlink verification timeout: directory link not found on
 
 - **定价同步**：将实时 listing 路径映射为 `free` / `backlink` / `paid`。**单路径**：不需付款且不要求 badge/reciprocal/backlink → `free`；站点标 Free/$0 但仍要求 badge/互链/外链 → **`backlink`，绝不能记 `free`**。**多路径**（仅在分类正确后）优先级 **`free` > `backlink` > `paid`**（有真免费路径即 `free`；否则有 backlink/badge 代价路径即 `backlink`；仅付费才为 `paid`）。与 claim `directoryPricing` 不一致时调用 Admin `pricing` PATCH；**不改变** Run Item 的 submission status 选择，也不发明金额。真免费优先规则与“不得付款”一致：不得因同页存在付费档就把有真免费路径的目录记成 `paid`。
 - **unavailable ×3 → 目录 `rejected`**：仅针对上表站点不可达含义的 `unavailable`。计数优先使用 Shipmore 上该目录的连续 unavailable 历史；否则使用本机 `directory-unavailable` 计数。第 3 次连续时 Admin `status=rejected`。任意非 `unavailable` 的成功尝试重置计数。目录 Admin `rejected` ≠ Submission `rejected`（后者表示目录明确拒绝本次产品提交）。
-- Admin 调用失败：只在 `exactResult`/`followUpNote` 写非机密失败说明（可含 HTTP 状态码），仍按上表 Complete。不得对无关状态调用 Admin API。
+- Admin 调用失败：只在 `exactResult`/`followUpNote` 写人类可读、非机密失败说明（可含 HTTP 状态码，有原始响应时用 `具体原因【…】`），仍按上表 Complete。不得对无关状态调用 Admin API。
 
 ## 跳过时保留既有生命周期
 
@@ -189,4 +202,4 @@ submissionStatus    = blocked_missing_verified_data
 
 ## 运行时故障
 
-浏览器崩溃、不支持的控制后端、临时网络故障或工具异常不等于目录拒绝。Run Item 使用 `failed`，Submission 保留最接近事实的状态，并始终发送 `lastError`。已知 `published`、`awaiting_approval` 等强状态不能因本次 worker 失败被覆盖为 `not_attempted`。
+浏览器崩溃、不支持的控制后端、临时网络故障或工具异常不等于目录拒绝。Run Item 使用 `failed`，Submission 保留最接近事实的状态，并始终发送人类可读的 `lastError`（有原始工具/浏览器报错时用 `具体原因【报错信息】`）。已知 `published`、`awaiting_approval` 等强状态不能因本次 worker 失败被覆盖为 `not_attempted`。
