@@ -27,9 +27,25 @@ UNAVAILABLE_REJECT_THRESHOLD = 3
 
 DIRECTORY_PRICING = ('free', 'paid', 'backlink')
 # When a page offers more than one listing path, observe the highest-priority one.
-# free listing beats backlink-as-price, which beats cash-only paid tiers.
+# Apply only after each path is classified correctly: true free (no badge /
+# reciprocal / backlink requirement) beats backlink-as-price, which beats
+# cash-only paid tiers. A Free/$0 label that still requires badge/reciprocal/
+# backlink is classified as backlink first, so it cannot falsely win as free.
 OBSERVED_PRICING_PRIORITY = ('free', 'backlink', 'paid')
 DIRECTORY_STATUSES = ('active', 'pending', 'rejected')
+
+# Tokens that mean the usable listing path's price is a link/badge, not cash-free.
+_BACKLINK_COST_TOKENS = frozenset(
+    {
+        'badge',
+        'badges',
+        'reciprocal',
+        'backlink',
+        'backlinks',
+        'linkback',
+        'linkbacks',
+    }
+)
 
 SHIPMORE_API_KEY_ENV = 'SHIPMORE_API_KEY'
 # Deprecated shared admin secret; do not document minting new values.
@@ -90,20 +106,54 @@ def sanitize_directory_id(directory_id: str) -> str:
     return value
 
 
+def _normalize_observation_text(observation: str) -> str:
+    """Normalize one live-path phrase for alias / cost-token matching."""
+    raw = require(observation, 'observed pricing text is required').strip().lower()
+    # Treat +, /, & as separators so "free+badge" / "free & badge" tokenize.
+    for ch in ('+', '/', '&'):
+        raw = raw.replace(ch, ' ')
+    # Drop currency markers so "$0" / "€0" collapse like free labels.
+    for ch in ('$', '€', '£'):
+        raw = raw.replace(ch, ' ')
+    # Normalize "free listing" / "free-listing" / "free_listing" to one key form.
+    return '_'.join(raw.replace('-', ' ').replace('_', ' ').split())
+
+
+def _observation_tokens(normalized: str) -> list[str]:
+    return [token for token in normalized.split('_') if token]
+
+
+def _has_backlink_listing_cost(normalized: str) -> bool:
+    """True when this single path requires badge / reciprocal / backlink."""
+    tokens = _observation_tokens(normalized)
+    if any(token in _BACKLINK_COST_TOKENS for token in tokens):
+        return True
+    # "link back" / "link_back" after normalization.
+    for index in range(len(tokens) - 1):
+        if tokens[index] == 'link' and tokens[index + 1] == 'back':
+            return True
+    return False
+
+
 def map_observed_pricing(observation: str) -> str:
     """Map one free-text live-site path into directoryPricing enum.
 
+    Classification (per path, before multi-path priority):
+    - Requires badge / reciprocal / backlink (even if labeled Free / $0)
+      → ``backlink`` — never ``free``.
+    - True ``free`` = no cash payment AND no badge/reciprocal/backlink requirement.
+    - Cash-only paid / expedite tiers → ``paid``.
+
     For pages that offer multiple paths, use resolve_observed_pricing() so the
-    priority free > backlink > paid is applied.
+    priority free > backlink > paid is applied to correctly classified paths.
     """
-    raw = require(observation, 'observed pricing text is required').strip().lower()
-    # Normalize "free listing" / "free-listing" / "free_listing" to one key form.
-    text = '_'.join(raw.replace('-', ' ').replace('_', ' ').split())
+    text = _normalize_observation_text(observation)
     aliases = {
         'free': 'free',
         'free_listing': 'free',
         'free_queue': 'free',
         'free_submit': 'free',
+        '0': 'free',
         'paid': 'paid',
         'paid_only': 'paid',
         'expedite': 'paid',
@@ -115,11 +165,20 @@ def map_observed_pricing(observation: str) -> str:
         'reciprocal_backlink': 'backlink',
         'badge': 'backlink',
         'badge_required': 'backlink',
+        'link_back': 'backlink',
     }
+    # Exact aliases first (including pure badge/reciprocal/backlink tokens).
     if text in aliases:
-        return aliases[text]
+        mapped = aliases[text]
+        # Defensive: never let a Free/$0+badge compound alias slip through as free.
+        if mapped == 'free' and _has_backlink_listing_cost(text):
+            return 'backlink'
+        return mapped
     if text in DIRECTORY_PRICING:
         return text
+    # Compound single-path wording: "free with badge", "$0 badge required", etc.
+    if _has_backlink_listing_cost(text):
+        return 'backlink'
     raise DirectoryAdminError(
         f'Unsupported observed pricing "{observation}"; '
         f'expected one of {", ".join(DIRECTORY_PRICING)} or a documented alias'
@@ -153,11 +212,13 @@ def resolve_observed_pricing(
 ) -> str:
     """Collapse one or more live paths to a single directoryPricing enum.
 
-    Priority when multiple paths exist on the page: **free > backlink > paid**.
-    - free listing / free queue / free submit present → `free`
-      (even if paid expedite or backlink options are also offered)
-    - else only cash-free path is reciprocal/backlink/badge → `backlink`
-      (even if paid tiers exist)
+    Classify each path first (see map_observed_pricing): a Free/$0 path that
+    still requires badge / reciprocal / backlink is ``backlink``, not ``free``.
+    Only then apply multi-path priority **free > backlink > paid**:
+    - a true free path (no payment, no badge/reciprocal/backlink) → `free`
+      (wins even if paid expedite or separate backlink options exist)
+    - else a reciprocal/backlink/badge path (incl. $0+badge) → `backlink`
+      (wins even if paid tiers exist)
     - else only paid paths → `paid`
     """
     parts = _split_observed_pricing_inputs(observations)
@@ -460,8 +521,9 @@ def sync_pricing_if_mismatch(
     returns a non-secret note for exactResult/followUpNote.
     """
     claim = require(claim_pricing, 'claim directoryPricing is required').strip().lower()
-    # Accept a single enum/alias or multiple paths (list / comma-separated);
-    # multi-path pages resolve with free > backlink > paid.
+    # Accept a single enum/alias or multiple paths (list / comma-separated).
+    # Each path is classified first ($0+badge → backlink); then multi-path
+    # pages resolve with free > backlink > paid.
     observed = resolve_observed_pricing(observed_pricing)
     if claim not in DIRECTORY_PRICING:
         raise DirectoryAdminError(
@@ -609,7 +671,9 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help=(
             'Observed enum/alias, or comma-separated paths when the page offers '
-            'more than one (resolved with priority free > backlink > paid)'
+            'more than one. Classify each path first: Free/$0 that still requires '
+            'badge/reciprocal/backlink is backlink, never free. Then resolve with '
+            'priority free > backlink > paid'
         ),
     )
 

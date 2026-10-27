@@ -40,7 +40,7 @@
 - [ ] 重新读取页面、服务端或邮箱的精确结果。点击成功或收到 HTTP 响应本身都不能证明已发布。
 - [ ] 执行 `EXEC-CHECKLIST.md` 的 `after_result_classification` 阶段。
 - [ ] **Complete 副作用（Directory Admin，可失败）**：
-  - 预检/表单观察得到的定价枚举（多路径时按 `free` > `backlink` > `paid`）与 claim `directoryPricing` 不一致时，先 `sync-observed-pricing`；
+  - 预检/表单观察得到的定价枚举（先正确分类：Free/$0+badge/互链/外链 → `backlink`；多路径再按 `free` > `backlink` > `paid`）与 claim `directoryPricing` 不一致时，先 `sync-observed-pricing`；
   - 本次为站点不可达含义的 `unavailable` 时，先 `note-unavailable`（优先传入 Shipmore 连续次数）；第 3 次会尝试将目录标为 `rejected`；
   - 本次为成功的非 `unavailable` 结果时，先 `note-reachable-attempt` 重置该目录连续计数；
   - Admin 失败只记非机密 note，仍 Complete；不得对无关状态调用 Admin API。
