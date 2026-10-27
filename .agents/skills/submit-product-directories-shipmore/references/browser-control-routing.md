@@ -236,6 +236,8 @@ Codex 不得：
 
 只持久化 Shipmore 契约允许的证据。
 
+`exactResult` 与 `lastError` 必须是人类能理解的原因，格式为 `具体原因【报错信息】`：有原始站点/浏览器报错时附在全角方括号内（过长截断）；无原始报错时只写人类原因。不得只贴未解释的原始报错。
+
 不得把以下内容写入 exactResult、lastError、evidenceReference、followUpNote 或 retryDiagnostic：
 
 - 密码；

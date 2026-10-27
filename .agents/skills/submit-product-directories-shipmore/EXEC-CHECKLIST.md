@@ -72,7 +72,7 @@ unknown — no action
 - [ ] `published` 有公开列表 URL；
 - [ ] 结果不明时使用 `submission_outcome_unknown`，并将 final-action journal resolve 为 `outcome_unknown`；不再次点击最终动作；
 - [ ] 有 Final Action 时 Complete 使用 journal 的稳定 `completionEventId`；无 Final Action 时使用第一次生成的稳定 `eventId`；
-- [ ] `exactResult` 和 `evidenceReference` 只记录已观察事实；
+- [ ] `exactResult` 和 `evidenceReference` 只记录已观察事实；`exactResult` / `lastError` 为人类可读原因（`具体原因【报错信息】`，无原始报错则只写原因），且不含邮箱、密码、OTP、Cookie；
 - [ ] 发送 `complete` 前租约仍有效，必要时已 heartbeat；
 - [ ] 若实时定价枚举与 claim `directoryPricing` 不一致，已在 Complete 前调用 Directory Admin 定价同步（或已记录非机密失败 note）；单路径已正确分类（Free/$0 但仍要求 badge/reciprocal/backlink → `backlink`，绝非 `free`）；多路径观察在分类正确后按 `free` > `backlink` > `paid` 收敛；未发明金额；
 - [ ] 若本次为站点不可达含义的 `unavailable`，已累计连续次数（优先 Shipmore 历史，否则本地计数）；第 3 次已尝试 Admin `status=rejected`（或已记录失败 note）；Run Item 仍 Complete 为 `unavailable`；

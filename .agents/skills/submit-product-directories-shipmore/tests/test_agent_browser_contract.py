@@ -136,3 +136,21 @@ def test_exact_listing_url_uses_custom_linked_href_instead_of_ineligible():
     assert "不能再把“要求精确 listing URL”本身判为 `ineligible`" in worker
     assert "精确 listing URL 若与当前 Directory hostname 一致" in status
     assert "通过 `--linked-href` 注册" in checklist
+
+
+def test_complete_exact_result_requires_human_readable_reason():
+    skill = SKILL_MD.read_text(encoding="utf-8")
+    worker = (SKILL_ROOT / "references" / "worker-loop.md").read_text(encoding="utf-8")
+    status = (SKILL_ROOT / "references" / "status-mapping.md").read_text(encoding="utf-8")
+    routing = ROUTING_MD.read_text(encoding="utf-8")
+    checklist = (SKILL_ROOT / "EXEC-CHECKLIST.md").read_text(encoding="utf-8")
+
+    for text in (skill, worker, status, routing, checklist):
+        assert "具体原因【报错信息】" in text
+
+    assert "AI 会员代充站，不是产品目录" in skill
+    assert "AI 会员代充站，不是产品目录" in worker
+    assert "Contact Form 7 发信失败，提交未成功【" in skill
+    assert "Contact Form 7 发信失败，提交未成功【" in worker
+    assert "不得把原始邮箱、电话、密码、OTP、magic link、Cookie" in skill
+    assert "密码" in routing and "OTP" in routing and "Cookie" in routing

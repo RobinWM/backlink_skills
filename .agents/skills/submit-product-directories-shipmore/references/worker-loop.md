@@ -333,7 +333,7 @@ Final Action 禁止使用普通 adapter `click` 或裸 agent-browser click。已
 
 有效证据包括：准确确认文案、安全可保存的服务器回执标识、公开列表 URL、显示不符合资格/仅付费的政策页、明确拒绝文案、授权用户完成人工步骤的确认。
 
-不得仅因为表单使用过 `productContactEmail` 就把它复制到证据标签、exact-result 摘要或可分享日志。
+不得仅因为表单使用过 `productContactEmail` 就把它复制到证据标签、exact-result 摘要或可分享日志。`exactResult` / `lastError` 按上方 Brennan 规则写人类可读原因；仍禁止邮箱、密码、OTP、Cookie 等机密。
 
 ## 稳定完成事件 ID
 
@@ -353,7 +353,22 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 
 根据观察到的事实构造 Complete 载荷，不要根据期望指标构造。
 
+### exactResult / lastError 人类可读原因（Brennan）
+
+`exactResult` 与 `lastError` 必须是人类能理解的原因，不得只写入原始站点文案、浏览器堆栈或未解释的工具报错。
+
+格式：`具体原因【报错信息】`
+
+- **有原始报错**：人类可读原因 + 全角方括号 `【…】` 内附原文（过长截断）。
+- **无原始报错**（如资格不符、内容面 no-action）：只写人类原因。
+- **隐私**：仍禁止把邮箱、密码、OTP、Cookie、session ID、token URL、本机路径或进程参数写入这些字段。
+
 示例：
+
+```text
+Contact Form 7 发信失败，提交未成功【There was an error trying to send your message. Please try again later. (wpcf7-form failed)】
+AI 会员代充站，不是产品目录
+```
 
 ### 接受审核
 
@@ -362,7 +377,7 @@ shipmore:<runItemId>:complete:<opaque-random-id>
   "status": "completed",
   "submissionStatus": "awaiting_approval",
   "verificationStatus": "no_verification_presented",
-  "exactResult": "Submission accepted and queued for review"
+  "exactResult": "提交已被接受并进入审核队列"
 }
 ```
 
@@ -374,11 +389,11 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 {
   "status": "completed",
   "submissionStatus": "paid_only",
-  "exactResult": "Only paid submit tiers; no free path. admin pricing sync ok"
+  "exactResult": "仅有未授权付费提交档，无免费路径；Admin 定价同步成功"
 }
 ```
 
-若 Admin 定价同步失败，将 note 追加到 `exactResult` 或 `followUpNote`，例如 `admin pricing sync failed: HTTP 401`；仍 Complete 为 `paid_only`。
+若 Admin 定价同步失败，将人类可读 note 追加到 `exactResult` 或 `followUpNote`，例如 `Admin 定价同步失败【HTTP 401】`；仍 Complete 为 `paid_only`。
 
 ### 站点不可达（含连续 ×3 Admin rejected）
 
@@ -386,11 +401,11 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 {
   "status": "completed",
   "submissionStatus": "unavailable",
-  "exactResult": "Official submit URL unreachable (DNS/SSL). admin status sync ok"
+  "exactResult": "官方提交 URL 不可达（DNS/SSL）；Admin 状态同步成功"
 }
 ```
 
-第 3 次连续不可达时 helper 会尝试将目录标为 `rejected`；失败时同样只记 `admin status sync failed: HTTP <code>`，Run Item 仍为 `unavailable`。
+第 3 次连续不可达时 helper 会尝试将目录标为 `rejected`；失败时同样只记人类可读说明如 `Admin 状态同步失败【HTTP <code>】`，Run Item 仍为 `unavailable`。
 
 ### 人工挑战
 
@@ -399,7 +414,7 @@ shipmore:<runItemId>:complete:<opaque-random-id>
   "status": "blocked",
   "submissionStatus": "blocked_manual_verification",
   "verificationStatus": "awaiting_manual_verification",
-  "exactResult": "Turnstile challenge requires user completion"
+  "exactResult": "Turnstile 挑战需人工完成，当前无法继续提交"
 }
 ```
 
@@ -409,11 +424,33 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 {
   "status": "blocked",
   "submissionStatus": "blocked_missing_verified_data",
-  "exactResult": "Required founder name is not available in verified product data"
+  "exactResult": "表单要求创始人姓名，已验证 Product 资料中不可用"
 }
 ```
 
 只有在仅付费、必需 backlink 验证、其他资格、既有状态和账号政策检查都完成后才使用。
+
+### 资格不符（无原始报错）
+
+```json
+{
+  "status": "completed",
+  "submissionStatus": "ineligible",
+  "exactResult": "AI 会员代充站，不是产品目录"
+}
+```
+
+### 表单发信/接受失败（含原始站点报错）
+
+```json
+{
+  "status": "completed",
+  "submissionStatus": "rejected",
+  "exactResult": "Contact Form 7 发信失败，提交未成功【There was an error trying to send your message. Please try again later. (wpcf7-form failed)】"
+}
+```
+
+站点明确拒绝或表单回执证明未成功时使用；不得只粘贴 CF7/浏览器原文而不写人类原因。
 
 ### 最终动作结果不明
 
@@ -421,10 +458,12 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 {
   "status": "blocked",
   "submissionStatus": "submission_outcome_unknown",
-  "exactResult": "Submit request timed out after final action; acceptance not confirmed",
-  "followUpNote": "Check account history, mailbox, and public page before any retry"
+  "exactResult": "最终 Submit 后超时，无法确认是否被接受【TimeoutError: page.waitForSelector: Timeout 30000ms exceeded】",
+  "followUpNote": "重试前先检查账号历史、邮箱与公开页"
 }
 ```
+
+无原始超时串时，可只写人类原因：`最终 Submit 后超时，无法确认是否被接受`。
 
 ### 表单操作前浏览器/运行时故障
 
@@ -432,11 +471,11 @@ shipmore:<runItemId>:complete:<opaque-random-id>
 {
   "status": "failed",
   "submissionStatus": "not_attempted",
-  "lastError": "No supported authenticated browser control surface is available"
+  "lastError": "没有可用的已认证浏览器控制面"
 }
 ```
 
-已有更强的真实生命周期状态时，使用原状态，不要改成 `not_attempted`。
+有原始工具/浏览器报错时写成：`没有可用的已认证浏览器控制面【<原始报错，过长截断>】`。已有更强的真实生命周期状态时，使用原状态，不要改成 `not_attempted`。
 
 ## 恢复
 

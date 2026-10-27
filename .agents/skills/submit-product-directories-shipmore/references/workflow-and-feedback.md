@@ -60,4 +60,4 @@
 
 ## 完成条件
 
-终态记录须包含真实的 Run Item 状态、submission status、已观察到的精确结果、检查单阶段与结果；有可用证据引用时记录不透明引用值。不得为了通过检查而虚构 Product 事实、凭据、公开 URL 或成功状态。Directory Admin 定价/状态同步是附加副作用，失败不得伪装成站点提交成功，也不得因此跳过 Complete。
+终态记录须包含真实的 Run Item 状态、submission status、已观察到的精确结果、检查单阶段与结果；有可用证据引用时记录不透明引用值。`exactResult` / `lastError` 须为人类可读原因（`具体原因【报错信息】`；无原始报错则只写原因），且不含邮箱、密码、OTP、Cookie。不得为了通过检查而虚构 Product 事实、凭据、公开 URL 或成功状态。Directory Admin 定价/状态同步是附加副作用，失败不得伪装成站点提交成功，也不得因此跳过 Complete。

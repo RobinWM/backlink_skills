@@ -234,12 +234,17 @@ def resolve_observed_pricing(
 
 
 def admin_sync_note(kind: str, *, ok: bool, status_code: int | None = None) -> str:
-    """Non-secret note for exactResult / followUpNote. Never includes secrets."""
+    """Human-readable non-secret note for exactResult / followUpNote (Brennan).
+
+    Format: 具体原因【报错信息】 when a raw status/detail exists; human reason only
+    otherwise. Never includes secrets.
+    """
+    subject = {'pricing': '定价', 'status': '状态'}.get(kind, kind)
     if ok:
-        return f'admin {kind} sync ok'
+        return f'Admin {subject}同步成功'
     if status_code is None:
-        return f'admin {kind} sync failed: missing API key or network error'
-    return f'admin {kind} sync failed: HTTP {status_code}'
+        return f'Admin {subject}同步失败【缺少 API key 或网络错误】'
+    return f'Admin {subject}同步失败【HTTP {status_code}】'
 
 
 def _streak_root() -> Path:
