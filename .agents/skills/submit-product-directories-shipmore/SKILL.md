@@ -1,7 +1,17 @@
 ---
 name: submit-product-directories-shipmore
-description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue API 提供的持久化提交 Run，持续维护租约，以返回的 Product/Directory/Submission 快照作为事实来源，按照 SPD V1 Batch 安全规则执行已授权的浏览器表单操作，准确分类结果，并以幂等方式完成 Run Item。仅当 Shipmore 已创建提交 Run、需要 Codex 作为浏览器 worker 执行时使用。不要创建第二个本地队列，也不要用推断出的成功结果覆盖 Shipmore 状态。
+description: Shipmore 驱动的产品目录提交 worker。消费 Shipmore Queue API 提供的持久化提交 Run，持续维护租约，以返回的 Product/Directory/Submission 快照作为事实来源，按照 SPD V1 Batch 安全规则执行已授权的浏览器表单操作，准确分类结果，并以幂等方式完成 Run Item。仅当 Shipmore 已创建提交 Run、需要 Codex、Grok Bot 或外链提交助手作为浏览器 worker 执行时使用。不要创建第二个本地队列，也不要用推断出的成功结果覆盖 Shipmore 状态。
 ---
+
+## Grok Bot 适配
+
+在 Grok Bot / 外链提交助手上执行时：
+
+- 浏览器一律用 box 桌面的 computerUse，不要装或切到 ego-browser / agent-browser。
+- 密钥从 `/home/box/.shipmore/secrets.env` 加载（`set -a; source ...`）；注册默认密码在 `/home/box/.shipmore/reg_password`，勿写入聊天或日志。
+- 脚本路径：本技能目录下的 `scripts/`。
+- 站内长期规则：不付费；Google SSO 由助手直接在 box 浏览器完成；仅付费、需用户本人输密码、或人机验证过不去时才停问；障碍原因写入 `exactResult`（completed + ineligible），`lastError` 仅配 `failed`。
+- 技能/仓库代码改动不要由外链提交助手开 PR，交给 BacklinkSkills。
 
 # Shipmore 目录提交 Worker
 
